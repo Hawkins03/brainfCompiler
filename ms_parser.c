@@ -1,51 +1,58 @@
 #include <ctype.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include "ms.h"
 #include "bf.h"
+#include "utils.h"
 
 const char *MS_OPS = "+-*/%";
 
 void free_exp(MS_Exp *exp) {
-    if (exp == 0) return;
+    if (exp == NULL) return; //recursion end
     free_exp(exp->next);
     free(exp);
 }
 
 void print_exp(MS_Exp *exp) {
-    if (exp == 0) return;
-    if (exp == exp->next) return; // TODO: better detect loops. (i.e. don't do it recursivly and in the loop check for the origional each time) 
-    printf("%d '%c' ", exp->num1, exp->op);
+    if (exp == NULL) return; //recursion end
+    if (exp == exp->next) {
+	raise_error("Error, Infinite Loop");
+    }
+    printf("%d '%c'\n", exp->val, exp->op);
     print_exp(exp->next);
 }
 
-MS_Exp *parse(char *input_buff) {
-    MS_Exp *init_exp(MS_Exp *exp) {
-	if (exp == NULL) return exp;
-	exp->num1 = 0;
-	exp->op = ' ';
-	exp->next = 0;
+MS_Exp *init_exp() {
+    MS_Exp *exp = (MS_Exp *) malloc(sizeof(MS_Exp));	
+    if (exp == NULL) {
+	raise_error("Error, Bad Malloc");
+    }
+    exp->val = 0;
+    exp->op = ' ';
+    exp->next = 0;
     return exp;
-    }
-    int len = strlen(input_buff);
-    if (len <= 0)
-	return 0;
-    MS_Exp *ret_exp = init_exp((MS_Exp *) malloc(sizeof(MS_Exp)));
+}
+
+MS_Exp *parse_file(char *filename) {
+    Reader *r = readInFile(filename);
+    MS_Exp *ret_exp = init_exp();
     MS_Exp *curr_exp = ret_exp;
-    if (curr_exp == NULL) return 0;
-    //char bf_string[BUFF_SIZE];
-    for (int i = 0; i < len; i++) {
-	while (isdigit(input_buff[i]) && i < strlen(input_buff)) {
-	    curr_exp->num1 = (curr_exp->num1 * 10) + input_buff[i++] - '0';
-	}
-	if ((strchr(MS_OPS, input_buff[i]) != NULL) && (i != len)) {
-	    curr_exp->op = input_buff[i];
-	    //create next expression
-	    curr_exp->next = init_exp((MS_Exp *) malloc(sizeof(MS_Exp)));
-	    if (!curr_exp->next) return curr_exp;
+
+    while ((r != NULL) && (curr_exp != NULL)) {
+	if (isdigit(peek(r))) {
+	    curr_exp->val = getNextNum(r);
+	} else if (isOp(peek(r))) {
+	    curr_exp->op = advance(r);
+	    curr_exp->next = init_exp();
 	    curr_exp = curr_exp->next;
+	    if (curr_exp == NULL) raise_error_and_free("Error, Bad Malloc", r);
+	} else if (isAlive(r)) {
+	    advance(r);
 	}
+	if (!isAlive(r)) r = NULL;
     }
+    r = NULL;
     return ret_exp;
 }

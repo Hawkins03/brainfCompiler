@@ -5,8 +5,8 @@ CFLAGS = -Wall -g
 
 TARGET = brainfCompiler
 
-SOURCES = main.c bf_interp.c ms_parser.c
-DEPS = bf.h ms.h
+SOURCES = main.c bf_interp.c ms_parser.c utils.c
+DEPS = bf.h ms.h utils.h
 
 OBJECTS = $(SOURCES:.c=.o)
 
