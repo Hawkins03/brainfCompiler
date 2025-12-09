@@ -17,19 +17,32 @@ void free_exp(MS_Exp *exp) {
 
 void print_exp(MS_Exp *exp) {
     if (exp == NULL) return; //recursion end
-    if (exp == exp->next) {
-	raise_error("Error, Infinite Loop");
-    }
-    printf("%d '%c'\n", exp->val, exp->op);
+    if (exp->val != NULL) {
+	if (exp->val->type == 0)
+	    printf("%d ", exp->val->val);
+	else
+	    print_exp((MS_Exp *) exp->val->exp);
+    } else
+	printf("0 ");
+
+    printf(" %c\n", exp->op);
     print_exp(exp->next);
 }
 
+bool isOp(char op) {
+    return strchr(MS_OPS, op);
+}
+
+
 MS_Exp *init_exp() {
     MS_Exp *exp = (MS_Exp *) malloc(sizeof(MS_Exp));	
-    if (exp == NULL) {
-	raise_error("Error, Bad Malloc");
-    }
-    exp->val = 0;
+    if (exp == NULL)
+	raise_error("Error, Bad Malloc on exp");
+    exp->val = (MS_Atom *) malloc(sizeof(MS_Atom));
+    if (exp->val == NULL)
+	raise_error("Error Bad Malloc on atom");
+    exp->val->type = 0;
+    exp->val->val = 0;
     exp->op = ' ';
     exp->next = 0;
     return exp;
@@ -42,7 +55,7 @@ MS_Exp *parse_file(char *filename) {
 
     while ((r != NULL) && (curr_exp != NULL)) {
 	if (isdigit(peek(r))) {
-	    curr_exp->val = getNextNum(r);
+	    curr_exp->val->val = getNextNum(r);
 	} else if (isOp(peek(r))) {
 	    curr_exp->op = advance(r);
 	    curr_exp->next = init_exp();

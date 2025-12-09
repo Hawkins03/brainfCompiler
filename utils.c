@@ -49,10 +49,6 @@ int getNextNum(Reader *r) {
     return num;
 }
 
-bool isOp(char op) {
-    return strchr(MS_OPS, op) != 0;
-}
-
 void killReader(Reader *r) {
     if (!r || !r->alive) raise_error("Error, double freeing reader");
     r->alive = false;

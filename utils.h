@@ -13,7 +13,6 @@ Reader *readInFile(char *filename);
 char peek(Reader *r);
 char advance(Reader *r);
 int getNextNum(Reader *r);
-bool isOp(char op);
 bool isAlive(Reader *r);
 void killReader(Reader *r);
 
