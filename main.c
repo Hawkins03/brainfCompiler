@@ -10,7 +10,7 @@ int main(int argc, char *argv[]) {
 
     MS_Exp *exp = parse("1+1");
     print_exp(exp);
-    free_data(exp);
+    free_exp(exp);
 
 
 }
