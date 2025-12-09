@@ -2,14 +2,55 @@
 #include <string.h>
 #include "bf.h"
 
+
+//TODO: pair brackets beforehand, and construct a stack.
+
+
+
+
+
 void bf_interpret(char *input_buff) {
     if (strlen(input_buff) == -1) return;
     int len = strlen(input_buff);
-    char buff[BUFF_SIZE] = {0};
-    int bracket_ptrs[BUFF_SIZE/2];
-    int bracket_index = -1;
-    char *curr_ptr = buff;
+    int buff[BUFF_SIZE] = {0};
+    int *curr_ptr = buff;
     int i = 0;
+    
+    //build bracket pairs.
+    int bracket_index = -1;
+    int num_open_brackets = 0;
+    int num_closed_brackets = 0;
+    for (int i = 0; i < len; i++) {
+	switch (input_buff[i]) {
+	    case '[':
+		num_open_brackets++;
+		break;
+	    case ']':
+		num_closed_brackets++;
+	}
+    }
+    if (num_open_brackets != num_closed_brackets) {
+	return;
+    }
+
+    int bracket_pairs[2][num_open_brackets];
+
+
+    int open_index = 0;
+    int closed_index = 0;
+    for (int i = 0; i < len; i++) {
+	switch (input_buff[i]) {
+	    case '[':
+		bracket_pairs[0][open_index++] = i;
+		break;
+	    case ']':
+		bracket_pairs[1][closed_index++] = i;
+		break;
+	}
+    }
+
+    
+    //interpret the input
     while (i < len) {
 	//printf("%d, %c, %ld: %hhu\n", i, input_buff[i], curr_ptr - buff, *curr_ptr); // %hhu is the proper way to print a char as an integer, being respectful of it's size and all.
 	switch (input_buff[i]) {
@@ -32,24 +73,20 @@ void bf_interpret(char *input_buff) {
 		*curr_ptr -= 1;
 		break;
 	    case '.':
-		printf("%c", *curr_ptr);
+		printf("%c", (*curr_ptr & 0x000000ff));
 		break;
 	    case ',':
 		*curr_ptr = getchar();
 	    case '[': 
-		bracket_ptrs[++bracket_index] = i - 1;
-		if ((*curr_ptr) == 0) {
-		    //printf("swapping!\n"); 
-		    curr_ptr = strchr(curr_ptr, ']') + 1;
+		bracket_index++;
+    		if ((*curr_ptr) == 0) {
+		    i = bracket_pairs[1][bracket_index];
 		}
 		break;
 	    case ']':
+		bracket_index--;
 		if ((*curr_ptr) != 0) {
-		    //printf("bracket index: %d\n", bracket_index);
-		    if (bracket_index >= 0) { //TODO: throw an error if false
-			//printf("moving back\n");
-			i = bracket_ptrs[bracket_index--];
-		    }
+		   i = bracket_pairs[0][bracket_index]; 
 		}
 		break;
 	    default:
