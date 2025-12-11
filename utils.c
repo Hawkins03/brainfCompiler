@@ -40,6 +40,16 @@ char advance(Reader *r) {
     return out;
 }
 
+void accept(char ch1, char ch2, char *message) {
+    if (ch1 != ch2) raise_error(message);
+}
+
+void skip_spaces(Reader *r) {
+    char *spaces = " \n\t";
+    if (strchr(spaces, peek(r)))
+	advance(r);
+}
+
 int getNextNum(Reader *r) {
     if (!isAlive(r)) raise_error("Error, getting num when Reader dead");
     int num = 0;

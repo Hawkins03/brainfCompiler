@@ -12,6 +12,8 @@ typedef struct {
 Reader *readInFile(char *filename);
 char peek(Reader *r);
 char advance(Reader *r);
+void accept(char ch1, char ch2, char *message);
+void skip_spaces(Reader *r);
 int getNextNum(Reader *r);
 bool isAlive(Reader *r);
 void killReader(Reader *r);

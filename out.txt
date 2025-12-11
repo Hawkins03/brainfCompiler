@@ -1,0 +1,128 @@
+Hello World!
+parsing expression, minPrio = 0
+parsing val 1
+left_val: '1 '
+loop:
+op = +
+prio = 1
+parsing expression, minPrio = 1
+parsing val 1
+left_val: '1 '
+loop:
+op = *
+prio = 2
+parsing expression, minPrio = 2
+parsing val 6
+left_val: '6 '
+loop:
+op = *
+prio = 2
+parsing expression, minPrio = 3
+parsing val 6
+left_val: '6 '
+loop:
+op = *
+prio = 2
+endloop, left = '(6  * 6 )
+'
+loop:
+op = *
+prio = 2
+parsing expression, minPrio = 3
+parsing val 6
+left_val: '6 '
+loop:
+op = +
+prio = 1
+endloop, left = '((6  * 6 )
+ * 6 )
+'
+loop:
+op = +
+prio = 1
+endloop, left = '(1  * ((6  * 6 )
+ * 6 )
+)
+'
+loop:
+op = +
+prio = 1
+parsing expression, minPrio = 2
+parsing val 2
+left_val: '2 '
+loop:
+op = +
+prio = 1
+endloop, left = '((1  * ((6  * 6 )
+ * 6 )
+)
+ + 2 )
+'
+loop:
+op = +
+prio = 1
+parsing expression, minPrio = 2
+parsing parenthesis
+parsing expression, minPrio = 0
+parsing val 40
+left_val: '40 '
+loop:
+op = *
+prio = 2
+parsing expression, minPrio = 1
+parsing val 6
+left_val: '6 '
+loop:
+op = )
+endloop, left = '(40  * 6 )
+'
+loop:
+op = )
+left_val: '(40  * 6 )
+'
+loop:
+op = ©
+endloop, left = '(((1  * ((6  * 6 )
+ * 6 )
+)
+ + 2 )
+ + (40  * 6 )
+)
+'
+loop:
+op = ð
+endloop, left = '(1  + (((1  * ((6  * 6 )
+ * 6 )
+)
+ + 2 )
+ + (40  * 6 )
+)
+)
+'
+loop:
+op = ð
+
+
+1+1*6*6*6+2+(40*6)
+
+1 + (1 * 6 * 6 * 6 * 6) + 2 + 40 * 6
+
+1  +
+(
+    (
+        (
+	    1  * 
+	    (
+	        (
+		    6  * 6
+		)
+	        * 6 
+	    )
+	)
+	+ 2
+    )
+    +
+    (
+        40  * 6
+    )
+)
