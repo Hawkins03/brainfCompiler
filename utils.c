@@ -15,13 +15,15 @@ Reader *readInFile(char *filename) {
     Reader *r = (Reader *) malloc(sizeof(Reader));
     if (!r)
 	raise_error("Error, bad Reader malloc");
-    r->alive = true;
     r->fp = fopen(filename, "r");
     if (!r->fp) {
 	free(r);
 	raise_error("Error, bad file");
     } else if (feof(r->fp))
 	raise_error_and_free("Error, EOF on file open", r);
+    fseek(r->fp, 0L, SEEK_END);
+    r->chars_left = ftell(r->fp);
+    fseek(r->fp, 0L, SEEK_SET);
     r->curr = fgetc(r->fp);
     return r;
 }
@@ -31,12 +33,19 @@ char peek(Reader *r) {
     return r->curr;
 }
 char advance(Reader *r) {
-    if (!isAlive(r)) raise_error("ERROR, advance when Reader dead");
-    char out = r->curr;
-    r->curr = fgetc(r->fp);
-    if (feof(r->fp)) {
-	killReader(r);
+    if (r->chars_left-- <= 1) {
+    	//killReader(r);//raise_error("ERROR, advance when Reader died");
+	return '\0';
     }
+    char out = r->curr;
+    //printf("out '%c', %p\n", out, r->fp);
+    if (r->fp && !feof(r->fp)) {
+	r->curr = fgetc(r->fp);
+    }
+    if (!r->fp)
+	killReader(r);
+    if (feof(r->fp))
+	killReader(r);
     return out;
 }
 
@@ -45,34 +54,64 @@ void accept(char ch1, char ch2, char *message) {
 }
 
 void skip_spaces(Reader *r) {
-    char *spaces = " \n\t";
-    if (strchr(spaces, peek(r)))
-	advance(r);
+    if (!isAlive(r)) return;
+    while (r->fp && !feof(r->fp)) {
+	//printf("skipping a space\n");
+	if (!isspace(peek(r)))
+	    return;
+	if (advance(r) == '\0') return;
+    }
 }
 
 int getNextNum(Reader *r) {
-    if (!isAlive(r)) raise_error("Error, getting num when Reader dead");
+    if (!isAlive(r)) raise_error("Error, getting num when Reader died");
     int num = 0;
     while (isdigit(peek(r))) {
 	num = (num * 10) + advance(r) - '0';
     }
+    //printf("num = %d\n", num);
     return num;
 }
 
+char *getNextWord(Reader *r) {
+    if (!isAlive(r)) raise_error("Error, getting word when Reader died");
+     
+    skip_spaces(r);
+    //printf("%c\n", peek(r));
+
+    if (!isalpha(peek(r))) raise_error("Invallid first letter in word (first letter must be in the range 'a-zA-Z')");
+    char chars[BUFF_SIZE] = {0};
+    int len = 0;
+
+    for (int i = 0; i < BUFF_SIZE; i++) {
+	if (isalnum(peek(r)) || (peek(r) == '_'))
+	    chars[len++] = peek(r);
+	else
+	    break;
+
+	advance(r);
+    }
+
+    char *word = (char *) calloc(len, sizeof(char));
+    strncpy(word, chars, len);
+    return word;
+}
+
+bool isAlive(Reader *r) {
+    return r->chars_left > 0;
+}
+
 void killReader(Reader *r) {
-    if (!r || !r->alive) raise_error("Error, double freeing reader");
-    r->alive = false;
+    //printf("killing now\n");
+    if (!r || (r->chars_left > 0)) raise_error("Error, double freeing reader");
+    r->chars_left = 0;
     fclose(r->fp);
     r->fp = NULL;
     free(r);
 }
-bool isAlive(Reader *r) {
-    return r->alive;
-}
 
 void raise_error(char *error_message) {
     perror(error_message);
-    fprintf(stderr, "%s at %s:%d\n", strerror(errno), __FILE__, __LINE__);
     exit(EXIT_FAILURE);
 }
 

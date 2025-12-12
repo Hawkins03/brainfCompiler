@@ -2,10 +2,11 @@ a simple project written to compile into and interpret the language brainf.
 
 the source language:
 
-<num>::= an unsigned integer
+<atom>::= int | '(' <exp> ')'
 <op>::= any one of these characters "+-*/%"
-<exp>::= <num> <op> <exp>
+<exp>::= <atom> (<op> <atom>)* | <atom>(<exp>)
 
+<var>::= ["let"|"var"] name = <exp>   <-- TODO
 
 TODO: update the source to accept parenthesis
 TODO: update reader.h to read into a buffer? (Nope, it already does that)

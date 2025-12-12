@@ -8,10 +8,10 @@ int main(int argc, char *argv[]) {
     // now with brainf:
     //bf_interpret(">+++++++++[<++++++++>-]<.>+++++++[<++++>-]<+.+++++++..+++.[-]>++++++++[<++++>-] <.>+++++++++++[<++++++++>-]<-.--------.+++.------.--------.[-]>++++++++[<++++>- ]<+.[-]++++++++++.");
 
-    MS_Atom *expression;
+    Exp *expression;
     
     expression = parse_file("example.txt");
     print_full_exp(expression);
-    free_atom(expression);
+    free_exp(expression);
     expression = NULL;
 }
