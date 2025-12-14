@@ -49,8 +49,7 @@ void print_exp(Exp *exp) {
 	case EXP_OP:
 	    printf("( ");
 	    print_exp(exp->op.left);
-	char op = peek(r);
-	if (isOp(op))    printf("%c ", exp->op.op);
+	    printf("%c ", exp->op.op);
 	    print_exp(exp->op.right);
 	    printf(") ");
 	    break;
@@ -65,10 +64,10 @@ void print_exp(Exp *exp) {
     }   
 }
 
-int getPrio(char *op) {
-    if (!strcmp(op, "+") || !strcmp(op, "-"))
+int getPrio(char op) {
+    if (strchr("+-", op) != NULL)
 	return 1;
-    if (!strcmp(op, "*") || !strcmp(op, "/") || !strcmp(op, "%") || !strcmp(op, "("))
+    if (strchr("*/%", op) != NULL)
 	return 2;
     return 0;
 }
@@ -82,107 +81,96 @@ Exp *init_exp() {
 }
 
 Exp *parse_exp(int minPrio, Reader *r) {
-    if (!isAlive(r))
-	raise_error("Error, bad reader in parse_exp");
-
-    //printf("parsing expression, minPrio = %d\n", minPrio);
-
-    skip_spaces(r);
-
     //parsing atom
-    Exp *left;
+    Exp *left = NULL;
 
-    Value *nextToken = getToken(r);
+    Value *tok = peekToken(r);
 
-    if (nextToken->type == VALUE_DELIM && nextToken->ch == '(') {
-	//printf("parsing parenthesis\n");
-	free_value("")
-	accept(r, '(', "Error, parse_atom expected '('");
-	left = parse_exp(0, r);
-	accept(r, ')', "Error, parse_atom expected ')'");
-    } else if (isdigit(peek(r))) {
-	left = init_exp();
-	left->type = EXP_ATOM;
-	//GETTING VALUE------------------------------------------------------
-	left->atom.value = nextToken->num;
-	if (left)
-	//printf("parsing val %d\n", exp->atom.value);
-    } else if (isalpha(peek(r))) {
-	//GETTING VALUE-------------------------------------------------------
-	char *word = getNextWord(r);
-	//printf("word: '%s' ", word);
-	if (isKeyword(word))
-	    raise_error("ERROR, variable name can't be keyword in parse_atom");
-	left = init_exp();
-	left->type = EXP_NAME;
-	left->name.value = word;
-    } else {
-	//printf("%c\n", peek(r));
-	raise_error("Error, parse_atom encountered erronious value");
-    }
-    
-    if (!isAlive(r))
-	return left;
-
-    if (!left)
+    if (!tok) {
 	return NULL;
+	//raise_error("Unexpected end of input");
+    }
+
+    switch (tok->type) {
+	case VAL_NUM:
+	    tok = getToken(r);
+	    left = init_exp();
+	    left->type = EXP_ATOM;
+	    left->atom.value = tok->num;
+	    freeValue(tok);
+	    break;
+	case VAL_NAME:
+	    tok = getToken(r);
+	    left = init_exp();
+	    left->type = EXP_NAME;
+	    left->name.value = tok->str;
+	    freeValue(tok);
+	case VAL_DELIM:
+	    if (tok->ch != '(')
+		raise_error("unexpected delimiter in exp");
+
+	    acceptToken(r, VAL_DELIM, "(");
+	    left = parse_exp(0, r);
+	    acceptToken(r, VAL_DELIM, ")");
+	    break;
+	default:
+	    raise_error("Unexpected type");
+    }
 
     while (isAlive(r)) {
-	if (!isAlive(r))
-	    return left;
-    	skip_spaces(r);
-	if (!isAlive(r))
-	    return left;
-
-	//printf("loop:\n");
-	
-	//1. init op.
-	//char *op = (char *) calloc(3, sizeof(char));
+	Value *op = peekToken(r);
 	if (!op)
-	    raise_error("Error, bad op malloc");
+	    raise_error("Expected operator or binary operator");
 	
-	//2. peek at op	
-
-	//check the prio
-	int prio = getPrio(op);
-	if (prio < minPrio)
-	    break;
-	
-	Value *val;
-	if (peek(r) != '(') {
-	    val = getToken(r);
-	    if ((val->type != VAL_OP) && (val->type != VAL_BINOP))
+	if (op->type == VAL_OP) {
+	    int prio = getPrio(op->ch);
+	    if (prio < minPrio)
 		break;
-	}
-	
-	//printf("op: %s, peek: %c\n, %d, %d, %d", op, peek(r), isOp(op), isBinOp(op), (strcmp(op, "(")));
-	Exp *exp = init_exp();
-
-	//3. set exp type
-	if (val->type == VAL_OP)
+	    op = getToken(r);
+	    
+	    Exp *exp = init_exp();
 	    exp->type = EXP_OP;
-	else if (val->type == VAL_BINOP)
-	    exp->type = EXP_BINOP;
-	else {
-	    free_exp(exp);
-	    raise_error("unknown symbol in operator");
-	    break;
-	}
-	
-    	exp->op.left = left;
-	exp->op.op = (strcmp(op, "(")) ? op :'*';
-	//printf("op: %s\n", op);
-	exp->op.right = parse_exp(minPrio+1, r);
-	left = (Exp *) exp; 
-	if (!isAlive(r))
-	    return left;
-	skip_spaces(r);
-	if (!isAlive(r))
-	    return left;
+	    exp->op.left = left;
+	    exp->op.op = op->ch;
+	    exp->op.right = parse_exp(prio+1, r);
+	    left = (Exp *) exp;
+	    freeValue(op);
+	} else if (op->type == VAL_BINOP) {
+	    op = getToken(r);
 
-	//printf("endloop, left = '");
-	//print_atom(left);
-	//printf("'\n");
+	    Exp *exp = init_exp();
+	    exp->type = EXP_BINOP;
+	    exp->binop.left = left;
+	    exp->binop.binop = op->str;
+	    exp->binop.right = parse_exp(minPrio, r);
+	    left = (Exp *) exp;
+	    freeValue(op);
+	} else if (op->type == VAL_DELIM) {
+	    if (op->ch != '(')
+		raise_error("unexpected delim in place of operator");
+	    int prio = getPrio('*');
+	    if (prio < minPrio)
+		break;
+
+	    Exp *exp = init_exp();
+	    exp->op.left = left;
+	    exp->op.op = '*';
+	    exp->op.right = parse_exp(prio + 1, r);
+	    left = (Exp *) exp;
+	} else if (op->type == VAL_NAME) {
+	    int prio = getPrio('*');
+	    if (prio < minPrio)
+		break;
+
+	    Exp *exp = init_exp();
+	    exp->op.left = left;
+	    exp->op.op = '*';
+	    exp->op.right = parse_exp(prio + 1, r);
+	    left = (Exp *) exp;
+	} else {
+	    raise_error("Operator is of wrong type");
+	}	
+
     }
     return left;
 }

@@ -8,33 +8,33 @@
 #include "ms.h"
 #include "utils.h"
 
-bool isWordChar(char ch) {
+bool isWordChar(const char ch) {
     return (isalnum(ch) || (ch == '_'));
 }
 
-bool isOp(char op) {
+bool isOp(const char op) {
     return (strchr(OPS, op) != NULL);
 }
 
-bool isBinOp(char *binop) {
+bool isBinOp(const char *binop) {
     for (int i = 0; i < BINOPS_COUNT; i++)
 	if (!strcmp(BINOPS[i], binop))
 	    return true;
     return false;
 }
 
-bool isDelim(char delim) {
+bool isDelim(const char delim) {
     return (strchr(DELIMS, delim) != NULL);
 }
 
-bool isKeyword(char *keyword) {
+bool isKeyword(const char *keyword) {
     for (int i = 0; i < KEYWORDS_COUNT; i++)
 	if (!strcmp(KEYWORDS[i], keyword))
 	    return true;
     return false;
 }
 
-bool matchesBinop(char ch) {
+bool matchesBinop(const char ch) {
     return strchr(BINOP_STARTS, ch) != NULL;
 }
 
@@ -49,39 +49,38 @@ Value *initValue() {
 void freeValue(Value *val) {
     if (val->type == VAL_EMPTY)
 	raise_error("Error, double freeing value");
-    if ((val->type == VAL_NAME) || (val->type == VAL_BINOP) || (val->type == VAL_KEYWORDS))
+    if ((val->type == VAL_NAME) || (val->type == VAL_BINOP) || (val->type == VAL_KEYWORD))
 	free(val->str);
     free(val);
 }
 
-Reader *readInFile(char *filename) {
+Reader *readInFile(const char *filename) {
     if (filename == NULL)
-	raise_error("Error, bad filename");
+	raise_error("bad filename");
     Reader *r = (Reader *) malloc(sizeof(Reader));
     if (!r)
-	raise_error("Error, bad Reader malloc");
+	raise_error("bad Reader malloc");
     r->fp = fopen(filename, "r");
     if (!r->fp) {
 	free(r);
-	raise_error("Error, bad file");
+	raise_error("bad file");
     } else if (feof(r->fp))
-	raise_error_and_free("Error, EOF on file open", r);
+	raise_error_and_free("EOF on file open", r);
     fseek(r->fp, 0L, SEEK_END);
     r->chars_left = ftell(r->fp);
     fseek(r->fp, 0L, SEEK_SET);
 
-    r->curr_token = get_token(r);
+    r->curr_token = getToken(r);
     r->curr = fgetc(r->fp);
     return r;
 }
 
 char peek(Reader *r) {
-    if (r->curr == EOF) raise_error("ERROR, peek read EOF");
+    if (r->curr == EOF) raise_error("peek read EOF");
     return r->curr;
 }
 char advance(Reader *r) {
     if (r->chars_left-- <= 1) {
-    	//killReader(r);//raise_error("ERROR, advance when Reader died");
 	return '\0';
     }
     char out = r->curr;
@@ -97,10 +96,10 @@ char advance(Reader *r) {
 }
 
 void accept(Reader *r, char ch, char *message) {
-    if (peek(r) != ch2)
+    if (peek(r) != ch)
 	raise_error(message);
     else
-	advance(r)
+	advance(r);
 }
 
 void skip_spaces(Reader *r) {
@@ -188,7 +187,7 @@ Value *getRawToken(Reader *r) {
     if (isalpha(peek(r))) {
 	char *out = getNextWord(r);
 	if (isKeyword(out))
-	    val->type = VAL_KEYWORDS;
+	    val->type = VAL_KEYWORD;
 	else
 	    val->type = VAL_NAME;
 	val->str = out;
@@ -237,12 +236,30 @@ Value *peekToken(Reader *r) {
     return r->curr_token;
 }
 
-Value *acceptToken(Reader *r, ValueType type, char *expected, char *message, char *func, char *file, int line) {
-    if (!r->curr_token) raise_error("invalid input to accept_token");
+void _acceptToken(Reader *r, ValueType type, const char *expected, const char *func, const char *file, int line) {
+    Value *tok = peekToken(r);
+    if (!tok) _raise_error("invalid input to accept_token", func, file, line);
+    switch (tok->type) {
+	case VAL_BINOP:
+	case VAL_NAME:
+	case VAL_KEYWORD:
+	    if (tok->str != expected) _raise_error("invalid value of accepted token", func, file, line);
+	    break;
+	case VAL_DELIM:
+	case VAL_OP:
+	    if (tok->ch != expected[0]) _raise_error("invalid value of accepted token", func, file, line);
+	    break;
+	default:
+	    _raise_error("invalid type", func, file, line);
+    }
+    freeValue(getToken(r));
 }
 
-Value *acceptNumToken(Reader *r, ValueType type, int expected, char *message, char *func, char *file, int line) {
-
+void _acceptNumToken(Reader *r, int expected, const char *func, const char *file, int line) {
+    Value *tok = peekToken(r);
+    if (tok->type != VAL_NUM) _raise_error("invalid type in acceptNumToken", func, file, line);
+    if (tok->num != expected) _raise_error("invalid value of accepted numeric token", func, file, line);
+    freeValue(getToken(r));
 }
 
 bool isAlive(Reader *r) {
@@ -258,23 +275,8 @@ void killReader(Reader *r) {
     free(r);
 }
 
-void raise_error(char *error_message) {
-    perror(error_message);
+void _raise_error(const char *msg, const char *func, const char *file, int line) {
+    fprintf(stderr, "ERROR in %s at %s:%d - %s:%s\n", func, file, line, msg, strerror(errno));
+    fflush(stderr);
     exit(EXIT_FAILURE);
-}
-
-void raise_error_and_free(char *error_message, Reader *r) {
-    killReader(r);
-    raise_error(error_message);
-}
-
-void raise_error_at_loc(char *message, char *func, char *file, int line) {
-    char *err_message;
-    if (!message || !func || !file || (line < 0)) message = "Error, invalid input to raise_error_at_loc";
-    char *err = strerror(errno);
-    int ttl_len = strlen(message) + strlen(func) + strlen(file) + strlen(err) + MAX_NUM_LEN;
-
-    err_message = (char *) calloc(ttl_len, sizeof(char));
-    sprintf(err_message, "ERROR in %s at %s:%d - %s:%s\n", func, file, line, msg, errno);
-    raise_error(err_message);
 }

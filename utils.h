@@ -13,8 +13,23 @@
 #define KEYWORDS (const char*[]) {"var", "const", "while", "for", "if", "else"}
 #define KEYWORDS_COUNT 6
 
+#define raise_error(msg) \
+    _raise_error((msg), __func__, __FILE__, __LINE__)
 
-typedef enum {VAL_EMPTY, VAL_NAME, VAL_OP, VAL_BINOP, VAL_NUM, VAL_DELIM, VAL_KEYWORDS} ValueType;
+#define raise_error_and_free(msg, r) 				\
+    do {							\
+	killReader((r));					\
+	_raise_error((msg), __func__, __FILE__, __LINE__);					\
+    } while (0)
+
+#define acceptToken(r, type, expected) \
+    _acceptToken((r), (type), (expected), __func__, __FILE__, __LINE__)
+
+#define acceptNumToken(r, type, expected) \
+    _acceptNumToken((r), (type), (expected), __func__, __FILE__, __LINE__)
+
+
+typedef enum {VAL_EMPTY, VAL_NAME, VAL_OP, VAL_BINOP, VAL_NUM, VAL_DELIM, VAL_KEYWORD} ValueType;
 typedef struct Value {
     ValueType type;
     union {
@@ -32,19 +47,18 @@ typedef struct {
 } Reader;
 
 //reader struct:
-Reader *readInFile(char *filename);
+Reader *readInFile(const char *filename);
 bool isWordChar(char ch);
 bool isOp(char op);
 bool isDelim(char delim);
-bool isBinOp(char *binop);
-bool isKeyword(char *keyword);
+bool isBinOp(const char *binop);
+bool isKeyword(const char *keyword);
 bool matchesBinop(char ch);
 Value *initValue();
 void freeValue(Value *val);
 void freeValueNoString(Value *val);
 char peek(Reader *r);
 char advance(Reader *r);
-void accept(Reader *r, char ch2, char *message);
 void skip_spaces(Reader *r);
 int getNextNum(Reader *r);
 char *getNextWord(Reader *r);
@@ -54,13 +68,11 @@ char *getNextBinOp(char first, Reader *r);
 Value *getRawToken(Reader *r);
 Value *getToken(Reader *r);
 Value *peekToken(Reader *r);
-void acceptToken(Reader *r, ValueType type, char *expected, char *file, int line);
-void acceptNumToken(Reader *r, int expected, char *file, int line);
+void _acceptToken(Reader *r, ValueType type, const char *expected, const char *file, const char *func, int line);
+void _acceptNumToken(Reader *r, int expected, const char *file, const char *func, int line);
 void killReader(Reader *r);
 bool isAlive(Reader *r);
 
 //error printing:
-void raise_error(char *error_message);
-void raise_error_and_free(char *error_message, Reader *r);
-void raise_error_at_loc(char *file, int line);
+void _raise_error(const char *msg, const char *file, const char *func, int line);
 #endif //UTILS_H
