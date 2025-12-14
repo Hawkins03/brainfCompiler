@@ -8,6 +8,51 @@
 #include "ms.h"
 #include "utils.h"
 
+bool isWordChar(char ch) {
+    return (isalnum(ch) || (ch == '_'));
+}
+
+bool isOp(char op) {
+    return (strchr(OPS, op) != NULL);
+}
+
+bool isBinOp(char *binop) {
+    for (int i = 0; i < BINOPS_COUNT; i++)
+	if (!strcmp(BINOPS[i], binop))
+	    return true;
+    return false;
+}
+
+bool isDelim(char delim) {
+    return (strchr(DELIMS, delim) != NULL);
+}
+
+bool isKeyword(char *keyword) {
+    for (int i = 0; i < KEYWORDS_COUNT; i++)
+	if (!strcmp(KEYWORDS[i], keyword))
+	    return true;
+    return false;
+}
+
+bool matchesBinop(char ch) {
+    return strchr(BINOP_STARTS, ch) != NULL;
+}
+
+Value *initValue() {
+    Value *val = (Value *) calloc(1, sizeof(Value));
+    if (val == NULL)
+	raise_error("Error, bad Value malloc");
+    val->type = VAL_EMPTY;
+    return val;
+}
+
+void freeValue(Value *val) {
+    if (val->type == VAL_EMPTY)
+	raise_error("Error, double freeing value");
+    if ((val->type == VAL_NAME) || (val->type == VAL_BINOP) || (val->type == VAL_KEYWORDS))
+	free(val->str);
+    free(val);
+}
 
 Reader *readInFile(char *filename) {
     if (filename == NULL)
@@ -24,6 +69,8 @@ Reader *readInFile(char *filename) {
     fseek(r->fp, 0L, SEEK_END);
     r->chars_left = ftell(r->fp);
     fseek(r->fp, 0L, SEEK_SET);
+
+    r->curr_token = get_token(r);
     r->curr = fgetc(r->fp);
     return r;
 }
@@ -49,8 +96,11 @@ char advance(Reader *r) {
     return out;
 }
 
-void accept(char ch1, char ch2, char *message) {
-    if (ch1 != ch2) raise_error(message);
+void accept(Reader *r, char ch, char *message) {
+    if (peek(r) != ch2)
+	raise_error(message);
+    else
+	advance(r)
 }
 
 void skip_spaces(Reader *r) {
@@ -60,6 +110,42 @@ void skip_spaces(Reader *r) {
 	if (!isspace(peek(r)))
 	    return;
 	if (advance(r) == '\0') return;
+    }
+}
+
+char getNextDelim(Reader *r) {
+    if (isDelim(peek(r)))
+	return advance(r);
+    return '\0';
+}
+
+char getNextOp(Reader *r) {
+    if (isOp(peek(r)))
+	return advance(r);
+    return '\0';
+}
+
+char *getNextBinOp(char first, Reader *r) {
+    if (first != '\0') {
+	if (!strchr(BINOP_STARTS, first))
+	    return "";
+	
+	char *out = calloc(3, sizeof(char));
+	out[0] = advance(r);
+	if (strchr(BINOP_ENDS, peek(r)))
+	    out[1] = advance(r);
+
+	//isBinOp?
+	return out;
+    } else {
+        if (!strchr(BINOP_STARTS, peek(r)))
+	    return "";
+	char *out = calloc(3, sizeof(char));
+	out[0] = advance(r);
+	if (strchr(BINOP_ENDS, peek(r)))
+	    out[1] = advance(r);
+
+	return out;
     }
 }
 
@@ -97,6 +183,68 @@ char *getNextWord(Reader *r) {
     return word;
 }
 
+Value *getRawToken(Reader *r) {
+    Value *val = initValue();
+    if (isalpha(peek(r))) {
+	char *out = getNextWord(r);
+	if (isKeyword(out))
+	    val->type = VAL_KEYWORDS;
+	else
+	    val->type = VAL_NAME;
+	val->str = out;
+    } else if (isOp(peek(r))) {
+	char out = getNextOp(r);
+	val->type = VAL_OP;
+	val->ch = out;
+
+    } else if (isDelim(peek(r))) {
+	char *shared = "=";
+	char delim = getNextDelim(r);
+	if (strchr(shared, delim)) {
+	    char *out = getNextBinOp(delim, r);
+	    val->type = VAL_BINOP;
+	    val->str = out;
+	} else {
+	    val->type = VAL_DELIM;
+	    val->ch = delim;
+	}
+    } else if (matchesBinop(peek(r))) {
+	char *out = getNextBinOp('\0', r);
+	val->type = VAL_BINOP;
+	val->str = out;
+    } else if (isdigit(peek(r))) {
+	int out = getNextNum(r);
+	val->type = VAL_NUM;
+	val->num = out;
+    } else if (!isAlive(r)) {
+	free(val);
+	return NULL;
+    } else {
+	free(val);
+	raise_error("Error, unexpected character");
+    }
+    return val;
+}
+
+Value *getToken(Reader *r) {
+    skip_spaces(r);
+    Value *out = r->curr_token;
+    r->curr_token = getRawToken(r);
+    return out;
+}
+
+Value *peekToken(Reader *r) {
+    return r->curr_token;
+}
+
+Value *acceptToken(Reader *r, ValueType type, char *expected, char *message, char *func, char *file, int line) {
+    if (!r->curr_token) raise_error("invalid input to accept_token");
+}
+
+Value *acceptNumToken(Reader *r, ValueType type, int expected, char *message, char *func, char *file, int line) {
+
+}
+
 bool isAlive(Reader *r) {
     return r->chars_left > 0;
 }
@@ -118,4 +266,15 @@ void raise_error(char *error_message) {
 void raise_error_and_free(char *error_message, Reader *r) {
     killReader(r);
     raise_error(error_message);
+}
+
+void raise_error_at_loc(char *message, char *func, char *file, int line) {
+    char *err_message;
+    if (!message || !func || !file || (line < 0)) message = "Error, invalid input to raise_error_at_loc";
+    char *err = strerror(errno);
+    int ttl_len = strlen(message) + strlen(func) + strlen(file) + strlen(err) + MAX_NUM_LEN;
+
+    err_message = (char *) calloc(ttl_len, sizeof(char));
+    sprintf(err_message, "ERROR in %s at %s:%d - %s:%s\n", func, file, line, msg, errno);
+    raise_error(err_message);
 }

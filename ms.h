@@ -13,11 +13,12 @@ typedef struct Exp_t {
     union {//e.as (e.as.name for example).
 	struct { char *value; } name;
 	struct { int  value; } atom;
-	struct { struct Exp_t *left, *right; char *op; } op; 
+	struct { struct Exp_t *left, *right; char *binop; } binop;
+	struct { struct Exp_t *left, *right; char op; } op;
     };
 } Exp;
 
-typedef enum {STMT_VARDEC, STMT_LOOP, STMT_IF, STMT_EXPR} StmtType;
+typedef enum {STMT_VARDEC, STMT_LET, STMT_SET, STMT_LOOP, STMT_IF, STMT_EXPR} StmtType;
 
 typedef struct Stmt_t {
     StmtType type;
@@ -30,20 +31,9 @@ typedef struct Stmt_t {
     struct Stmt_t *next;
 } Stmt;
 
-extern const char *MS_SYMBOLS;
-extern const char *MS_OPSYM;
-extern const char *MS_OPS[];
-extern const char *MS_BINOP[];
-extern const char *MS_KEYWORDS[];
-extern const int NUM_OPS;
-extern const int NUM_BINOPS;
-extern const int NUM_KEYWORDS;
-
 void free_exp(Exp *exp);
 void print_full_exp(Exp *atom);
 void print_exp(Exp *exp);
-bool isOp(char *op);
-bool isBinOp(char *op);
 Exp *init_exp();
 Exp *parse_exp(int minPrio, Reader *r);
 //Stmt *parse_stmt(Stmt *prev, Reader *r);

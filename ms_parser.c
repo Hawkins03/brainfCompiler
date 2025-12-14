@@ -8,16 +8,8 @@
 #include "utils.h"
 
 
-const char *MS_SYMBOLS = "+-*/%&|=!()[]{}";
-const char *MS_OPSYM = "+-*/%!=<>";
-const char *MS_OPS[] = {"+", "-", "*", "/", "%"};
-const char *MS_BINOPS[] = {"!", "==", "!=", "<", "<=", ">", ">="};
-const char *MS_KEYWORDS[] = {"let", "var", "while", "for", "if"};
-const int NUM_OPS = 5;
-const int NUM_BINOPS = 7;
-const int NUM_KEYWORDS = 5;
-
 void free_exp(Exp *exp) {
+    printf("asdf\n");
     if (exp == NULL) return; //recursion end
     switch (exp->type) {
 	case EXP_NAME:
@@ -25,11 +17,14 @@ void free_exp(Exp *exp) {
 	    break;
 	case EXP_ATOM:
 	    break;
-	case EXP_OP:
 	case EXP_BINOP:
+	    free(exp->binop.binop);
 	    free_exp(exp->op.left);
 	    free_exp(exp->op.right);
-	    free(exp->op.op);
+	    break;
+	case EXP_OP:
+	    free_exp(exp->op.left);
+	    free_exp(exp->op.right);
 	    break;
 	case EXP_EMPTY:
 	    break;
@@ -52,30 +47,22 @@ void print_exp(Exp *exp) {
 	    printf("%d ", exp->atom.value);
 	    break;
 	case EXP_OP:
-	case EXP_BINOP:
-	    printf("(");
+	    printf("( ");
 	    print_exp(exp->op.left);
-	    printf("%s ", exp->op.op);
+	char op = peek(r);
+	if (isOp(op))    printf("%c ", exp->op.op);
 	    print_exp(exp->op.right);
 	    printf(") ");
 	    break;
+	case EXP_BINOP:
+	    printf("( ");
+	    print_exp(exp->binop.left);
+	    printf("%s ", exp->binop.binop);
+	    print_exp(exp->binop.right);
+	    printf(") ");
 	case EXP_EMPTY:
 	    break;
     }   
-}
-
-bool isOp(char *op) {
-    for (int i = 0; i < NUM_OPS; i++)
-	if (!strcmp(MS_OPS[i], op))
-	    return true;
-    return false;
-}
-
-bool isBinOp(char *op) {
-    for (int i = 0; i < NUM_BINOPS; i++)
-	if (!strcmp(MS_BINOPS[i], op))
-	    return true;
-    return false;
 }
 
 int getPrio(char *op) {
@@ -104,22 +91,28 @@ Exp *parse_exp(int minPrio, Reader *r) {
 
     //parsing atom
     Exp *left;
-    if (peek(r) == '(') {
+
+    Value *nextToken = getToken(r);
+
+    if (nextToken->type == VALUE_DELIM && nextToken->ch == '(') {
 	//printf("parsing parenthesis\n");
-	accept('(', advance(r), "Error, parse_atom expected '('");
+	free_value("")
+	accept(r, '(', "Error, parse_atom expected '('");
 	left = parse_exp(0, r);
-	accept(')', advance(r), "Error, parse_atom expected ')'");
+	accept(r, ')', "Error, parse_atom expected ')'");
     } else if (isdigit(peek(r))) {
 	left = init_exp();
 	left->type = EXP_ATOM;
-	left->atom.value = getNextNum(r);
+	//GETTING VALUE------------------------------------------------------
+	left->atom.value = nextToken->num;
+	if (left)
 	//printf("parsing val %d\n", exp->atom.value);
     } else if (isalpha(peek(r))) {
+	//GETTING VALUE-------------------------------------------------------
 	char *word = getNextWord(r);
 	//printf("word: '%s' ", word);
-	for (int i = 0; i < NUM_KEYWORDS; i++)
-	    if (!strcmp(MS_KEYWORDS[i], word))
-		raise_error("ERROR, variable name can't be keyword in parse_atom");
+	if (isKeyword(word))
+	    raise_error("ERROR, variable name can't be keyword in parse_atom");
 	left = init_exp();
 	left->type = EXP_NAME;
 	left->name.value = word;
@@ -144,33 +137,31 @@ Exp *parse_exp(int minPrio, Reader *r) {
 	//printf("loop:\n");
 	
 	//1. init op.
-	char *op = (char *) calloc(3, sizeof(char));
+	//char *op = (char *) calloc(3, sizeof(char));
 	if (!op)
 	    raise_error("Error, bad op malloc");
 	
-	//2. peek at op
-	op[0] = peek(r);
+	//2. peek at op	
 
 	//check the prio
 	int prio = getPrio(op);
 	if (prio < minPrio)
 	    break;
-
-	//collect the op
-	for (int i = 0; i < 2; i++)
-	    if (strchr(MS_OPSYM, peek(r)))
-		op[i] = advance(r);
 	
-	if (!isOp(op) && !isBinOp(op) && (strcmp(op, "(")))
-	    break;
-
+	Value *val;
+	if (peek(r) != '(') {
+	    val = getToken(r);
+	    if ((val->type != VAL_OP) && (val->type != VAL_BINOP))
+		break;
+	}
+	
 	//printf("op: %s, peek: %c\n, %d, %d, %d", op, peek(r), isOp(op), isBinOp(op), (strcmp(op, "(")));
 	Exp *exp = init_exp();
 
 	//3. set exp type
-	if (isOp(op))
+	if (val->type == VAL_OP)
 	    exp->type = EXP_OP;
-	else if (isBinOp(op))
+	else if (val->type == VAL_BINOP)
 	    exp->type = EXP_BINOP;
 	else {
 	    free_exp(exp);
@@ -179,7 +170,7 @@ Exp *parse_exp(int minPrio, Reader *r) {
 	}
 	
     	exp->op.left = left;
-	exp->op.op = (strcmp(op, "(")) ? op :"*";
+	exp->op.op = (strcmp(op, "(")) ? op :'*';
 	//printf("op: %s\n", op);
 	exp->op.right = parse_exp(minPrio+1, r);
 	left = (Exp *) exp; 
