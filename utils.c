@@ -1,5 +1,6 @@
 #include <ctype.h>
 #include <errno.h>
+#include <limits.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -42,7 +43,7 @@ bool isStrType(Value *v) {
     return ((v->type == VAL_NAME) || (v->type == VAL_KEYWORD) || (v->type == VAL_BINOP));
 }
 Value *initValue() {
-    Value *val = (Value *) calloc(1, sizeof(Value));
+    Value *val =  calloc(1, sizeof(*val));
     if (val == NULL)
 	raise_error("Error, bad Value malloc");
     val->type = VAL_EMPTY;
@@ -61,73 +62,75 @@ Reader *readInFile(const char *filename) {
     if (filename == NULL)
 	raise_error("bad filename");
 
-    printf("start of readInFile\n");
-    Reader *r = (Reader *) calloc(1, sizeof(Reader));
+    //printf("start of readInFile\n");
+    Reader *r = calloc(1, sizeof(*r));
     if (!r)
 	raise_error("bad Reader malloc");
     r->fp = fopen(filename, "r");
     if (!r->fp) {
 	free(r);
 	raise_error("bad file");
-    } else if (feof(r->fp))
-	raise_error_and_free("EOF on file open", r);
+    } else if (feof(r->fp)) {
+	free(r);
+	raise_error("EOF on file open");
+    }
     r->alive = true;
     r->curr_token = NULL;
     r->curr = fgetc(r->fp);
     getToken(r); //preloading token (aka first crank);
     //r->curr_token = getToken(r);
-    printf("end of readInFile\n");
+    //printf("end of readInFile\n");
     return r;
 }
 
-char peek(Reader *r) {
+int peek(Reader *r) {
     //printf("peeking, alive = %d, out = '%c'\n", isAlive(r), r->curr);
-    if (!isAlive(r)) return '\0';
-    if (r->curr == EOF) raise_error("peek read EOF");
+    if (!isAlive(r)) return EOF;
     return r->curr;
 }
-char advance(Reader *r) {
-    if (!isAlive(r)) return '\0';
+int advance(Reader *r) {
+    if (!isAlive(r)) return EOF;
 
-    char out = r->curr;
+    int out = r->curr;
     //printf("out '%c', %p\n", out, r->fp);
-    if (r->fp && !feof(r->fp)) {
+    if (r->fp && !feof(r->fp))
 	r->curr = fgetc(r->fp);
-    }
+    
     if (!r->fp)
 	r->alive = false;
-    if (feof(r->fp))
+    else if (feof(r->fp))
 	r->alive = false;
     return out;
-}
-
-void accept(Reader *r, char ch, char *message) {
-    if (!isAlive(r)) return;
-    if (peek(r) != ch)
-	raise_error(message);
-    else
-	advance(r);
 }
 
 void skip_spaces(Reader *r) {
     if (!isAlive(r)) return;
     while (r->fp && !feof(r->fp)) {
 	//printf("skipping a space\n");
-	if (!isspace(peek(r)))
+	if (peek(r) == EOF) return;
+	if (!isspace((char) peek(r)))
 	    return;
 	if (advance(r) == '\0') return;
     }
 }
 
+char *stealTokString(Value *tok) {
+    char *s = tok->str;
+    tok->str = NULL;
+    return s;
+}
+
 char getNextDelim(Reader *r) {
+    if (peek(r) == EOF) return '\0';
     if (isDelim(peek(r)) && (peek(r) != '\0'))
-	return advance(r);
+	return (char) advance(r);
     return '\0';
 }
 
 char getNextOp(Reader *r) {
+    if (peek(r) == EOF) return '\0';
     if (isOp(peek(r)))
-	return advance(r);
+	return (char) advance(r);
     return '\0';
 }
 
@@ -135,21 +138,27 @@ char *getNextBinOp(char first, Reader *r) {
     if (first != '\0') {
 	if (!strchr(BINOP_STARTS, first))
 	    return NULL;
-	
-	char *out = calloc(3, sizeof(char));
-	out[0] = advance(r);
-	if (strchr(BINOP_ENDS, peek(r)))
-	    out[1] = advance(r);
+
+	char *out = calloc(3, sizeof(*out));
+	out[0] = (char) first;
+	if (peek(r) == EOF)
+	    raise_error("unexpected: reached end of file while reading in binop");
+	if (strchr(BINOP_ENDS, (char) peek(r)))
+	    out[1] = (char) advance(r);
 
 	//isBinOp?
 	return out;
     } else {
-        if (!strchr(BINOP_STARTS, peek(r)) || (peek(r) == '\0'))
-	    return "";
-	char *out = calloc(3, sizeof(char));
-	out[0] = advance(r);
+	if (peek(r) == EOF)
+	    raise_error("unexpected: reached end of file while reading in binop");
+	if (!strchr(BINOP_STARTS, peek(r)) || (peek(r) == '\0'))
+	    return NULL;
+	char *out = calloc(3, sizeof(*out));
+	out[0] = (char) advance(r);
+	if (peek(r) == EOF)
+	    raise_error("unexpected: reached end of file while reading in binop");
 	if (strchr(BINOP_ENDS, peek(r)))
-	    out[1] = advance(r);
+	    out[1] = (char) advance(r);
 
 	return out;
     }
@@ -159,8 +168,7 @@ int getNextNum(Reader *r) {
     if (!isAlive(r)) raise_error("Error, getting num when Reader died");
     int num = 0;
     while (isdigit(peek(r))) {
-	if (peek(r) == '\0') return num;
-	num = (num * 10) + advance(r) - '0';
+	num = (num * 10) + (advance(r) - '0');
     }
     return num;
 }
@@ -173,14 +181,14 @@ char *getNextWord(Reader *r) {
     int len = 0;
 
     for (int i = 0; i < MAX_WORD_LEN; i++) {
-	if (peek(r) == '\0') break;
+	if ((peek(r) == '\0') || (peek(r) == EOF)) break;
 	if (isalnum(peek(r)) || (peek(r) == '_'))
-	    chars[len++] = advance(r);
+	    chars[len++] = (char) advance(r);
 	else
 	    break;
     }
 
-    char *word = (char *) calloc(len+1, sizeof(char));
+    char *word = calloc(len+1, sizeof(*word));
     strncpy(word, chars, len);
     word[len] = 0;
     return word;
@@ -188,43 +196,53 @@ char *getNextWord(Reader *r) {
 
 Value *getRawToken(Reader *r) {
     Value *val = initValue();
-    printf("getting raw token, peek(r) = '%c'\n", peek(r));
+    if (peek(r) == EOF) return NULL;
+    //printf("getting raw token, peek(r) = '%c'\n", (char) peek(r));
     if (isalpha(peek(r))) {
 	char *out = getNextWord(r);
 	if (isKeyword(out))
 	    val->type = VAL_KEYWORD;
 	else
 	    val->type = VAL_NAME;
-	printf("NAME(%s)\n", out);
+	//printf("NAME(%s)\n", out);
 	val->str = out;
     } else if (isOp(peek(r))) {
 	char out = getNextOp(r);
 	val->type = VAL_OP;
 	val->ch = out;
-	printf("OP(%c)\n", out);
+	//printf("OP(%c)\n", out);
     } else if (isDelim(peek(r))) {
 	char *shared = "=";
 	char delim = getNextDelim(r);
 	if (strchr(shared, delim)) {
 	    char *out = getNextBinOp(delim, r);
+	    if (!out) {
+		free(val);
+		raise_error("invalid binop");
+	    }
+
 	    val->type = VAL_BINOP;
 	    val->str = out;
-	    printf("BINOP(%s) - delim\n", out);
+	    //printf("BINOP(%s) - delim\n", out);
 	} else {
 	    val->type = VAL_DELIM;
 	    val->ch = delim;
-	    printf("DELIM(%c)\n", delim);
+	    //printf("DELIM(%c)\n", delim);
 	}
     } else if (matchesBinop(peek(r))) {
 	char *out = getNextBinOp('\0', r);
+	if (!out) {
+	    free(val);
+	    raise_error("invalid binop");
+	}
 	val->type = VAL_BINOP;
 	val->str = out;
-	printf("BINOP(%s)\n", out);
+	//printf("BINOP(%s)\n", out);
     } else if (isdigit(peek(r))) {
 	int out = getNextNum(r);
 	val->type = VAL_NUM;
 	val->num = out;
-	printf("NUM(%d)\n", val->num);
+	//printf("NUM(%d)\n", val->num);
     } else if (!isAlive(r)) {
 	free(val);
 	return NULL;
@@ -241,7 +259,7 @@ Value *getToken(Reader *r) {
     skip_spaces(r);
     Value *out = r->curr_token;
     r->curr_token = getRawToken(r);
-    printf("returning token %p\n", out);
+    //printf("returning token %p\n", out);
     return out;
 }
 
@@ -249,39 +267,13 @@ Value *peekToken(Reader *r) {
     return r->curr_token;
 }
 
-void _acceptToken(Reader *r, ValueType type, const char *expected, const char *func, const char *file, int line) {
-    Value *tok = peekToken(r);
-    if (!tok) _raise_error("invalid input to accept_token", func, file, line);
-    switch (tok->type) {
-	case VAL_BINOP:
-	case VAL_NAME:
-	case VAL_KEYWORD:
-	    if (tok->str != expected) {
-		freeValue(getToken(r));
-		free(tok->str);
-		_raise_error("invalid value of accepted token", func, file, line);
-	    }
-	    free(tok->str);
-	    break;
-	case VAL_DELIM:
-	case VAL_OP:
-	    if (tok->ch != expected[0]) {
-		freeValue(getToken(r));
-		_raise_error("invalid value of accepted token", func, file, line);
-	    }
-	    break;
-	default:
-	    freeValue(getToken(r));
-	    _raise_error("invalid type", func, file, line);
-    }
-    freeValue(getToken(r));
-}
-
-void _acceptNumToken(Reader *r, int expected, const char *func, const char *file, int line) {
-    Value *tok = peekToken(r);
-    if (tok->type != VAL_NUM) _raise_error("invalid type in acceptNumToken", func, file, line);
-    if (tok->num != expected) _raise_error("invalid value of accepted numeric token", func, file, line);
-    freeValue(getToken(r));
+void acceptToken(Value *tok, const char *expected) {
+    if (!tok || !tok->str || !expected)
+	raise_error("Invalid Null token value");
+    if (isStrType(tok) && strcmp(tok->str, expected))
+	raise_error("Unexpected token value");
+    else if (!isStrType(tok) && (tok->ch != expected[0]))
+	raise_error("Unexpected token value");
 }
 
 bool isAlive(Reader *r) {

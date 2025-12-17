@@ -16,19 +16,6 @@
 #define raise_error(msg) \
     _raise_error((msg), __func__, __FILE__, __LINE__)
 
-#define raise_error_and_free(msg, r) 				\
-    do {							\
-	killReader((r));					\
-	_raise_error((msg), __func__, __FILE__, __LINE__);					\
-    } while (0)
-
-#define acceptToken(r, type, expected) \
-    _acceptToken((r), (type), (expected), __func__, __FILE__, __LINE__)
-
-#define acceptNumToken(r, type, expected) \
-    _acceptNumToken((r), (type), (expected), __func__, __FILE__, __LINE__)
-
-
 typedef enum {VAL_EMPTY, VAL_NAME, VAL_OP, VAL_BINOP, VAL_NUM, VAL_DELIM, VAL_KEYWORD} ValueType;
 typedef struct Value {
     ValueType type;
@@ -41,7 +28,7 @@ typedef struct Value {
 
 typedef struct {
     FILE *fp;
-    char curr;
+    int curr;
     Value *curr_token;
     bool alive;
 } Reader;
@@ -58,9 +45,10 @@ bool isStrType(Value *v);
 Value *initValue();
 void freeValue(Value *val);
 void freeValueNoString(Value *val);
-char peek(Reader *r);
-char advance(Reader *r);
+int peek(Reader *r);
+int advance(Reader *r);
 void skip_spaces(Reader *r);
+char *stealTokString(Value *tok);
 int getNextNum(Reader *r);
 char *getNextWord(Reader *r);
 char getNextOp(Reader *r);
@@ -69,8 +57,7 @@ char *getNextBinOp(char first, Reader *r);
 Value *getRawToken(Reader *r);
 Value *getToken(Reader *r);
 Value *peekToken(Reader *r);
-void _acceptToken(Reader *r, ValueType type, const char *expected, const char *file, const char *func, int line);
-void _acceptNumToken(Reader *r, int expected, const char *file, const char *func, int line);
+void acceptToken(Value *tok, const char *expected);
 void killReader(Reader *r);
 bool isAlive(Reader *r);
 
