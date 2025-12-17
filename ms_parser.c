@@ -9,7 +9,7 @@
 
 
 void free_exp(Exp *exp) {
-    printf("asdf\n");
+    printf("freeing expression\n");
     if (exp == NULL) return; //recursion end
     switch (exp->type) {
 	case EXP_NAME:
@@ -38,10 +38,11 @@ void print_full_exp(Exp *exp) {
 }
 
 void print_exp(Exp *exp) {
+    //printf("printing expression:, %p\n", exp);
     if (exp == NULL) return; //recursion end
     switch (exp->type) {
 	case EXP_NAME:
-	    printf("%s ", exp->name.value);
+	    printf("'%s' ", exp->name.value);
 	    break;
 	case EXP_ATOM:
 	    printf("%d ", exp->atom.value);
@@ -59,6 +60,7 @@ void print_exp(Exp *exp) {
 	    printf("%s ", exp->binop.binop);
 	    print_exp(exp->binop.right);
 	    printf(") ");
+	    break;
 	case EXP_EMPTY:
 	    break;
     }   
@@ -80,6 +82,14 @@ Exp *init_exp() {
     return exp;
 }
 
+Exp *get_empty_exp() {
+    Exp *exp = init_exp();
+    exp->type = EXP_ATOM;
+    exp->atom.value = 0;
+    return exp;
+}
+
+
 Exp *parse_exp(int minPrio, Reader *r) {
     //parsing atom
     Exp *left = NULL;
@@ -87,7 +97,7 @@ Exp *parse_exp(int minPrio, Reader *r) {
     Value *tok = peekToken(r);
 
     if (!tok) {
-	return NULL;
+	return get_empty_exp();
 	//raise_error("Unexpected end of input");
     }
 
@@ -97,20 +107,27 @@ Exp *parse_exp(int minPrio, Reader *r) {
 	    left = init_exp();
 	    left->type = EXP_ATOM;
 	    left->atom.value = tok->num;
+	    printf("exp got: NUM(%d)\n", tok->num);
 	    freeValue(tok);
 	    break;
 	case VAL_NAME:
 	    tok = getToken(r);
+	    printf("exp got: NAME(%s)\n", tok->str);
 	    left = init_exp();
 	    left->type = EXP_NAME;
 	    left->name.value = tok->str;
+	    tok->str = NULL; //this way it's not touched by freeValue();
 	    freeValue(tok);
+	    break;
 	case VAL_DELIM:
-	    if (tok->ch != '(')
+	    printf("exp got: DELIM(%c/%hhu)\n", tok->ch, tok->ch);
+	    if (tok->ch != '(') {
 		raise_error("unexpected delimiter in exp");
-
+	    }
+	    printf("parenthesis\n");
 	    acceptToken(r, VAL_DELIM, "(");
 	    left = parse_exp(0, r);
+	    printf("looking for closing parenthesis:\n");
 	    acceptToken(r, VAL_DELIM, ")");
 	    break;
 	default:
@@ -120,39 +137,48 @@ Exp *parse_exp(int minPrio, Reader *r) {
     while (isAlive(r)) {
 	Value *op = peekToken(r);
 	if (!op)
-	    raise_error("Expected operator or binary operator");
-	
+	    break; //empty token
+    
 	if (op->type == VAL_OP) {
 	    int prio = getPrio(op->ch);
 	    if (prio < minPrio)
 		break;
 	    op = getToken(r);
-	    
+
+	    printf("exp got: OP(%c)\n", op->ch);
 	    Exp *exp = init_exp();
 	    exp->type = EXP_OP;
 	    exp->op.left = left;
 	    exp->op.op = op->ch;
 	    exp->op.right = parse_exp(prio+1, r);
 	    left = (Exp *) exp;
-	    freeValue(op);
+    	    freeValue(op);
 	} else if (op->type == VAL_BINOP) {
 	    op = getToken(r);
+	    if (!op)
+		break;
 
+	    printf("exp got: BINOP(%s)\n", op->str);
 	    Exp *exp = init_exp();
 	    exp->type = EXP_BINOP;
 	    exp->binop.left = left;
 	    exp->binop.binop = op->str;
 	    exp->binop.right = parse_exp(minPrio, r);
 	    left = (Exp *) exp;
-	    freeValue(op);
+    	    freeValue(op);
 	} else if (op->type == VAL_DELIM) {
-	    if (op->ch != '(')
+	    if (op->ch == ')') {
+		printf("got to end of the parenthesis\n");
+		break;
+	    } if (op->ch != '(')
 		raise_error("unexpected delim in place of operator");
 	    int prio = getPrio('*');
 	    if (prio < minPrio)
 		break;
 
+	    printf("parenthesis\n");
 	    Exp *exp = init_exp();
+	    exp->type = EXP_OP;
 	    exp->op.left = left;
 	    exp->op.op = '*';
 	    exp->op.right = parse_exp(prio + 1, r);
@@ -163,8 +189,10 @@ Exp *parse_exp(int minPrio, Reader *r) {
 		break;
 
 	    Exp *exp = init_exp();
+	    exp->type = EXP_OP;
 	    exp->op.left = left;
 	    exp->op.op = '*';
+	    printf("name\n");
 	    exp->op.right = parse_exp(prio + 1, r);
 	    left = (Exp *) exp;
 	} else {

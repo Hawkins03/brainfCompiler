@@ -43,7 +43,7 @@ typedef struct {
     FILE *fp;
     char curr;
     Value *curr_token;
-    long chars_left;
+    bool alive;
 } Reader;
 
 //reader struct:
@@ -54,6 +54,7 @@ bool isDelim(char delim);
 bool isBinOp(const char *binop);
 bool isKeyword(const char *keyword);
 bool matchesBinop(char ch);
+bool isStrType(Value *v);
 Value *initValue();
 void freeValue(Value *val);
 void freeValueNoString(Value *val);
