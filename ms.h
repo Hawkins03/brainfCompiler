@@ -6,24 +6,24 @@
 struct MS_Exp;
 
 
-typedef enum {EXP_EMPTY, EXP_NAME, EXP_ATOM, EXP_OP, EXP_BINOP} ExpType;
+typedef enum {EXP_EMPTY, EXP_STR, EXP_NUM, EXP_OP, EXP_BINOP} ExpType;
 
 typedef struct Exp_t {
     ExpType type;
     union {//e.as (e.as.name for example).
-	struct { char *value; } name;
-	struct { int  value; } atom;
+	char *str;
+	int num;
 	struct { struct Exp_t *left, *right; char *binop; } binop;
 	struct { struct Exp_t *left, *right; char op; } op;
     };
 } Exp;
 
-typedef enum {STMT_VARDEC, STMT_LET, STMT_SET, STMT_LOOP, STMT_IF, STMT_EXPR} StmtType;
+typedef enum {STMT_VAR, STMT_LET, STMT_SET, STMT_LOOP, STMT_IF, STMT_EXPR} StmtType;
 
 typedef struct Stmt_t {
     StmtType type;
     union {
-	struct { char *name; Exp *init; } vardec;
+	struct { char *name; Exp *init; } var;
 	struct { Exp *cond; struct Stmt_t *body; } loop;
 	struct { Exp *cond; struct Stmt_t *thenStmt; struct Stmt_t *elseStmt;} ifStmt;
 	struct { Exp *exp; } expStmt;
@@ -37,7 +37,7 @@ void print_exp(Exp *exp);
 Exp *init_exp();
 Exp *parse_exp(int minPrio, Reader *r);
 //Stmt *parse_stmt(Stmt *prev, Reader *r);
-Exp *parse_file(char *filename);
+Exp *parse_file(const char *filename);
 
 
 #endif //MS_H

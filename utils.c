@@ -40,7 +40,7 @@ bool matchesBinop(const char ch) {
 }
 
 bool isStrType(Value *v) {
-    return ((v->type == VAL_NAME) || (v->type == VAL_KEYWORD) || (v->type == VAL_BINOP));
+    return ((v->type == VAL_STR) || (v->type == VAL_KEYWORD) || (v->type == VAL_BINOP));
 }
 Value *initValue() {
     Value *val =  calloc(1, sizeof(*val));
@@ -203,8 +203,8 @@ Value *getRawToken(Reader *r) {
 	if (isKeyword(out))
 	    val->type = VAL_KEYWORD;
 	else
-	    val->type = VAL_NAME;
-	//printf("NAME(%s)\n", out);
+	    val->type = VAL_STR;
+	//printf("STR(%s)\n", out);
 	val->str = out;
     } else if (isOp(peek(r))) {
 	char out = getNextOp(r);
@@ -267,9 +267,11 @@ Value *peekToken(Reader *r) {
     return r->curr_token;
 }
 
-void acceptToken(Value *tok, const char *expected) {
+void acceptToken(Value *tok, ValueType type, const char *expected) {
     if (!tok || !tok->str || !expected)
 	raise_error("Invalid Null token value");
+    if (tok->type != type)
+	raise_error("Invalid token type");
     if (isStrType(tok) && strcmp(tok->str, expected))
 	raise_error("Unexpected token value");
     else if (!isStrType(tok) && (tok->ch != expected[0]))
@@ -286,7 +288,7 @@ void killReader(Reader *r) {
 
     if (r->curr_token) {
 	Value *tok = r->curr_token;
-	if ((tok->type == VAL_NAME) || (tok->type == VAL_KEYWORD) || (tok->type == VAL_BINOP))
+	if ((tok->type == VAL_STR) || (tok->type == VAL_KEYWORD) || (tok->type == VAL_BINOP))
 	    free(r->curr_token->str);
 	freeValue(r->curr_token);
     }

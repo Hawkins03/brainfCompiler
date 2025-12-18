@@ -1,22 +1,24 @@
+#include <stdio.h>
+
 #ifndef UTILS_H
 #define UTILS_H
 
 #define MAX_WORD_LEN 32
 #define MAX_NUM_LEN 10
-#define DELIMS "=;()[]{}"
+#define DELIMS "=;()[]{}'"
 #define OPS "+-*/%"
-#define BINOP_STARTS "!=<>"
+#define BINOP_STARTS "!=<>&|"
 #define BINOP_ENDS "="
 
-#define BINOPS (const char*[]) {"==", "!=", "<", "<=", ">", ">="}
+#define BINOPS (const char*[]) {"==", "!=", "<", "<=", ">", ">=", "&&", "||"}
 #define BINOPS_COUNT 6
-#define KEYWORDS (const char*[]) {"var", "const", "while", "for", "if", "else"}
+#define KEYWORDS (const char*[]) {"var", "val", "while", "for", "if", "else", "print", "input"}
 #define KEYWORDS_COUNT 6
 
 #define raise_error(msg) \
     _raise_error((msg), __func__, __FILE__, __LINE__)
 
-typedef enum {VAL_EMPTY, VAL_NAME, VAL_OP, VAL_BINOP, VAL_NUM, VAL_DELIM, VAL_KEYWORD} ValueType;
+typedef enum {VAL_EMPTY, VAL_STR, VAL_OP, VAL_BINOP, VAL_NUM, VAL_DELIM, VAL_KEYWORD} ValueType;
 typedef struct Value {
     ValueType type;
     union {
@@ -57,7 +59,7 @@ char *getNextBinOp(char first, Reader *r);
 Value *getRawToken(Reader *r);
 Value *getToken(Reader *r);
 Value *peekToken(Reader *r);
-void acceptToken(Value *tok, const char *expected);
+void acceptToken(Value *tok, ValueType type, const char *expected);
 void killReader(Reader *r);
 bool isAlive(Reader *r);
 

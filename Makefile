@@ -1,22 +1,29 @@
 
 CC = gcc
-CFLAGS = -Wall -g
+CFLAGS = -Wall -Wextra -std=c11 -g -MMD -MP
 
+COMPILER = bfCompiler
+TESTER = bfTester
 
-TARGET = brainfCompiler
+COMMON_SRCS = bf_interp.c ms_parser.c utils.c
 
-SOURCES = main.c bf_interp.c ms_parser.c utils.c
-DEPS = bf.h ms.h utils.h
+COMPILER_SRCS = main.c $(COMMON_SRCS)
+TESTER_SRCS = runTests.c $(COMMON_SRCS) test.c
+DEPS = bf.h ms.h utils.h test.h
 
-OBJECTS = $(SOURCES:.c=.o)
+COMPILER_OBJS = $(COMPILER_SRCS:.c=.o)
+TESTER_OBJS = $(TESTER_SRCS:.c=.o)
 
-all: $(TARGET)
+all: $(COMPILER) $(TESTER)
 
-$(TARGET): $(OBJECTS)
-	$(CC) $(CFLAGS) $(OBJECTS) -o $(TARGET)
+$(COMPILER): $(COMPILER_OBJS)
+	$(CC) $(CFLAGS) -o $@ $^
+
+$(TESTER): $(TESTER_OBJS)
+	$(CC) $(CFLAGS) -o $@ $^
 
 %.o: %.c $(DEPS)
 	$(CC) $(CFLAGS) -c $< -o $@
 
 clean:
-	rm -f $(OBJECTS) $(TARGET)
+	rm -f *.o *.d $(COMPILER_OBJS) $(TESTER_OBJS) $(COMPILER) $(TESTER)

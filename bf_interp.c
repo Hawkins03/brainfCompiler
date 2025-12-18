@@ -10,7 +10,6 @@
 
 
 void bf_interpret(char *input_buff) {
-    if (strlen(input_buff) == -1) return;
     int len = strlen(input_buff);
     int buff[BUFF_SIZE] = {0};
     int *curr_ptr = buff;
@@ -77,6 +76,7 @@ void bf_interpret(char *input_buff) {
 		break;
 	    case ',':
 		*curr_ptr = getchar();
+		break;
 	    case '[': 
 		bracket_index++;
     		if ((*curr_ptr) == 0) {
