@@ -17,12 +17,8 @@ void free_exp(Exp *exp) {
 	    break;
 	case EXP_NUM:
 	    break;
-	case EXP_BINOP:
-	    free(exp->binop.binop);
-	    free_exp(exp->binop.left);
-	    free_exp(exp->binop.right);
-	    break;
 	case EXP_OP:
+	    free(exp->op.op);
 	    free_exp(exp->op.left);
 	    free_exp(exp->op.right);
 	    break;
@@ -52,15 +48,8 @@ void print_exp(Exp *exp) {
 	case EXP_OP:
 	    printf("OP( ");
 	    print_exp(exp->op.left);
-	    printf(",%c, ", exp->op.op);
+	    printf(",%s, ", exp->op.op);
 	    print_exp(exp->op.right);
-	    printf(") ");
-	    break;
-	case EXP_BINOP:
-	    printf("BINOP( ");
-	    print_exp(exp->binop.left);
-	    printf(",%s, ", exp->binop.binop);
-	    print_exp(exp->binop.right);
 	    printf(") ");
 	    break;
 	case EXP_EMPTY:
@@ -70,12 +59,13 @@ void print_exp(Exp *exp) {
     }   
 }
 
-int getPrio(char op) {
-    if (strchr("+-", op) != NULL)
+int getPrio(char *op) {
+    if (strchr("+-", op[0]) && (op[1] == '\0'))
 	return 1;
-    if (strchr("*/%", op) != NULL)
+    else if (strchr("*/%", op[0]) && (op[1] == '\0'))
 	return 2;
-    return 0;
+    else
+	return 3;
 }
 
 Exp *init_exp() {
@@ -86,12 +76,12 @@ Exp *init_exp() {
     return exp;
 }
 
-Exp *get_empty_exp() {
+/*Exp *get_empty_exp() {
     Exp *exp = init_exp();
     exp->type = EXP_NUM;
     exp->num = 0;
     return exp;
-}
+}*/
 
 
 Exp *parse_exp(int minPrio, Reader *r) {
@@ -101,7 +91,7 @@ Exp *parse_exp(int minPrio, Reader *r) {
     Value *tok = peekToken(r);
 
     if (!tok) {
-	return get_empty_exp();
+	return NULL;
 	//raise_error("Unexpected end of input");
     }
 
@@ -159,7 +149,7 @@ Exp *parse_exp(int minPrio, Reader *r) {
 	    break; //empty token
     
 	if (op->type == VAL_OP) {
-	    int prio = getPrio(op->ch);
+	    int prio = getPrio(op->str);
 	    if (prio < minPrio)
 		break;
 	    op = getToken(r);
@@ -168,30 +158,17 @@ Exp *parse_exp(int minPrio, Reader *r) {
 	    Exp *exp = init_exp();
 	    exp->type = EXP_OP;
 	    exp->op.left = left;
-	    exp->op.op = op->ch;
+	    exp->op.op = stealTokString(op);
 	    exp->op.right = parse_exp(prio+1, r);
 	    left = (Exp *) exp;
     	    freeValue(op);
-	} else if (op->type == VAL_BINOP) {
-	    op = getToken(r);
-	    if (!op)
-		break;
-
-	    //printf("exp got: BINOP(%s)\n", op->str);
-	    Exp *exp = init_exp();
-	    exp->type = EXP_BINOP;
-	    exp->binop.left = left;
-	    exp->binop.binop = op->str;
-	    exp->binop.right = parse_exp(minPrio, r);
-	    left = (Exp *) exp;
-    	    freeValue(op);
-	} else if (op->type == VAL_DELIM) {
+    	} else if (op->type == VAL_DELIM) {
 	    if (op->ch == ')') {
 		//printf("got to end of the parenthesis\n");
 		break;
 	    } if (op->ch != '(')
 		raise_error("unexpected delim in place of operator");
-	    int prio = getPrio('*');
+	    int prio = getPrio("*");
 	    if (prio < minPrio)
 		break;
 
@@ -199,18 +176,18 @@ Exp *parse_exp(int minPrio, Reader *r) {
 	    Exp *exp = init_exp();
 	    exp->type = EXP_OP;
 	    exp->op.left = left;
-	    exp->op.op = '*';
+	    exp->op.op = "*";
 	    exp->op.right = parse_exp(prio + 1, r);
 	    left = (Exp *) exp;
 	} else if (op->type == VAL_STR) {
-	    int prio = getPrio('*');
+	    int prio = getPrio("*");
 	    if (prio < minPrio)
 		break;
 
 	    Exp *exp = init_exp();
 	    exp->type = EXP_OP;
 	    exp->op.left = left;
-	    exp->op.op = '*';
+	    exp->op.op = "*";
 	    exp->op.right = parse_exp(prio + 1, r);
 	    left = (Exp *) exp;
 	} else {

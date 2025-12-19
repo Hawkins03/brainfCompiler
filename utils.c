@@ -13,15 +13,15 @@ bool isWordChar(const char ch) {
     return (isalnum(ch) || (ch == '_'));
 }
 
-bool isOp(const char op) {
-    return (strchr(OPS, op) != NULL);
-}
-
-bool isBinOp(const char *binop) {
-    for (int i = 0; i < BINOPS_COUNT; i++)
-	if (!strcmp(BINOPS[i], binop))
+bool isOp(const char *op) {
+    for (int i = 0; i < OPS_COUNT; i++)
+	if (!strcmp(OPS[i], op))
 	    return true;
     return false;
+}
+
+bool matchesOp(const char op) {
+    return (strchr(OP_START, op) != NULL);
 }
 
 bool isDelim(const char delim) {
@@ -35,13 +35,10 @@ bool isKeyword(const char *keyword) {
     return false;
 }
 
-bool matchesBinop(const char ch) {
-    return strchr(BINOP_STARTS, ch) != NULL;
+bool isStrType(Value *v) {
+    return ((v->type == VAL_STR) || (v->type == VAL_KEYWORD) || (v->type == VAL_OP));
 }
 
-bool isStrType(Value *v) {
-    return ((v->type == VAL_STR) || (v->type == VAL_KEYWORD) || (v->type == VAL_BINOP));
-}
 Value *initValue() {
     Value *val =  calloc(1, sizeof(*val));
     if (val == NULL)
@@ -127,41 +124,23 @@ char getNextDelim(Reader *r) {
     return '\0';
 }
 
-char getNextOp(Reader *r) {
-    if (peek(r) == EOF) return '\0';
-    if (isOp(peek(r)))
-	return (char) advance(r);
-    return '\0';
-}
+char *getNextOp(Reader *r) {
+    if (peek(r) == EOF)
+        raise_error("unexpected: reached end of file while reading in binop");
+    if (!strchr(OP_START, peek(r)))
+        return NULL;
+    char *out = calloc(3, sizeof(*out));
+    out[0] = (char) advance(r);
+    if (peek(r) == EOF)
+        //raise_error("unexpected: reached end of file while reading in binop");
+	return NULL;
+    out[1] = (char) peek(r);
+    if (!isOp(out))
+	out[1] = '\0';
+    else
+	advance(r);
 
-char *getNextBinOp(char first, Reader *r) {
-    if (first != '\0') {
-	if (!strchr(BINOP_STARTS, first))
-	    return NULL;
-
-	char *out = calloc(3, sizeof(*out));
-	out[0] = (char) first;
-	if (peek(r) == EOF)
-	    raise_error("unexpected: reached end of file while reading in binop");
-	if (strchr(BINOP_ENDS, (char) peek(r)))
-	    out[1] = (char) advance(r);
-
-	//isBinOp?
-	return out;
-    } else {
-	if (peek(r) == EOF)
-	    raise_error("unexpected: reached end of file while reading in binop");
-	if (!strchr(BINOP_STARTS, peek(r)) || (peek(r) == '\0'))
-	    return NULL;
-	char *out = calloc(3, sizeof(*out));
-	out[0] = (char) advance(r);
-	if (peek(r) == EOF)
-	    raise_error("unexpected: reached end of file while reading in binop");
-	if (strchr(BINOP_ENDS, peek(r)))
-	    out[1] = (char) advance(r);
-
-	return out;
-    }
+    return out;
 }
 
 int getNextNum(Reader *r) {
@@ -206,38 +185,16 @@ Value *getRawToken(Reader *r) {
 	    val->type = VAL_STR;
 	//printf("STR(%s)\n", out);
 	val->str = out;
-    } else if (isOp(peek(r))) {
-	char out = getNextOp(r);
+    } else if (matchesOp(peek(r))) {
+	char *out = getNextOp(r);
 	val->type = VAL_OP;
-	val->ch = out;
+	val->str = out;
 	//printf("OP(%c)\n", out);
     } else if (isDelim(peek(r))) {
-	char *shared = "=";
 	char delim = getNextDelim(r);
-	if (strchr(shared, delim)) {
-	    char *out = getNextBinOp(delim, r);
-	    if (!out) {
-		free(val);
-		raise_error("invalid binop");
-	    }
-
-	    val->type = VAL_BINOP;
-	    val->str = out;
-	    //printf("BINOP(%s) - delim\n", out);
-	} else {
-	    val->type = VAL_DELIM;
-	    val->ch = delim;
-	    //printf("DELIM(%c)\n", delim);
-	}
-    } else if (matchesBinop(peek(r))) {
-	char *out = getNextBinOp('\0', r);
-	if (!out) {
-	    free(val);
-	    raise_error("invalid binop");
-	}
-	val->type = VAL_BINOP;
-	val->str = out;
-	//printf("BINOP(%s)\n", out);
+        val->type = VAL_DELIM;
+        val->ch = delim;
+        //printf("DELIM(%c)\n", delim);
     } else if (isdigit(peek(r))) {
 	int out = getNextNum(r);
 	val->type = VAL_NUM;
@@ -288,7 +245,7 @@ void killReader(Reader *r) {
 
     if (r->curr_token) {
 	Value *tok = r->curr_token;
-	if ((tok->type == VAL_STR) || (tok->type == VAL_KEYWORD) || (tok->type == VAL_BINOP))
+	if ((tok->type == VAL_STR) || (tok->type == VAL_KEYWORD) || (tok->type == VAL_OP))
 	    free(r->curr_token->str);
 	freeValue(r->curr_token);
     }

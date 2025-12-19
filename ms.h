@@ -6,15 +6,14 @@
 struct MS_Exp;
 
 
-typedef enum {EXP_EMPTY, EXP_STR, EXP_NUM, EXP_OP, EXP_BINOP} ExpType;
+typedef enum {EXP_EMPTY, EXP_STR, EXP_NUM, EXP_OP} ExpType;
 
 typedef struct Exp_t {
     ExpType type;
     union {//e.as (e.as.name for example).
 	char *str;
 	int num;
-	struct { struct Exp_t *left, *right; char *binop; } binop;
-	struct { struct Exp_t *left, *right; char op; } op;
+	struct { struct Exp_t *left, *right; char *op; } op;
     };
 } Exp;
 

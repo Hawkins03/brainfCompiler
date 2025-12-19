@@ -39,13 +39,8 @@ size_t measure_exp_strlen(const Exp *exp) {
 	    break;
 	case (EXP_OP):
 	    size += measure_exp_strlen(exp->op.left);
-	    size += strlen("OP(, +, )");
+	    size += strlen("OP(, ++, )");
 	    size += measure_exp_strlen(exp->op.right);
-	    break;
-	case (EXP_BINOP):
-	    size += measure_exp_strlen(exp->binop.left);
-	    size += strlen("BINOP(, ++, )");
-	    size += measure_exp_strlen(exp->binop.right);
 	    break;
 	default:
 	    break;
@@ -65,15 +60,8 @@ void getExpStr(char *out, const Exp *exp) {
 	case EXP_OP:
 	    sprintf(out, "OP(");
 	    getExpStr(out + strlen(out), exp->op.left);
-	    sprintf(out + strlen(out), ", %c, ", exp->op.op);
+	    sprintf(out + strlen(out), ", %s, ", exp->op.op);
 	    getExpStr(out + strlen(out), exp->op.right);
-	    sprintf(out + strlen(out), ")");
-	    break;
-	case EXP_BINOP:
-	    sprintf(out, "BINOP(");
-	    getExpStr(out + strlen(out), exp->binop.left);
-	    sprintf(out + strlen(out), ", %s, ", exp->binop.binop);
-	    getExpStr(out + strlen(out), exp->binop.right);
 	    sprintf(out + strlen(out), ")");
 	    break;
 	default: 

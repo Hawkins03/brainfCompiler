@@ -8,7 +8,7 @@ TESTER = bfTester
 COMMON_SRCS = bf_interp.c ms_parser.c utils.c
 
 COMPILER_SRCS = main.c $(COMMON_SRCS)
-TESTER_SRCS = runTests.c $(COMMON_SRCS) test.c
+TESTER_SRCS = runtests.c $(COMMON_SRCS) test.c
 DEPS = bf.h ms.h utils.h test.h
 
 COMPILER_OBJS = $(COMPILER_SRCS:.c=.o)

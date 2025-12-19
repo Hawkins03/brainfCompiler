@@ -5,20 +5,20 @@
 
 #define MAX_WORD_LEN 32
 #define MAX_NUM_LEN 10
-#define DELIMS "=;()[]{}'"
-#define OPS "+-*/%"
-#define BINOP_STARTS "!=<>&|"
-#define BINOP_ENDS "="
+#define DELIMS ";()[]{}'"
+#define OP_START "=+-*/%!<>&|"
+#define ARITH_OP "=+-*/%"
 
-#define BINOPS (const char*[]) {"==", "!=", "<", "<=", ">", ">=", "&&", "||"}
-#define BINOPS_COUNT 6
+//TODO: add ! handling
+#define OPS (const char*[]) {"=", "+", "-", "*", "/", "%", "==", "!=", "<", "<=", ">", ">=", "&&", "||"}
+#define OPS_COUNT 14
 #define KEYWORDS (const char*[]) {"var", "val", "while", "for", "if", "else", "print", "input"}
-#define KEYWORDS_COUNT 6
+#define KEYWORDS_COUNT 8
 
 #define raise_error(msg) \
     _raise_error((msg), __func__, __FILE__, __LINE__)
 
-typedef enum {VAL_EMPTY, VAL_STR, VAL_OP, VAL_BINOP, VAL_NUM, VAL_DELIM, VAL_KEYWORD} ValueType;
+typedef enum {VAL_EMPTY, VAL_STR, VAL_OP, VAL_NUM, VAL_DELIM, VAL_KEYWORD} ValueType;
 typedef struct Value {
     ValueType type;
     union {
@@ -37,8 +37,8 @@ typedef struct {
 
 //reader struct:
 Reader *readInFile(const char *filename);
-bool isWordChar(char ch);
-bool isOp(char op);
+bool isWordChar(const char ch);
+bool isOp(const char *op);
 bool isDelim(char delim);
 bool isBinOp(const char *binop);
 bool isKeyword(const char *keyword);
@@ -53,7 +53,7 @@ void skip_spaces(Reader *r);
 char *stealTokString(Value *tok);
 int getNextNum(Reader *r);
 char *getNextWord(Reader *r);
-char getNextOp(Reader *r);
+char *getNextOp(Reader *r);
 char getNextDelim(Reader *r);
 char *getNextBinOp(char first, Reader *r);
 Value *getRawToken(Reader *r);
