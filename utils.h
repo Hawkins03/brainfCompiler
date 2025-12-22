@@ -7,16 +7,33 @@
 #define MAX_NUM_LEN 10
 #define DELIMS ";()[]{}'"
 #define OP_START "=+-*/%!<>&|"
-#define ARITH_OP "=+-*/%"
+#define UNARY_OPS "!-~"
 
 //TODO: add ! handling
-#define OPS (const char*[]) {"=", "+", "-", "*", "/", "%", "==", "!=", "<", "<=", ">", ">=", "&&", "||"}
-#define OPS_COUNT 14
 #define KEYWORDS (const char*[]) {"var", "val", "while", "for", "if", "else", "print", "input"}
 #define KEYWORDS_COUNT 8
 
 #define raise_error(msg) \
     _raise_error((msg), __func__, __FILE__, __LINE__)
+
+
+#define NUM_PRIOS 10
+static const char *OPS[][5] = {         // lowest priority to highest priority:
+    {"=", "+=", "*=", "/=", NULL},	// single equal
+    {"||", NULL},                       // logical or
+    {"&&", NULL},                       // logical and
+    {"|", NULL},                        // bitwiase or
+    {"^", NULL},                        // bitwise xor
+    {"&", NULL},                        // bitwise and
+    {"==", "!=", NULL},                 // equivalence operators
+    {"<", ">", "<=", ">=", NULL},       // relational operators
+    {"<<", ">>"},                       // bitwise shifts
+    {"+", "-", NULL},                   // addition / subtraction
+    {"*", "/", "%", NULL},              // multiplication, division, modulo
+    {"!"}
+};
+
+
 
 typedef enum {VAL_EMPTY, VAL_STR, VAL_OP, VAL_NUM, VAL_DELIM, VAL_KEYWORD} ValueType;
 typedef struct Value {
@@ -39,10 +56,12 @@ typedef struct {
 Reader *readInFile(const char *filename);
 bool isWordChar(const char ch);
 bool isOp(const char *op);
+bool matchesOp(const char *op);
+bool isUnaryOp(const char *op);
+int getPrio(const char *op);
 bool isDelim(char delim);
 bool isBinOp(const char *binop);
 bool isKeyword(const char *keyword);
-bool matchesBinop(char ch);
 bool isStrType(Value *v);
 Value *initValue();
 void freeValue(Value *val);

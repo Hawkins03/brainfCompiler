@@ -14,8 +14,24 @@ bool isWordChar(const char ch) {
 }
 
 bool isOp(const char *op) {
-    for (int i = 0; i < OPS_COUNT; i++)
-	if (!strcmp(OPS[i], op))
+    for (int y = 0; y < NUM_PRIOS; y++)
+	for (int x = 0; OPS[y][x] != NULL; x++)
+	    if (!strcmp(OPS[y][x], op))
+		return true;
+    return false;
+}
+
+int getPrio(const char *op) {
+    for (int y = 0; y < NUM_PRIOS; y++)
+	for (int x = 0; OPS[y][x] != NULL; x++)
+	    if (!strcmp(OPS[y][x], op))
+		return y;
+    return -1;
+}
+
+bool isRightAssoc(const char *op) {
+    for (int i = 0; OPS[0][i] != NULL; i++)
+	if (!strcmp(OPS[0][i], op))
 	    return true;
     return false;
 }
@@ -23,6 +39,9 @@ bool isOp(const char *op) {
 bool matchesOp(const char op) {
     return (strchr(OP_START, op) != NULL);
 }
+
+bool isUnaryOp(const char *op) {
+    return strchr(UNARY_OPS, op[0]);
 
 bool isDelim(const char delim) {
     return (strchr(DELIMS, delim) != NULL);

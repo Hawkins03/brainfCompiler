@@ -9,8 +9,8 @@ DONE: && / || / characters
 TODO: unit testing
     printing out in EXP(left,op,right,etc)
     compare it to an expected string
-TODO: handle double/single quotes. chars can just be ints, and can handle quotes with arrays
+TODO: handle double/single quotes. chars can just be ints, and can handle quotes with arrays > do with loops.
 
 
-TODO: 
+TODO: handle \'
 TODO: find a way to parse functions into brainf.

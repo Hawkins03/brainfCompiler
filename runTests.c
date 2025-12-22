@@ -10,7 +10,7 @@ int main () {
     test_file("tests/arith5.txt", "OP(NUM(6), -, NUM(7))");
     test_file("tests/arith6.txt", "OP(NUM(8), *, NUM(9))");
     test_file("tests/arith7.txt", "OP(NUM(10), /, NUM(5))");
-    test_file("tests/arith8.txt", "OP(NUM(3), %, NUM(2)");
+    test_file("tests/arith8.txt", "OP(NUM(3), %, NUM(2))");
     test_file("tests/arith9.txt", "NUM(55)");
     test_file("tests/arith10.txt", "OP(NUM(10), /, NUM(6))");
 
@@ -22,7 +22,7 @@ int main () {
     test_file("tests/parenthesis3.txt", "OP(NUM(4), *, OP(NUM(1), -, NUM(4)))");
     test_file("tests/parenthesis4.txt", "OP(NUM(4), *, NUM(9))");
     test_file("tests/parenthesis5.txt", "OP(NUM(4), *, OP(NUM(1), +, NUM(2)))");
-    test_file("tests/parenthesis6.txt", "OP(OP(NUM(9), +, NUM(2)), * NUM(6)))");
+    test_file("tests/parenthesis6.txt", "OP(OP(NUM(9), +, NUM(2)), *, NUM(6))");
 
     test_file("tests/char1.txt", "NUM(97)");
     //test_file("tests/char2.txt", error);
@@ -40,8 +40,8 @@ int main () {
     test_file("tests/binop6.txt", "OP(NUM(5), >=, NUM(6))");
     test_file("tests/binop7.txt", "OP(NUM(6), <=, NUM(7))");
 
-    test_file("tests/binop8.txt", "OP(NUM(1), *, OP(NUM(2), >, NUM(5)))");
-    test_file("tests/binop9.txt", "OP(NUM(1), +, OP(NUM(2), <, NUM(5)))");
+    test_file("tests/binop8.txt", "OP(OP(NUM(1), *, NUM(2)), >, NUM(5))");
+    test_file("tests/binop9.txt", "OP(OP(NUM(1), +, NUM(2)), <, NUM(5))");
     test_file("tests/binop10.txt", "OP(OP(NUM(1), <, NUM(5)), <, NUM(6))");
     test_file("tests/binop11.txt", "OP(OP(NUM(1), <, NUM(5)), <, NUM(6))");
     test_file("tests/binop12.txt", "OP(OP(NUM(1), *, NUM(2)), <, NUM(6))");

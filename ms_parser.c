@@ -30,12 +30,12 @@ void free_exp(Exp *exp) {
     free(exp);
 }
 
-void print_full_exp(Exp *exp) {
+void print_full_exp(const Exp *exp) {
     print_exp(exp);
     printf("\n");
 }
 
-void print_exp(Exp *exp) {
+void print_exp(const Exp *exp) {
     //printf("printing expression:, %p\n", exp);
     if (exp == NULL) return; //recursion end
     switch (exp->type) {
@@ -59,14 +59,6 @@ void print_exp(Exp *exp) {
     }   
 }
 
-int getPrio(char *op) {
-    if (strchr("+-", op[0]) && (op[1] == '\0'))
-	return 1;
-    else if (strchr("*/%", op[0]) && (op[1] == '\0'))
-	return 2;
-    else
-	return 3;
-}
 
 Exp *init_exp() {
     Exp *exp = malloc(sizeof(*exp));
@@ -76,124 +68,177 @@ Exp *init_exp() {
     return exp;
 }
 
-/*Exp *get_empty_exp() {
-    Exp *exp = init_exp();
-    exp->type = EXP_NUM;
-    exp->num = 0;
-    return exp;
-}*/
+Exp *init_op(Exp *left, char *op, Exp *right) {
+    Exp *out = init_exp();
+    out->type = EXP_OP;
+    out->op.left = left;
+    out->op.op = op;
+    out->op.right = right;
+    return out;
+}
+
+Exp *init_unary(Exp *left, char *op, Exp *right) {
+    Exp *out = init_op(left, op, right);
+    out->type = EXP_UNARY;
+    return out;
+}
+
+Exp *init_num(int num) {
+    Exp *out = init_exp();
+    out->type = EXP_NUM;
+    out->num= num;
+    return out;
+}
+
+Exp *init_str(char *str) {
+    Exp *out = init_exp();
+    out->type = EXP_STR;
+    out->str = str;
+    return out;
+}
 
 
-Exp *parse_exp(int minPrio, Reader *r) {
-    //parsing atom:
-    Exp *left = NULL;
-
-    Value *tok = peekToken(r);
-
-    if (!tok) {
+Exp *parse_unary(Value *tok, Exp *left, Reader *r) { //TODO: ensure left carries on properly
+    if (!isUnaryOp(tok->str))
 	return NULL;
-	//raise_error("Unexpected end of input");
+
+    if (left->type == EXP_NUM) // unary operatives are unilaterally right associative
+        return init_unary(left, stealTokString(tok), parse_atom(r));
+    else {
+        Exp *out = init_unary(NULL, stealTokString(tok), parse_atom(r));
+	if (left) {
+	    left->op.right = out;
+	    out = left;
+	}
+	return out;
     }
+    return NULL;
+}
+
+Exp *parse_str(Value *tok, Exp *left, Reader *r) {
+    Exp *out = init_str(stealTokString(tok)); // helper fn makes ownership explicit
+    freeValue(tok);
+    return out;
+}
+
+void parse_char(Value *tok, Exp *left, Reader *r) {
+    acceptToken(peekToken(r), VAL_DELIM, "'");
+    freeValue(getToken(r));
+
+    Value *next = getToken(r);
+
+    switch (next->type) { //TODO: rework
+	case VAL_STR:
+	case VAL_OP:
+	    if ((!next->str) || (strlen(next->str) > 1))
+		raise_error("expected single character");
+	    left = init_num(next->str[0]);
+
+	    break;
+	case VAL_NUM:
+	    if (next->num >= 10)
+		raise_error("expected single character");
+	    left = init_num(next->num + '0');
+
+	    break;
+	case VAL_DELIM:
+	    if (next->type == '\'') {
+		left = init_num(0);
+		freeValue(next);
+		return;
+	    } else
+		left = init_num(next->ch);
+
+	    break;
+	default:
+	    raise_error("invalid character type");
+	    break;
+    }
+    freeValue(next); // don't move to parse_atom
+
+    acceptToken(peekToken(r), VAL_DELIM, "'");
+    freeValue(getToken(r));
+}
+
+Exp *parse_parenthesis(Value *tok, Exp *left, Reader *r) {
+    //printf("parenthesis\n");
+    acceptToken(peekToken(r), VAL_DELIM, "(");
+    freeValue(getToken(r));
+
+    Exp *out = parse_exp(0, r);
+    //printf("looking for closing parenthesis:\n");
+
+    acceptToken(peekToken(r), VAL_DELIM, ")");
+    freeValue(getToken(r));
+    return out;
+}
+
+Exp *parse_atom(Reader *r) {
+    Value *tok = peekToken(r);
+    if (!tok)
+        return left;
 
     switch (tok->type) {
-	case VAL_NUM:
-	    tok = getToken(r);
-	    left = init_exp();
-	    left->type = EXP_NUM;
-	    left->num = tok->num;
-	    //printf("exp got: NUM(%d)\n", tok->num);
+        case VAL_OP:
+    	    Exp *exp = parse_unary(tok, NULL, r);
+	    freeValue(getToken(r));
+	    return exp;
+    	case VAL_NUM: //TODO: add in breakpoints.
+	    getToken(r);
+	    left = init_num(tok->num);
 	    freeValue(tok);
-	    break;
+
+	    return left;
 	case VAL_STR:
-	    tok = getToken(r);
+	    getToken(r);
 	    //printf("exp got: STR(%s)\n", tok->str);
-	    left = init_exp();
-	    left->type = EXP_STR;
-	    left->str = stealTokString(tok); // helper fn makes ownership explicit
-	    freeValue(tok);
-	    break;
+	    left = parse_str(tok, left, r);
+	    freeToken(r)
+	    return left;
 	case VAL_DELIM:
 	    //printf("exp got: DELIM('%c'/%hhu)\n", tok->ch, tok->ch);
 	    if (tok->ch == '\'') {
-		acceptToken(peekToken(r), VAL_DELIM, "'");
-		freeValue(getToken(r));
-		Value *tok = getToken(r);
-		if ((tok->type != VAL_STR) || (!tok->str))
-		    raise_error("unexpected token in character");
-		if (strlen(tok->str) > 1)
-		    raise_error("expected only one character");
-		left = init_exp();
-		left->num = tok->str[0];
-		left->type = EXP_NUM;
-		freeValue(tok);
-		acceptToken(peekToken(r), VAL_DELIM, "'");
-		freeValue(getToken(r));
+	        left = parse_char(tok, left, r);
 	    } else if (tok->ch == '(') {
-		//printf("parenthesis\n");
-		acceptToken(peekToken(r), VAL_DELIM, "(");
-		freeValue(getToken(r));
-		left = parse_exp(0, r);
-		//printf("looking for closing parenthesis:\n");
-		acceptToken(peekToken(r), VAL_DELIM, ")");
-		freeValue(getToken(r));
-	    } else
-		raise_error("unexpected delimiter in exp");
-	    break;
-	default:
-	    raise_error("Unexpected type");
+	        if ((root) && (left->type != EXP_UNARY))
+		   raise_error("invalid expression");
+		return parse_parenthesis(tok, left, r);
+	    } else {
+    		return left;
+	    }
+	    return left;
     }
+    return NULL;
+}
+
+Exp *parse_exp(int minPrio, Reader *r) {
+    //parsing atom:
+    Exp *left = parse_atom(r);
+    if (!left)
+	return NULL;
 
     while (isAlive(r)) {
 	Value *op = peekToken(r);
 	if (!op)
 	    break; //empty token
-    
+
 	if (op->type == VAL_OP) {
 	    int prio = getPrio(op->str);
 	    if (prio < minPrio)
 		break;
+	    
 	    op = getToken(r);
-
 	    //printf("exp got: OP(%c)\n", op->ch);
-	    Exp *exp = init_exp();
-	    exp->type = EXP_OP;
-	    exp->op.left = left;
-	    exp->op.op = stealTokString(op);
-	    exp->op.right = parse_exp(prio+1, r);
-	    left = (Exp *) exp;
-    	    freeValue(op);
-    	} else if (op->type == VAL_DELIM) {
-	    if (op->ch == ')') {
-		//printf("got to end of the parenthesis\n");
-		break;
-	    } if (op->ch != '(')
-		raise_error("unexpected delim in place of operator");
-	    int prio = getPrio("*");
-	    if (prio < minPrio)
-		break;
 
-	    //printf("*parenthesis\n");
-	    Exp *exp = init_exp();
-	    exp->type = EXP_OP;
-	    exp->op.left = left;
-	    exp->op.op = "*";
-	    exp->op.right = parse_exp(prio + 1, r);
-	    left = (Exp *) exp;
-	} else if (op->type == VAL_STR) {
-	    int prio = getPrio("*");
-	    if (prio < minPrio)
-		break;
+	    if (isRightAssoc(op))
+		printf("is right associative");
+       	    left = init_op(left, stealTokString(op), parse_exp(prio+1, r));
 
-	    Exp *exp = init_exp();
-	    exp->type = EXP_OP;
-	    exp->op.left = left;
-	    exp->op.op = "*";
-	    exp->op.right = parse_exp(prio + 1, r);
-	    left = (Exp *) exp;
+	    freeValue(op);
 	} else {
 	    raise_error("Operator is of wrong type");
-	}	
-
+	    break;
+	}
     }
     return left;
 }
