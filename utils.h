@@ -5,9 +5,10 @@
 
 #define MAX_WORD_LEN 32
 #define MAX_NUM_LEN 10
+#define MAX_OP_LEN 3
 #define DELIMS ";()[]{}'"
-#define OP_START "=+-*/%!<>&|"
-#define UNARY_OPS "!-~"
+#define OP_START "=+-*/%!~<>&^|"
+#define RIGHT_ASSOC_PRIO 0
 
 //TODO: add ! handling
 #define KEYWORDS (const char*[]) {"var", "val", "while", "for", "if", "else", "print", "input"}
@@ -17,20 +18,20 @@
     _raise_error((msg), __func__, __FILE__, __LINE__)
 
 
-#define NUM_PRIOS 10
-static const char *OPS[][5] = {         // lowest priority to highest priority:
-    {"=", "+=", "*=", "/=", NULL},	// single equal
-    {"||", NULL},                       // logical or
-    {"&&", NULL},                       // logical and
-    {"|", NULL},                        // bitwiase or
-    {"^", NULL},                        // bitwise xor
-    {"&", NULL},                        // bitwise and
-    {"==", "!=", NULL},                 // equivalence operators
-    {"<", ">", "<=", ">=", NULL},       // relational operators
-    {"<<", ">>"},                       // bitwise shifts
-    {"+", "-", NULL},                   // addition / subtraction
-    {"*", "/", "%", NULL},              // multiplication, division, modulo
-    {"!"}
+#define NUM_PRIOS 12
+static const char *OPS[][10] = {         				// lowest priority to highest priority:
+    {"=", "+=", "*=", "/=", "<<=", ">>=", "&=", "^=", "|=", NULL},	// assignment
+    {"||", NULL},                       				// logical or
+    {"&&", NULL},                       				// logical and
+    {"|", NULL},                        				// bitwiase or
+    {"^", NULL},                        				// bitwise xor
+    {"&", NULL},                        				// bitwise and
+    {"==", "!=", NULL},                 				// equivalence operators
+    {"<", ">", "<=", ">=", NULL},       				// relational operators
+    {"<<", ">>"},                       				// bitwise shifts
+    {"+", "-", NULL},                   				// addition / subtraction
+    {"*", "/", "%", NULL},              				// multiplication, division, modulo
+    {"!", "~", "++", "--"}						// unary
 };
 
 
@@ -56,7 +57,8 @@ typedef struct {
 Reader *readInFile(const char *filename);
 bool isWordChar(const char ch);
 bool isOp(const char *op);
-bool matchesOp(const char *op);
+bool matchesOp(const char op);
+bool isRightAssoc(int prio);
 bool isUnaryOp(const char *op);
 int getPrio(const char *op);
 bool isDelim(char delim);
@@ -79,6 +81,7 @@ Value *getRawToken(Reader *r);
 Value *getToken(Reader *r);
 Value *peekToken(Reader *r);
 void acceptToken(Value *tok, ValueType type, const char *expected);
+void printVal(Value *tok);
 void killReader(Reader *r);
 bool isAlive(Reader *r);
 

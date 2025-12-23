@@ -22,6 +22,7 @@ bool isOp(const char *op) {
 }
 
 int getPrio(const char *op) {
+    //printf("op = \"%s\"\n", op);
     for (int y = 0; y < NUM_PRIOS; y++)
 	for (int x = 0; OPS[y][x] != NULL; x++)
 	    if (!strcmp(OPS[y][x], op))
@@ -29,11 +30,8 @@ int getPrio(const char *op) {
     return -1;
 }
 
-bool isRightAssoc(const char *op) {
-    for (int i = 0; OPS[0][i] != NULL; i++)
-	if (!strcmp(OPS[0][i], op))
-	    return true;
-    return false;
+bool isRightAssoc(int prio) {
+    return ((prio == 0) || (prio == 11));
 }
 
 bool matchesOp(const char op) {
@@ -41,7 +39,9 @@ bool matchesOp(const char op) {
 }
 
 bool isUnaryOp(const char *op) {
-    return strchr(UNARY_OPS, op[0]);
+    int prio = getPrio(op);
+    return ((prio == 9) || (prio == 11));
+}
 
 bool isDelim(const char delim) {
     return (strchr(DELIMS, delim) != NULL);
@@ -67,6 +67,7 @@ Value *initValue() {
 }
 
 void freeValue(Value *val) {
+    //printf("freeing value: %p\n", val);
     if (val->type == VAL_EMPTY)
 	raise_error("Error, double freeing value");
     if ((isStrType(val)) && (val->str != NULL))
@@ -104,6 +105,7 @@ int peek(Reader *r) {
     if (!isAlive(r)) return EOF;
     return r->curr;
 }
+
 int advance(Reader *r) {
     if (!isAlive(r)) return EOF;
 
@@ -143,21 +145,20 @@ char getNextDelim(Reader *r) {
     return '\0';
 }
 
-char *getNextOp(Reader *r) {
+char *getNextOp(Reader *r) { //operates under assumption that all ops can be made from smaller ops : i.e. <<=, <<, <
     if (peek(r) == EOF)
         raise_error("unexpected: reached end of file while reading in binop");
-    if (!strchr(OP_START, peek(r)))
+    if (!matchesOp(peek(r)))
         return NULL;
-    char *out = calloc(3, sizeof(*out));
-    out[0] = (char) advance(r);
-    if (peek(r) == EOF)
-        //raise_error("unexpected: reached end of file while reading in binop");
-	return NULL;
-    out[1] = (char) peek(r);
-    if (!isOp(out))
-	out[1] = '\0';
-    else
-	advance(r);
+    char *out = calloc(MAX_OP_LEN + 1, sizeof(*out));
+    for (int i = 0; ((i < MAX_OP_LEN) && (peek(r) != EOF)); i++) {
+	out[i] = (char) peek(r);
+	if (!isOp(out)) {
+	    out[i] = '\0';
+	    break;
+	} else
+	    advance(r);
+    }
 
     return out;
 }
@@ -257,6 +258,35 @@ void acceptToken(Value *tok, ValueType type, const char *expected) {
 bool isAlive(Reader *r) {
     return r->alive;
 }
+
+void printVal(Value *tok) {
+    if (!tok)
+	printf("NULL()\n");
+    switch (tok->type) {
+	case VAL_KEYWORD:
+	    printf("KEYWORD(%s)\n", tok->str);
+	    break;
+	case VAL_STR:
+	    printf("STR(%s)\n", tok->str);
+	    break;
+	case VAL_OP:
+	    printf("OP(%s)\n", tok->str);
+	    break;
+	case VAL_DELIM:
+	    printf("DELIM(%c)\n", tok->ch);
+	    break;
+	case VAL_NUM:
+	    printf("NUM(%d)\n", tok->num);
+	    break;
+	case VAL_EMPTY:
+	    printf("EMPTY()\n");
+	    break;
+	default:
+	    raise_error("invalid value type\n");
+	    break;
+    }
+}
+
 
 void killReader(Reader *r) {
     //printf("killing now\n");
