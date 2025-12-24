@@ -22,7 +22,6 @@ bool isOp(const char *op) {
 }
 
 int getPrio(const char *op) {
-    //printf("op = \"%s\"\n", op);
     for (int y = 0; y < NUM_PRIOS; y++)
 	for (int x = 0; OPS[y][x] != NULL; x++)
 	    if (!strcmp(OPS[y][x], op))
@@ -41,6 +40,17 @@ bool matchesOp(const char op) {
 bool isUnaryOp(const char *op) {
     int prio = getPrio(op);
     return ((prio == 9) || (prio == 11));
+}
+
+bool isSuffixOp(Value *tok) {
+    if (!tok || (tok->type != VAL_OP) || !(tok->str))
+	return false;
+
+    for (int i = 0; i < SUFFIX_OPS_LEN; i++)
+	if (!strcmp(SUFFIX_OPS[i], tok->str))
+	    return true;
+
+    return false;
 }
 
 bool isDelim(const char delim) {
@@ -72,6 +82,7 @@ void freeValue(Value *val) {
 	raise_error("Error, double freeing value");
     if ((isStrType(val)) && (val->str != NULL))
 	free(val->str);
+    val->type = VAL_EMPTY;
     free(val);
 }
 
@@ -95,7 +106,7 @@ Reader *readInFile(const char *filename) {
     r->curr_token = NULL;
     r->curr = fgetc(r->fp);
     getToken(r); //preloading token (aka first crank);
-    //r->curr_token = getToken(r);
+
     //printf("end of readInFile\n");
     return r;
 }
@@ -152,14 +163,13 @@ char *getNextOp(Reader *r) { //operates under assumption that all ops can be mad
         return NULL;
     char *out = calloc(MAX_OP_LEN + 1, sizeof(*out));
     for (int i = 0; ((i < MAX_OP_LEN) && (peek(r) != EOF)); i++) {
-	out[i] = (char) peek(r);
+    	out[i] = (char) peek(r);
 	if (!isOp(out)) {
 	    out[i] = '\0';
 	    break;
 	} else
 	    advance(r);
     }
-
     return out;
 }
 
@@ -233,14 +243,16 @@ Value *getRawToken(Reader *r) {
 Value *getToken(Reader *r) {
     //printf("getting token: %d\n", isAlive(r));
     if (!isAlive(r)) return NULL;
+
     skip_spaces(r);
+
     Value *out = r->curr_token;
     r->curr_token = getRawToken(r);
-    //printf("returning token %p\n", out);
     return out;
 }
 
 Value *peekToken(Reader *r) {
+    if (!isAlive(r)) return NULL;
     return r->curr_token;
 }
 
@@ -294,7 +306,7 @@ void killReader(Reader *r) {
 
     if (r->curr_token) {
 	Value *tok = r->curr_token;
-	if ((tok->type == VAL_STR) || (tok->type == VAL_KEYWORD) || (tok->type == VAL_OP))
+	if (((tok->type == VAL_STR) || (tok->type == VAL_KEYWORD) || (tok->type == VAL_OP)) && (tok->str))
 	    free(r->curr_token->str);
 	freeValue(r->curr_token);
     }

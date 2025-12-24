@@ -9,29 +9,33 @@
 #define DELIMS ";()[]{}'"
 #define OP_START "=+-*/%!~<>&^|"
 #define RIGHT_ASSOC_PRIO 0
+#define UNARY_OP_PRIO 11
 
 //TODO: add ! handling
 #define KEYWORDS (const char*[]) {"var", "val", "while", "for", "if", "else", "print", "input"}
 #define KEYWORDS_COUNT 8
+
+#define SUFFIX_OPS (const char *[]) {"++", "--"}
+#define SUFFIX_OPS_LEN 2
 
 #define raise_error(msg) \
     _raise_error((msg), __func__, __FILE__, __LINE__)
 
 
 #define NUM_PRIOS 12
-static const char *OPS[][10] = {         				// lowest priority to highest priority:
-    {"=", "+=", "*=", "/=", "<<=", ">>=", "&=", "^=", "|=", NULL},	// assignment
-    {"||", NULL},                       				// logical or
-    {"&&", NULL},                       				// logical and
-    {"|", NULL},                        				// bitwiase or
-    {"^", NULL},                        				// bitwise xor
-    {"&", NULL},                        				// bitwise and
-    {"==", "!=", NULL},                 				// equivalence operators
-    {"<", ">", "<=", ">=", NULL},       				// relational operators
-    {"<<", ">>"},                       				// bitwise shifts
-    {"+", "-", NULL},                   				// addition / subtraction
-    {"*", "/", "%", NULL},              				// multiplication, division, modulo
-    {"!", "~", "++", "--"}						// unary
+static const char *OPS[][12] = {         					// lowest priority to highest priority:
+    {"=", "+=", "-=", "*=", "/=", "%=", "<<=", ">>=", "&=", "^=", "|=", NULL},	// assignment
+    {"||", NULL},                       					// logical or
+    {"&&", NULL},                       					// logical and
+    {"|", NULL},                        					// bitwiase or
+    {"^", NULL},                        					// bitwise xor
+    {"&", NULL},                        					// bitwise and
+    {"==", "!=", NULL},                 					// equivalence operators
+    {"<", ">", "<=", ">=", NULL},       					// relational operators
+    {"<<", ">>"},                       					// bitwise shifts
+    {"+", "-", NULL},                   					// addition / subtraction
+    {"*", "/", "%", NULL},              					// multiplication, division, modulo
+    {"!", "~", "++", "--", NULL}						// unary
 };
 
 
@@ -60,6 +64,7 @@ bool isOp(const char *op);
 bool matchesOp(const char op);
 bool isRightAssoc(int prio);
 bool isUnaryOp(const char *op);
+bool isSuffixOp(Value *tok);
 int getPrio(const char *op);
 bool isDelim(char delim);
 bool isBinOp(const char *binop);

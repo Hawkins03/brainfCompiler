@@ -15,17 +15,17 @@ int main(int argc, char *argv[]) {
 	if (!argv[i])
 	    raise_error("invalid string");
 
-	printf("before\n");
+	//printf("before\n");
 	expression = parse_file(argv[i]);
-	printf("after parse_file %p\n", expression);
+	//printf("after parse_file %p\n", expression);
     	print_full_exp(expression);
-	printf("after print_full_exp\n");
+	//printf("after print_full_exp\n");
 	free_exp(expression);
-	printf("after freeExp\n");
+	//printf("after freeExp\n");
 	expression = NULL;
     }
     if (argc <= 1) {
-	printf("before\n");
+	//printf("before\n");
 	expression = parse_file("example.txt");
 	print_full_exp(expression);
 	free_exp(expression);

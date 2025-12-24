@@ -65,8 +65,8 @@ int main () {
 	test_file("tests/parenthesis2.txt", "OP(STR(x), *, OP(STR(y), +, STR(z)))");
 	test_file("tests/parenthesis3.txt", "OP(OP(STR(x), +, STR(y)), <, STR(z))");
 	test_file("tests/parenthesis4.txt", "OP(STR(x), >, OP(STR(y), +, STR(z)))");
-	test_file("tests/parenthesis5.txt", "OP(OP(STR(x), &&, STR(y)), ||, STR(z))");
-	test_file("tests/parenthesis6.txt", "OP(STR(x), &&, OP(STR(y), ||, STR(z)))");
+	test_file("tests/parenthesis5.txt", "OP(OP(STR(a), &&, STR(b)), ||, STR(c))");
+	test_file("tests/parenthesis6.txt", "OP(STR(a), &&, OP(STR(b), ||, STR(c)))");
 	test_file("tests/parenthesis7.txt", "STR(x)");
 	test_file("tests/parenthesis8.txt", "OP(STR(x), +, OP(STR(y), *, OP(STR(z), +, STR(w))))");
 }

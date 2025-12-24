@@ -23,23 +23,28 @@ void test_file(const char *input_file, const char *expected) {
 
 size_t measure_exp_strlen(const Exp *exp) {
     if (!exp || (exp->type == EXP_EMPTY))
-	return 0;
+	return strlen("NULL");
     int size = 0;
     switch (exp->type) {
 	//STR, NUM, OP, BINOP
-	case (EXP_STR):
+	case EXP_STR:
 	    size += strlen("STR()");
 	    size += strlen(exp->str);
 	    break;
-	case (EXP_NUM):
+	case EXP_NUM:
 	    size += strlen("NUM()");
 	    char buff[11] = {0};
 	    sprintf(buff, "%d", exp->num);
 	    size += strlen(buff);
 	    break;
-	case (EXP_OP):
+	case EXP_OP:
 	    size += measure_exp_strlen(exp->op.left);
-	    size += strlen("OP(, ++, )");
+	    size += strlen("OP(, <<=, )");
+	    size += measure_exp_strlen(exp->op.right);
+	    break;
+	case EXP_UNARY:
+	    size += measure_exp_strlen(exp->op.left);
+	    size += strlen("UNARY(, ++, )");
 	    size += measure_exp_strlen(exp->op.right);
 	    break;
 	default:
@@ -61,6 +66,17 @@ void getExpStr(char *out, const Exp *exp) {
 	    sprintf(out, "OP(");
 	    getExpStr(out + strlen(out), exp->op.left);
 	    sprintf(out + strlen(out), ", %s, ", exp->op.op);
+	    getExpStr(out + strlen(out), exp->op.right);
+	    sprintf(out + strlen(out), ")");
+	    break;
+	case EXP_UNARY:
+	    sprintf(out, "UNARY(");
+	    if (!exp->op.left)
+		sprintf(out + strlen(out), "NULL");
+	    getExpStr(out + strlen(out), exp->op.left);
+	    sprintf(out + strlen(out), ", %s, ", exp->op.op);
+	    if (!exp->op.right)
+		sprintf(out + strlen(out), "NULL");
 	    getExpStr(out + strlen(out), exp->op.right);
 	    sprintf(out + strlen(out), ")");
 	    break;

@@ -17,10 +17,13 @@ void free_exp(Exp *exp) {
 	    break;
 	case EXP_NUM:
 	    break;
+	case EXP_UNARY:
 	case EXP_OP:
 	    free(exp->op.op);
-	    free_exp(exp->op.left);
-	    free_exp(exp->op.right);
+	    if (exp->op.left)
+		free_exp(exp->op.left);
+	    if (exp->op.right)
+		free_exp(exp->op.right);
 	    break;
 	case EXP_EMPTY:
 	    break;
@@ -37,7 +40,8 @@ void print_full_exp(const Exp *exp) {
 
 void print_exp(const Exp *exp) {
     //printf("printing expression:, %p\n", exp);
-    if (exp == NULL) return; //recursion end
+    if (!exp)
+	return;
     switch (exp->type) {
 	case EXP_STR:
 	    printf("NAME(%s) ", exp->str);
@@ -48,9 +52,22 @@ void print_exp(const Exp *exp) {
 	case EXP_OP:
 	    printf("OP( ");
 	    print_exp(exp->op.left);
-	    printf(",%s, ", exp->op.op);
+	    printf(", %s, ", exp->op.op);
 	    print_exp(exp->op.right);
 	    printf(") ");
+	    break;
+	case EXP_UNARY:
+	    printf("UNARY(");
+	    if (!exp->op.left)
+		printf("NULL");
+	    else
+		print_exp(exp->op.left);
+	    printf(", %s, \n", exp->op.op);
+	    if (!exp->op.right)
+		printf("NULL");
+	    else
+		print_exp(exp->op.right);
+	    printf(")");
 	    break;
 	case EXP_EMPTY:
 	    break;
@@ -96,22 +113,33 @@ Exp *init_str(char *str) {    Exp *out = init_exp();
     return out;
 }
 
+Exp *parse_suffix(Exp *left, Reader *r) {
+    //printf("in parseSuffix\n");
+    Value *tok = peekToken(r);
+    if (!isAlive(r) || !tok || !isSuffixOp(tok))
+	return left;
 
-Exp *parse_unary(Value *tok, Exp *left, Reader *r) { //TODO: ensure recursion works properly
-    if (!isUnaryOp(tok->str))
-	return NULL;
+    char *op = stealTokString(tok);
+    freeValue(getToken(r));
     
-    if (left->type == EXP_NUM) // unary operatives are unilaterally right associative
-        return init_unary(left, stealTokString(tok), parse_atom(r));
-    else {
-        Exp *out = init_unary(NULL, stealTokString(tok), parse_atom(r));
-	if (left) {
-	    left->op.right = out;
-	    out = left;
-	}
-	return out;
+    return init_unary(left, op, NULL);
+}
+
+
+Exp *parse_unary(Reader *r) { //TODO: ensure recursion works properly
+    Value *tok = peekToken(r);
+    //printf("in parse_unary:%p\n", tok);
+    if (!tok || !(tok->str) || (!isUnaryOp(tok->str))) {
+	//printf("tok = %p, type = %d, str = %s, %d\n", tok, tok->type == VAL_OP, tok->str, isUnaryOp(tok->str));
+	return NULL;
     }
-    return NULL;
+    
+    char *op = stealTokString(tok);
+    freeValue(getToken(r));
+    Exp *right = parse_atom(r);
+
+    right = parse_suffix(right, r);    
+    return init_unary(NULL, op, right);
 }
 
 Exp *parse_char(Reader *r) {
@@ -120,6 +148,7 @@ Exp *parse_char(Reader *r) {
 
     Value *next = peekToken(r);
     Exp *out;
+
 
     switch (next->type) { //TODO: rework
 	case VAL_STR:
@@ -168,17 +197,17 @@ Exp *parse_parenthesis(Reader *r) {
 
 Exp *parse_atom(Reader *r) {
     Value *tok = peekToken(r);
+    //printf("in parse_atom\n");
     if (!tok)
 	return NULL;
+    //printf("continuing\n");
 
     Exp *exp = NULL;
     switch (tok->type) {
         case VAL_OP:
-    	    exp = parse_unary(tok, NULL, r);
+    	    exp = parse_unary(r);
 	    if (!exp)
 		return NULL;
-
-	    freeValue(getToken(r));
 	    break;
     	case VAL_NUM:
 	    exp = init_num(tok->num);
@@ -188,7 +217,7 @@ Exp *parse_atom(Reader *r) {
 	case VAL_STR:
 	    exp = init_str(stealTokString(tok)); // helper fn makes ownership explicit
 	    freeValue(getToken(r));
-	    return exp;
+	    //printf("after parse_str\n");
 	    break;
 	case VAL_DELIM:
 	    if (tok->ch == '\'') {
@@ -198,17 +227,20 @@ Exp *parse_atom(Reader *r) {
 	    } else {
     		return NULL;
 	    }
+	    break;
 	case VAL_KEYWORD:
 	case VAL_EMPTY:
 	default:
 	    return NULL;
 	    break;
-    }    
+    }
+    //check for suffix
     return exp;
 }
 
 Exp *parse_op(int minPrio, Reader *r) {
     Exp *left = parse_atom(r);
+    //printf("after parse_atom\n");
     if (!left)
 	return NULL;
 
@@ -220,7 +252,7 @@ Exp *parse_op(int minPrio, Reader *r) {
 
 	if (op->type == VAL_OP) {
 	    int prio = getPrio(op->str);
-	    if ((prio < minPrio) && (prio != RIGHT_ASSOC_PRIO))
+	    if (((prio < minPrio) && (prio != RIGHT_ASSOC_PRIO)) || (prio == UNARY_OP_PRIO))
 		break;
 
 	    char *opStr = stealTokString(op);
@@ -244,6 +276,8 @@ Exp *parse_op(int minPrio, Reader *r) {
 Exp *parse_file(const char *filename) {
     Reader *r = readInFile(filename);
     Exp *out = parse_op(0, r);
+    //printf("after parse_op\n");
     killReader(r);
+    //printf("after killReader\n");
     return out;
 }
