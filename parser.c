@@ -33,6 +33,42 @@ void free_exp(Exp *exp) {
     free(exp);
 }
 
+void free_stmt(Stmt *stmt) {
+	if (!stmt)
+		return;
+	switch (stmt->type) {
+		case STMT_EMPTY:
+			break;
+		case STMT_VAR:
+		case STMT_VAL:
+			if (stmt->var.name)
+				free(stmt->var.name);
+			free_exp(stmt->var.init);
+			break;
+		case STMT_LOOP:
+			free_exp(stmt->loop.cond);
+			free_stmt(stmt->loop.body);
+			break;
+		case STMT_IF:
+			free_exp(stmt->ifStmt.cond);
+			free_stmt(stmt->ifStmt.thenStmt);
+			free_stmt(stmt->ifStmt.elseStmt);
+			break;
+		case STMT_EXPR:
+			free_exp(stmt->exp);
+			break;
+		default:
+			raise_error("invalid statement type");
+			break;
+	}
+
+	free(stmt);
+
+	if (stmt->next == stmt)
+		raise_error("recursive statement definition");
+	free(stmt->next);
+}
+
 void print_full_exp(const Exp *exp) {
     print_exp(exp);
     printf("\n");
@@ -76,11 +112,63 @@ void print_exp(const Exp *exp) {
     }   
 }
 
+void print_stmt(const Stmt *stmt) {
+	if (!stmt) {
+		printf("NULL");
+		return;
+	}
+	switch (stmt->type) {
+		case STMT_EMPTY:
+			printf("EMPTY()");
+			break;
+		case STMT_VAR:
+			printf("VAR(%s, ", stmt->var.name);
+			print_exp(stmt->var.init);
+			printf(")");
+			break;
+		case STMT_VAL:
+			printf("VAL(%s, ", stmt->var.name);
+			print_exp(stmt->var.init);
+			printf(")");
+			break;
+		case STMT_LOOP:
+			printf("LOOP(");
+			print_exp(stmt->loop.cond);
+			printf(") {\n");
+			free_stmt(stmt->loop.body);
+			printf("}");
+			break;
+		case STMT_IF:
+			printf("IF(");
+			print_exp(stmt->ifStmt.cond);
+			printf(") {\n");
+			print_stmt(stmt->ifStmt.thenStmt);
+			printf("} else {\n");
+			print_stmt(stmt->ifStmt.elseStmt);
+			printf("}");
+			break;
+		case STMT_EXPR:
+			printf("EXP_");
+			print_exp(stmt->exp);
+			break;
+		default:
+			raise_error("invalid statement type");
+			break;
+	}
+	printf(";\n");
+
+	if (stmt->next == stmt)
+		raise_error("recursive statement definition");
+	print_stmt(stmt->next);
+}
+
 
 Exp *init_exp() {
-    Exp *exp = malloc(sizeof(*exp));
+    Exp *exp = calloc(1, sizeof(*exp));
+	
     if (exp == NULL)
-	raise_error("Error, Bad Malloc on exp");
+		raise_error("Bad malloc");
+
     exp->type = EXP_EMPTY;
     return exp;
 }
@@ -113,6 +201,56 @@ Exp *init_str(char *str) {    Exp *out = init_exp();
     return out;
 }
 
+Stmt *init_stmt() {
+	Stmt *stmt = calloc(1, sizeof(*stmt));
+	if (stmt == NULL)
+		raise_error("Bad mallloc");
+	stmt->type = STMT_EMPTY;
+	return stmt;
+}
+
+Stmt *init_var(char *name, Exp *init, Stmt *next) {
+	Stmt *stmt = init_stmt();
+	stmt->type = STMT_VAR;
+	stmt->var.name = name;
+	stmt->var.init = init;
+	stmt->next = next;
+	return stmt;
+}
+
+Stmt *init_Val(char *name, Exp *init, Stmt *next) {
+	Stmt *stmt = init_var(name, init, next);
+	stmt->type = STMT_VAL;
+	return stmt;
+}
+
+Stmt *init_Loop(Exp *cond, Stmt *body, Stmt *next) {
+	Stmt *stmt = init_stmt();
+	stmt->type = STMT_LOOP;
+	stmt->loop.cond = cond;
+	stmt->loop.body = body;
+	stmt->next = next;
+	return stmt;
+}
+
+Stmt *init_ifStmt(Exp *cond, Stmt *thenStmt, Stmt *elseStmt, Stmt *next) {
+	Stmt *stmt = init_stmt();
+	stmt->type = STMT_IF;
+	stmt->ifStmt.cond = cond;
+	stmt->ifStmt.thenStmt = thenStmt;
+	stmt->ifStmt.elseStmt = elseStmt;
+	stmt->next = next;
+	return stmt;
+}
+
+Stmt *init_expStmt(Exp *exp, Stmt *next) {
+	Stmt *stmt = init_stmt();
+	stmt->type = STMT_EXPR;
+	stmt->exp = exp;
+	stmt->next = next;
+	return stmt;
+}
+
 Exp *parse_suffix(Exp *left, Reader *r) {
     //printf("in parseSuffix\n");
     Value *tok = peekToken(r);
@@ -124,7 +262,6 @@ Exp *parse_suffix(Exp *left, Reader *r) {
     
     return init_unary(left, op, NULL);
 }
-
 
 Exp *parse_unary(Reader *r) { //TODO: ensure recursion works properly
     Value *tok = peekToken(r);
@@ -187,7 +324,7 @@ Exp *parse_parenthesis(Reader *r) {
     acceptToken(peekToken(r), VAL_DELIM, "(");
     freeValue(getToken(r));
 
-    Exp *out = parse_op(0, r);
+    Exp *out = parse_exp(0, r);
     //printf("looking for closing parenthesis:\n");
 
     acceptToken(peekToken(r), VAL_DELIM, ")");
@@ -238,7 +375,7 @@ Exp *parse_atom(Reader *r) {
     return exp;
 }
 
-Exp *parse_op(int minPrio, Reader *r) {
+Exp *parse_exp(int minPrio, Reader *r) {
     Exp *left = parse_atom(r);
     //printf("after parse_atom\n");
     if (!left)
@@ -258,7 +395,7 @@ Exp *parse_op(int minPrio, Reader *r) {
 	    char *opStr = stealTokString(op);
 	    freeValue(getToken(r));
 
-	    left = init_op(left, opStr, parse_op(prio+1, r));
+	    left = init_op(left, opStr, parse_exp(prio+1, r));
 	} else if ((op->type == VAL_DELIM) && (op->ch == ';')) {
 	    freeValue(getToken(r));
 	    return left;
@@ -271,12 +408,40 @@ Exp *parse_op(int minPrio, Reader *r) {
 }
     
 
+Stmt *parse_keyword(Reader *r) {
+	//TODO: finish later.
+}
+
+Stmt *parse_stmt(Reader *r) {
+	if (!isAlive(r)) return NULL;
+	
+	Value *tok = peekToken(r);
+	if (tok == NULL)
+		return NULL;
+	
+	Stmt *out = NULL;
+	
+	switch (tok->type) {
+		case VAL_KEYWORD:
+			out = parse_keyword(r);
+			break;
+		default: //is an exp
+			out = init_expStmt(parse_exp(0, r), NULL);
+			tok = peekToken(r);
+			if ((!tok) || (tok->type != VAL_DELIM) || (tok->ch != ';'))
+				raise_error("expected semicolon at end of statement");
+			freeValue(getToken(r));
+	}
+	
+	out->next = parse_stmt(r);
+	return out;
+}
 
 
-Exp *parse_file(const char *filename) {
+Stmt *parse_file(const char *filename) {
     Reader *r = readInFile(filename);
-    Exp *out = parse_op(0, r);
-    //printf("after parse_op\n");
+    Stmt *out = parse_stmt(r);
+    //printf("after parse_exp\n");
     killReader(r);
     //printf("after killReader\n");
     return out;

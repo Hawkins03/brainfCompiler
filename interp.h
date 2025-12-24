@@ -4,6 +4,6 @@
 
 #define BUFF_SIZE 2048
 
-void bf_interpret(char *input_buff);
+void interp(char *input_buff);
 
 #endif //BF_H

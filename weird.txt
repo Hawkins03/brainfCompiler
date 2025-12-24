@@ -1,0 +1,28 @@
+gcc -Wall -Wextra -std=c11 -g -MMD -MP -c main.c -o main.o
+In file included from parser.h:2,
+                 from main.c:4:
+utils.h:26:20: warning: ‘OPS’ defined but not used [-Wunused-variable]
+   26 | static const char *OPS[][12] = {                                                // lowest priority to highest priority:
+      |                    ^~~
+gcc -Wall -Wextra -std=c11 -g -MMD -MP -c interp.c -o interp.o
+gcc -Wall -Wextra -std=c11 -g -MMD -MP -c parser.c -o parser.o
+In file included from parser.h:2,
+                 from parser.c:6:
+utils.h:26:20: warning: ‘OPS’ defined but not used [-Wunused-variable]
+   26 | static const char *OPS[][12] = {                                                // lowest priority to highest priority:
+      |                    ^~~
+gcc -Wall -Wextra -std=c11 -g -MMD -MP -c utils.c -o utils.o
+gcc -Wall -Wextra -std=c11 -g -MMD -MP -o bfCompiler main.o interp.o parser.o utils.o
+gcc -Wall -Wextra -std=c11 -g -MMD -MP -c runtests.c -o runtests.o
+In file included from parser.h:2,
+                 from runtests.c:1:
+utils.h:26:20: warning: ‘OPS’ defined but not used [-Wunused-variable]
+   26 | static const char *OPS[][12] = {                                                // lowest priority to highest priority:
+      |                    ^~~
+gcc -Wall -Wextra -std=c11 -g -MMD -MP -c test.c -o test.o
+In file included from parser.h:2,
+                 from test.c:9:
+utils.h:26:20: warning: ‘OPS’ defined but not used [-Wunused-variable]
+   26 | static const char *OPS[][12] = {                                                // lowest priority to highest priority:
+      |                    ^~~
+gcc -Wall -Wextra -std=c11 -g -MMD -MP -o bfTester runtests.o interp.o parser.o utils.o test.o

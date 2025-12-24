@@ -12,7 +12,7 @@
 #define UNARY_OP_PRIO 11
 
 //TODO: add ! handling
-#define KEYWORDS (const char*[]) {"var", "val", "while", "for", "if", "else", "print", "input"}
+#define KEYWORDS (const char*[]) {"var", "val", "while", "for", "if", "else", "print", "input", "break", "end"}
 #define KEYWORDS_COUNT 8
 
 #define SUFFIX_OPS (const char *[]) {"++", "--"}
@@ -23,21 +23,7 @@
 
 
 #define NUM_PRIOS 12
-static const char *OPS[][12] = {         					// lowest priority to highest priority:
-    {"=", "+=", "-=", "*=", "/=", "%=", "<<=", ">>=", "&=", "^=", "|=", NULL},	// assignment
-    {"||", NULL},                       					// logical or
-    {"&&", NULL},                       					// logical and
-    {"|", NULL},                        					// bitwiase or
-    {"^", NULL},                        					// bitwise xor
-    {"&", NULL},                        					// bitwise and
-    {"==", "!=", NULL},                 					// equivalence operators
-    {"<", ">", "<=", ">=", NULL},       					// relational operators
-    {"<<", ">>"},                       					// bitwise shifts
-    {"+", "-", NULL},                   					// addition / subtraction
-    {"*", "/", "%", NULL},              					// multiplication, division, modulo
-    {"!", "~", "++", "--", NULL}						// unary
-};
-
+extern const char *OPS[][12];
 
 
 typedef enum {VAL_EMPTY, VAL_STR, VAL_OP, VAL_NUM, VAL_DELIM, VAL_KEYWORD} ValueType;

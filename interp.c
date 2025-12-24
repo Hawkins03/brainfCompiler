@@ -9,7 +9,7 @@
 
 
 
-void bf_interpret(char *input_buff) {
+void interp(char *input_buff) {
     int len = strlen(input_buff);
     int buff[BUFF_SIZE] = {0};
     int *curr_ptr = buff;

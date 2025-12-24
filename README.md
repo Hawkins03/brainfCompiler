@@ -15,3 +15,4 @@ TODO: handle double/single quotes. chars can just be ints, and can handle quotes
 TODO: handle \'
 TODO: find a way to parse functions into brainf.
 TODO: split unary and regular ops
+TODO: handle comments

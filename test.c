@@ -11,7 +11,10 @@
 #include "test.h"
 
 void test_file(const char *input_file, const char *expected) {
-    Exp *exp = parse_file(input_file);
+    Stmt *stmt = parse_file(input_file);
+	if ((!stmt) || (stmt->type != STMT_EXPR) || (!stmt->exp))
+		raise_error("invalid statement"); //TODO: fix later
+	Exp *exp = stmt->exp;
     int size = measure_exp_strlen(exp);
     char *act = calloc(size, sizeof(*act));
     getExpStr(act, exp);

@@ -16,7 +16,7 @@ typedef struct Exp_t {
     };
 } Exp;
 
-typedef enum {STMT_VAR, STMT_LET, STMT_SET, STMT_LOOP, STMT_IF, STMT_EXPR} StmtType;
+typedef enum {STMT_EMPTY, STMT_VAR, STMT_VAL, STMT_LOOP, STMT_IF, STMT_EXPR} StmtType;
 
 typedef struct Stmt_t {
     StmtType type;
@@ -24,26 +24,39 @@ typedef struct Stmt_t {
 	struct { char *name; Exp *init; } var;
 	struct { Exp *cond; struct Stmt_t *body; } loop;
 	struct { Exp *cond; struct Stmt_t *thenStmt; struct Stmt_t *elseStmt;} ifStmt;
-	struct { Exp *exp; } expStmt;
+	Exp *exp;
     };
     struct Stmt_t *next;
 } Stmt;
 
 void free_exp(Exp *exp);
+void free_stmt(Stmt *stmt);
+
 void print_full_exp(const Exp *atom);
 void print_exp(const Exp *exp);
+void print_stmt(const Stmt *stmt);
+
 Exp *init_exp();
 Exp *init_op(Exp *left, char *op, Exp *right);
 Exp *init_unary(Exp *left, char *op, Exp *right);
 Exp *init_num(int num);
 Exp *init_str(char *str);
+
+Stmt *init_stmt();
+Stmt *init_var(char *name, Exp *init, Stmt *next);
+Stmt *init_val(char *name, Exp *init, Stmt *next);
+Stmt *init_loop(Exp *cond, Stmt *body, Stmt *next);
+Stmt *init_ifStmt(Exp *cond, Stmt *thenStmt, Stmt *elseStmt, Stmt *next);
+Stmt *init_expStmt(Exp *exp, Stmt *next);
+
 Exp *parse_unary(Reader *r);
 Exp *parse_char(Reader *r);
 Exp *parse_parenthesis(Reader *r);
 Exp *parse_atom(Reader *r);
-Exp *parse_op(int minPrio, Reader *r);
-//Stmt *parse_stmt(Stmt *prev, Reader *r);
-Exp *parse_file(const char *filename);
+Exp *parse_exp(int minPrio, Reader *r);
+Stmt *parse_keyword(Reader *r);
+Stmt *parse_stmt(Reader *r);
+Stmt *parse_file(const char *filename);
 
 
 #endif //MS_H

@@ -9,6 +9,23 @@
 #include "parser.h"
 #include "utils.h"
 
+const char *OPS[][12] = {         					// lowest priority to highest priority:
+    {"=", "+=", "-=", "*=", "/=", "%=", "<<=", ">>=", "&=", "^=", "|=", NULL},	// assignment
+    {"||", NULL},                       					// logical or
+    {"&&", NULL},                       					// logical and
+    {"|", NULL},                        					// bitwiase or
+    {"^", NULL},                        					// bitwise xor
+    {"&", NULL},                        					// bitwise and
+    {"==", "!=", NULL},                 					// equivalence operators
+    {"<", ">", "<=", ">=", NULL},       					// relational operators
+    {"<<", ">>"},                       					// bitwise shifts
+    {"+", "-", NULL},                   					// addition / subtraction
+    {"*", "/", "%", NULL},              					// multiplication, division, modulo
+    {"!", "~", "++", "--", NULL}						// unary
+};
+
+
+
 bool isWordChar(const char ch) {
     return (isalnum(ch) || (ch == '_'));
 }
