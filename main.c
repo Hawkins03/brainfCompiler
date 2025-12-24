@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <string.h>
-#include "bf.h"
-#include "ms.h"
+#include "interp.h"
+#include "parser.h"
 #include "utils.h"
 
 int main(int argc, char *argv[]) {

@@ -1,6 +1,6 @@
 #include <stdio.h>
 #include <string.h>
-#include "bf.h"
+#include "interp.h"
 
 
 //TODO: pair brackets beforehand, and construct a stack.

@@ -5,8 +5,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "bf.h"
-#include "ms.h"
+#include "interp.h"
+#include "parser.h"
 #include "utils.h"
 
 bool isWordChar(const char ch) {

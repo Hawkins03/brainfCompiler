@@ -3,8 +3,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "ms.h"
-#include "bf.h"
+#include "parser.h"
+#include "interp.h"
 #include "utils.h"
 
 
