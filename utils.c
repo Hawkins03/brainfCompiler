@@ -11,7 +11,8 @@
 
 const char *OPS[][12] = {         					// lowest priority to highest priority:
     {"=", "+=", "-=", "*=", "/=", "%=", "<<=", ">>=", "&=", "^=", "|=", NULL},	// assignment
-    {"||", NULL},                       					// logical or
+	{",", NULL},
+	{"||", NULL},                       					// logical or
     {"&&", NULL},                       					// logical and
     {"|", NULL},                        					// bitwiase or
     {"^", NULL},                        					// bitwise xor
@@ -21,7 +22,7 @@ const char *OPS[][12] = {         					// lowest priority to highest priority:
     {"<<", ">>"},                       					// bitwise shifts
     {"+", "-", NULL},                   					// addition / subtraction
     {"*", "/", "%", NULL},              					// multiplication, division, modulo
-    {"!", "~", "++", "--", NULL}						// unary
+    {"!", "~", "++", "--", NULL}							// unary
 };
 
 
@@ -74,15 +75,8 @@ bool isDelim(const char delim) {
     return (strchr(DELIMS, delim) != NULL);
 }
 
-bool isKeyword(const char *keyword) {
-    for (int i = 0; i < KEYWORDS_COUNT; i++)
-	if (!strcmp(KEYWORDS[i], keyword))
-	    return true;
-    return false;
-}
-
 bool isStrType(Value *v) {
-    return ((v->type == VAL_STR) || (v->type == VAL_KEYWORD) || (v->type == VAL_OP));
+    return ((v->type == VAL_STR) || (v->type == VAL_OP));
 }
 
 Value *initValue() {
@@ -220,39 +214,56 @@ char *getNextWord(Reader *r) {
     return word;
 }
 
+int getKeyIndex(char *keyword) {
+	if (!keyword)
+		return -1;
+	for (int i = 0; i < KEYWORDS_COUNT; i++) {
+		if (!strcmp(KEYWORDS[i], keyword))
+			return i;
+	}
+	return -1;
+}
+
+char *getKeyStr(const int key_index) {
+	return KEYWORDS[key_index];
+}
+
 Value *getRawToken(Reader *r) {
     Value *val = initValue();
     if (peek(r) == EOF) return NULL;
     //printf("getting raw token, peek(r) = '%c'\n", (char) peek(r));
     if (isalpha(peek(r))) {
-	char *out = getNextWord(r);
-	if (isKeyword(out))
-	    val->type = VAL_KEYWORD;
-	else
-	    val->type = VAL_STR;
-	//printf("STR(%s)\n", out);
-	val->str = out;
+		char *out = getNextWord(r);
+		int i = getKeyIndex(out);
+		if (i != -1) {
+			val->type = VAL_KEYWORD;
+			val->num = i;
+			free(out);
+		} else {
+			val->type = VAL_STR;
+			val->str = out;
+		}
     } else if (matchesOp(peek(r))) {
-	char *out = getNextOp(r);
-	val->type = VAL_OP;
-	val->str = out;
-	//printf("OP(%c)\n", out);
+		char *out = getNextOp(r);
+		val->type = VAL_OP;
+		val->str = out;
+		//printf("OP(%c)\n", out);
     } else if (isDelim(peek(r))) {
-	char delim = getNextDelim(r);
+		char delim = getNextDelim(r);
         val->type = VAL_DELIM;
         val->ch = delim;
         //printf("DELIM(%c)\n", delim);
     } else if (isdigit(peek(r))) {
-	int out = getNextNum(r);
-	val->type = VAL_NUM;
-	val->num = out;
-	//printf("NUM(%d)\n", val->num);
-    } else if (!isAlive(r)) {
-	free(val);
-	return NULL;
+		int out = getNextNum(r);
+		val->type = VAL_NUM;
+		val->num = out;
+		//printf("NUM(%d)\n", val->num);
+	} else if (!isAlive(r)) {
+		free(val);
+		return NULL;
     } else {
-	free(val);
-	raise_error("Error, unexpected character");
+		free(val);
+		raise_error("Error, unexpected character");
     }
     return val;
 }
@@ -275,13 +286,15 @@ Value *peekToken(Reader *r) {
 
 void acceptToken(Value *tok, ValueType type, const char *expected) {
     if (!tok || !tok->str || !expected)
-	raise_error("Invalid Null token value");
+		raise_error("Invalid Null token value");
     if (tok->type != type)
-	raise_error("Invalid token type");
+		raise_error("Invalid token type");
+	if ((tok->type == VAL_KEYWORD) && strcmp(getKeyStr(tok->num), expected))
+		raise_error("Unexpected keyword value");
     if (isStrType(tok) && strcmp(tok->str, expected))
-	raise_error("Unexpected token value");
+		raise_error("Unexpected token value");
     else if (!isStrType(tok) && (tok->ch != expected[0]))
-	raise_error("Unexpected token value");
+		raise_error("Unexpected token value");
 }
 
 bool isAlive(Reader *r) {
@@ -293,7 +306,7 @@ void printVal(Value *tok) {
 	printf("NULL()\n");
     switch (tok->type) {
 	case VAL_KEYWORD:
-	    printf("KEYWORD(%s)\n", tok->str);
+	    printf("KEYWORD(%s)\n", getKeyStr(tok->num));
 	    break;
 	case VAL_STR:
 	    printf("STR(%s)\n", tok->str);
@@ -323,7 +336,7 @@ void killReader(Reader *r) {
 
     if (r->curr_token) {
 	Value *tok = r->curr_token;
-	if (((tok->type == VAL_STR) || (tok->type == VAL_KEYWORD) || (tok->type == VAL_OP)) && (tok->str))
+	if (((tok->type == VAL_STR) || (tok->type == VAL_OP)) && (tok->str))
 	    free(r->curr_token->str);
 	freeValue(r->curr_token);
     }
