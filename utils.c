@@ -57,7 +57,7 @@ bool matchesOp(const char op) {
 
 bool isUnaryOp(const char *op) {
     int prio = getPrio(op);
-    return ((prio == 9) || (prio == 11));
+    return ((prio == 10) || (prio == 12));
 }
 
 bool isSuffixOp(Value *tok) {
@@ -214,18 +214,18 @@ char *getNextWord(Reader *r) {
     return word;
 }
 
-int getKeyIndex(char *keyword) {
+KeyType getKeyType(char *keyword) {
 	if (!keyword)
 		return -1;
 	for (int i = 0; i < KEYWORDS_COUNT; i++) {
 		if (!strcmp(KEYWORDS[i], keyword))
-			return i;
+			return (KeyType) i;
 	}
 	return -1;
 }
 
-char *getKeyStr(const int key_index) {
-	return KEYWORDS[key_index];
+const char *getKeyStr(KeyType key) {
+	return KEYWORDS[key];
 }
 
 Value *getRawToken(Reader *r) {
@@ -234,10 +234,10 @@ Value *getRawToken(Reader *r) {
     //printf("getting raw token, peek(r) = '%c'\n", (char) peek(r));
     if (isalpha(peek(r))) {
 		char *out = getNextWord(r);
-		int i = getKeyIndex(out);
-		if (i != -1) {
+		KeyType key = getKeyType(out);
+		if (key != -1) {
 			val->type = VAL_KEYWORD;
-			val->num = i;
+			val->key = key;
 			free(out);
 		} else {
 			val->type = VAL_STR;
@@ -262,6 +262,7 @@ Value *getRawToken(Reader *r) {
 		free(val);
 		return NULL;
     } else {
+		printf("val = %c, %d\n", peek(r), matchesOp(peek(r)));
 		free(val);
 		raise_error("Error, unexpected character");
     }
@@ -284,17 +285,28 @@ Value *peekToken(Reader *r) {
     return r->curr_token;
 }
 
-void acceptToken(Value *tok, ValueType type, const char *expected) {
-    if (!tok || !tok->str || !expected)
+void acceptToken(Reader *r, ValueType type, const char *expected) {
+	Value *tok = getToken(r);
+    if (!tok)
 		raise_error("Invalid Null token value");
-    if (tok->type != type)
+	if (!expected)
+		raise_error("Invalid expected value");
+    if (tok->type != type) {
+		printf("type = %d vs %d\n", type, tok->type);
 		raise_error("Invalid token type");
-	if ((tok->type == VAL_KEYWORD) && strcmp(getKeyStr(tok->num), expected))
-		raise_error("Unexpected keyword value");
-    if (isStrType(tok) && strcmp(tok->str, expected))
-		raise_error("Unexpected token value");
-    else if (!isStrType(tok) && (tok->ch != expected[0]))
-		raise_error("Unexpected token value");
+	}
+	
+	if (tok->type == VAL_KEYWORD) {
+		if (strcmp(getKeyStr(tok->key), expected))
+			raise_error("Unexpected keyword value");
+    } else if (isStrType(tok)) {
+		if (!tok->str || strcmp(tok->str, expected))
+			raise_error("Unexpected token value");
+    } else if (tok->type == VAL_DELIM) {
+		if (tok->ch != expected[0])
+			raise_error("Unexpected token value");
+	}
+	freeValue(tok);
 }
 
 bool isAlive(Reader *r) {
@@ -306,7 +318,7 @@ void printVal(Value *tok) {
 	printf("NULL()\n");
     switch (tok->type) {
 	case VAL_KEYWORD:
-	    printf("KEYWORD(%s)\n", getKeyStr(tok->num));
+	    printf("KEYWORD(%s)\n", getKeyStr(tok->key));
 	    break;
 	case VAL_STR:
 	    printf("STR(%s)\n", tok->str);

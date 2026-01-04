@@ -39,7 +39,6 @@ void free_stmt(Stmt *stmt) {
 	switch (stmt->type) {
 		case STMT_EMPTY:
 			break;
-			break;
 		case STMT_LOOP:
 			free_exp(stmt->loop.cond);
 			free_stmt(stmt->loop.body);
@@ -90,19 +89,21 @@ void print_exp(const Exp *exp) {
 	case EXP_UNARY:
 	    printf("UNARY(");
 	    if (!exp->op.left)
-		printf("NULL");
+			printf("NULL");
 	    else
 		print_exp(exp->op.left);
 	    printf(", %s, \n", exp->op.op);
 	    if (!exp->op.right)
-		printf("NULL");
+			printf("NULL");
 	    else
-		print_exp(exp->op.right);
+			print_exp(exp->op.right);
 	    printf(")");
 	    break;
 	case EXP_CALL:
-		printf("%s(", exp->call.name);
+		printf("%s(", getKeyStr(exp->call.key));
 		print_exp(exp->call.call);
+		printf(")");
+		break;
 	case EXP_EMPTY:
 	    break;
 	default:
@@ -112,7 +113,7 @@ void print_exp(const Exp *exp) {
 
 void print_stmt(const Stmt *stmt) {
 	if (!stmt) {
-		printf("NULL");
+		printf("NULL\n");
 		return;
 	}
 	switch (stmt->type) {
@@ -123,7 +124,7 @@ void print_stmt(const Stmt *stmt) {
 			printf("LOOP(");
 			print_exp(stmt->loop.cond);
 			printf(") {\n");
-			free_stmt(stmt->loop.body);
+			print_stmt(stmt->loop.body);
 			printf("}");
 			break;
 		case STMT_IF:
@@ -188,10 +189,10 @@ Exp *init_str(char *str) {    Exp *out = init_exp();
     return out;
 }
 
-Exp *init_call(char *name, Exp *call) {
+Exp *init_call(KeyType key, Exp *call) {
 	Exp *exp = init_exp();
 	exp->type = EXP_CALL;
-	exp->call.name = name;
+	exp->call.key = key;
 	exp->call.call = call;
 	return exp;
 }
@@ -233,74 +234,53 @@ Stmt *init_expStmt(Exp *exp, Stmt *next) {
 
 
 Exp *parsePrint(Reader *r) {
-	acceptToken(peekToken(r), VAL_KEYWORD, "print");
-    freeValue(getToken(r));
+	acceptToken(r, VAL_KEYWORD, "print");
+    acceptToken(r, VAL_DELIM, "(");
 
-    acceptToken(peekToken(r), VAL_DELIM, "(");
-    freeValue(getToken(r));
+	Exp *exp = init_call(KW_PRINT, parse_atom(r));
 	
-	Exp *exp = init_call("print", parse_exp(0, r));
-	
-	acceptToken(peekToken(r), VAL_DELIM, ")");
-	freeValue(getToken(r));
-	acceptToken(peekToken(r), VAL_DELIM, ";");
-	freeValue(getToken(r));
+	acceptToken(r, VAL_DELIM, ")");
+	acceptToken(r, VAL_DELIM, ";");
 	
 	return exp;
 }
 
 Exp *parseInput(Reader *r) {
-	acceptToken(peekToken(r), VAL_KEYWORD, "input");
-    freeValue(getToken(r));
-    acceptToken(peekToken(r), VAL_DELIM, "(");
-    freeValue(getToken(r));
+	acceptToken(r, VAL_KEYWORD, "input");
+    acceptToken(r, VAL_DELIM, "(");
 	
-	acceptToken(peekToken(r), VAL_DELIM, ")");
-	freeValue(getToken(r));
-	acceptToken(peekToken(r), VAL_DELIM, ";");
-	freeValue(getToken(r));
+	acceptToken(r, VAL_DELIM, ")");
+	acceptToken(r, VAL_DELIM, ";");
 	
-	return init_call("input", NULL);;
+	return init_call(KW_INPUT, NULL);;
 }
 
-Exp *parseBreak(Reader *r) { //TODO: need to figure out how to actually handle keywords. (probs as expressions)
-	acceptToken(peekToken(r), VAL_KEYWORD, "break");
-    freeValue(getToken(r));
-
-    acceptToken(peekToken(r), VAL_DELIM, ";");
-    freeValue(getToken(r));
-    return init_call("break", NULL);
+Exp *parseBreak(Reader *r) {
+	acceptToken(r, VAL_KEYWORD, "break");
+    acceptToken(r, VAL_DELIM, ";");
+    return init_call(KW_BREAK, NULL);
 }
 
-Exp *parseEnd(Reader *r) {
-	acceptToken(peekToken(r), VAL_KEYWORD, "end");
-    freeValue(getToken(r));
-
-    acceptToken(peekToken(r), VAL_DELIM, ";");
-    freeValue(getToken(r));
-    return init_call("end", NULL);
+Exp *parseEnd(Reader *r) { //TODO: just use break to simplify language
+	acceptToken(r, VAL_KEYWORD, "end");
+    acceptToken(r, VAL_DELIM, ";");
+    return init_call(KW_END, NULL);
 }
 
 Exp *parse_call(Reader *r) {
 	Value *tok = peekToken(r);
-	if (!tok)
-		return NULL;
-	if (tok->type != VAL_KEYWORD)
+	if ((!tok) || (tok->type != VAL_KEYWORD))
 		return NULL;
 	
-	switch (tok->num) {
-		case 6: //PRINT
+	switch (tok->key) {
+		case KW_PRINT: //PRINT
 			return parsePrint(r);
-			break;
-		case 7: //INPUT
+		case KW_INPUT: //INPUT
 			return parseInput(r);
-			break;
-		case 8: //BREAK
+		case KW_BREAK: //BREAK
 			return parseBreak(r);
-			break;
-		case 9: //END
+		case KW_END: //END
 			return parseEnd(r);
-			break;
 		default:
 			raise_error("invalid value");
 			return NULL;
@@ -321,13 +301,10 @@ Exp *parse_suffix(Exp *left, Reader *r) {
     return init_unary(left, op, NULL);
 }
 
-Exp *parse_unary(Reader *r) { //TODO: ensure recursion works properly
+Exp *parse_unary(Reader *r) {
     Value *tok = peekToken(r);
-    //printf("in parse_unary:%p\n", tok);
-    if (!tok || !(tok->str) || (!isUnaryOp(tok->str))) {
-	//printf("tok = %p, type = %d, str = %s, %d\n", tok, tok->type == VAL_OP, tok->str, isUnaryOp(tok->str));
-	return NULL;
-    }
+    if (!tok || !(tok->str) || (!isUnaryOp(tok->str)))
+		return NULL;
     
     char *op = stealTokString(tok);
     freeValue(getToken(r));
@@ -338,8 +315,7 @@ Exp *parse_unary(Reader *r) { //TODO: ensure recursion works properly
 }
 
 Exp *parse_char(Reader *r) {
-    acceptToken(peekToken(r), VAL_DELIM, "'");
-    freeValue(getToken(r));
+    acceptToken(r, VAL_DELIM, "'");
 
     Value *next = peekToken(r);
     Exp *out;
@@ -371,22 +347,19 @@ Exp *parse_char(Reader *r) {
     }
     freeValue(getToken(r)); // don't move to parse_atom
 
-    acceptToken(peekToken(r), VAL_DELIM, "'");
-    freeValue(getToken(r));
+    acceptToken(r, VAL_DELIM, "'");
 
     return out;
 }
 
 Exp *parse_parenthesis(Reader *r) {
     //printf("parenthesis\n");
-    acceptToken(peekToken(r), VAL_DELIM, "(");
-    freeValue(getToken(r));
+    acceptToken(r, VAL_DELIM, "(");
 
     Exp *out = parse_exp(0, r);
     //printf("looking for closing parenthesis:\n");
 
-    acceptToken(peekToken(r), VAL_DELIM, ")");
-    freeValue(getToken(r));
+    acceptToken(r, VAL_DELIM, ")");
     return out;
 }
 
@@ -457,8 +430,7 @@ Exp *parse_exp(int minPrio, Reader *r) {
 
 	    left = init_op(left, opStr, parse_exp(prio+1, r));
 	} else if ((op->type == VAL_DELIM) && (op->ch == ';')) {
-	    freeValue(getToken(r));
-	    return left;
+	    break;
 	} else {
 	    //printf("op->type = %d", op->type);
 	    break;
@@ -466,152 +438,116 @@ Exp *parse_exp(int minPrio, Reader *r) {
     }
     return left;
 }
-
    
-Stmt *parseVar(Reader *r) {
-	acceptToken(peekToken(r), VAL_KEYWORD, "var");
-    freeValue(getToken(r));
+Stmt *parseVar(Reader *r, bool is_mutable) {
+	KeyType key = is_mutable ? KW_VAR : KW_VAL;
+	acceptToken(r, VAL_KEYWORD, getKeyStr(key));
 
 	Value *tok = peekToken(r);
-	if ((tok->type != VAL_STR) || (!tok->str))
+	if ((!tok) || (tok->type != VAL_STR) || (!tok->str))
 		raise_error("invalid variable name");
 	
-	Exp *exp = init_call("var", parse_exp(0, r)); //= is an op, so this should be OP(STR(...), =, OP(...))
+	Exp *exp = init_call(key, parse_exp(0, r)); //= is an op, so this should be OP(STR(...), =, OP(...))
 	
-	acceptToken(peekToken(r), VAL_DELIM, ";");
-    freeValue(getToken(r));
-	return init_expStmt(exp, parse_stmt(r));
-}
-
-Stmt *parseVal(Reader *r) {
-	acceptToken(peekToken(r), VAL_KEYWORD, "val");
-    freeValue(getToken(r));
-
-	Value *tok = peekToken(r);
-	if ((tok->type != VAL_STR) || (!tok->str))
-		raise_error("invalid variable name");
-	
-	Exp *exp = init_call("var", parse_exp(0, r)); //= is an op, so this should be OP(STR(...), =, OP(...))
-	
-	acceptToken(peekToken(r), VAL_DELIM, ";");
-    freeValue(getToken(r));
+	acceptToken(r, VAL_DELIM, ";");
 	return init_expStmt(exp, parse_stmt(r));
 }
 
 Stmt *parseWhile(Reader *r) {
-	acceptToken(peekToken(r), VAL_KEYWORD, "while");
-    freeValue(getToken(r));
-
-	acceptToken(peekToken(r), VAL_DELIM, "(");
-    freeValue(getToken(r));
+	acceptToken(r, VAL_KEYWORD, "while");
+	acceptToken(r, VAL_DELIM, "(");
 
 	Exp *cond = parse_exp(0, r);
 
-	acceptToken(peekToken(r), VAL_DELIM, ")");
-    freeValue(getToken(r));
-
-	acceptToken(peekToken(r), VAL_DELIM, "{");
-    freeValue(getToken(r));
+	acceptToken(r, VAL_DELIM, ")");
+	acceptToken(r, VAL_DELIM, "{");
 
 	Stmt *body = parse_stmt(r);
 
-	acceptToken(peekToken(r), VAL_DELIM, "}");
-    freeValue(getToken(r));
+	acceptToken(r, VAL_DELIM, "}");
 	
 	return init_Loop(cond, body, parse_stmt(r));
 }
 
 Stmt *parseFor(Reader *r) { //TODO
 	/* structure of a for loop:
-		"for" "("<initialization> ";" <condition> ";" <update> ")" "{" <body> "}" <next>
-	*/
+        "for" "("<initialization> ";" <condition> ";" <update> ")" "{" <body> "}" <next>
+        
+        Output structure:
+        <initialization> -> <loop> -> parse_stmt(r)
+							  \/
+                    <body> -> <update>
+    */
 	
-	acceptToken(peekToken(r), VAL_KEYWORD, "for");
-    freeValue(getToken(r));
-	
-	acceptToken(peekToken(r), VAL_DELIM, "(");
-    freeValue(getToken(r));
+	acceptToken(r, VAL_KEYWORD, "for");
+	acceptToken(r, VAL_DELIM, "(");
 
 	Exp *init = parse_exp(0, r);
 	
-	acceptToken(peekToken(r), VAL_DELIM, ";");
-    freeValue(getToken(r));
+	acceptToken(r, VAL_DELIM, ";");
 
 	Exp *cond = parse_exp(0, r);
 	
-	acceptToken(peekToken(r), VAL_DELIM, ";");
-    freeValue(getToken(r));
+	acceptToken(r, VAL_DELIM, ";");
 
 	Exp *update = parse_exp(0, r);
-	acceptToken(peekToken(r), VAL_DELIM, ")");
-    freeValue(getToken(r));
 
-	acceptToken(peekToken(r), VAL_DELIM, "{");
-    freeValue(getToken(r));
+	acceptToken(r, VAL_DELIM, ")");
+	acceptToken(r, VAL_DELIM, "{");
 	
 	Stmt *body = parse_stmt(r);
 	
-	acceptToken(peekToken(r), VAL_DELIM, "}");
-    freeValue(getToken(r));
+	acceptToken(r, VAL_DELIM, "}");
 	
 	Stmt *curr = body;
-	while (curr->next != NULL)
-		curr = curr->next;
-	
-	curr->next = init_expStmt(update, NULL);
+	if (curr) {
+		while (curr->next != NULL)
+			curr = curr->next;
+		curr->next = init_expStmt(update, NULL);
+	} else
+		body = init_expStmt(update, NULL);
 	return init_expStmt(init, init_Loop(cond, body, parse_stmt(r)));
 }
 
 extern Stmt *parseElse(Reader *r);
 
 Stmt *parseIf(Reader *r) {
-	acceptToken(peekToken(r), VAL_KEYWORD, "if");
-    freeValue(getToken(r));
-
-	acceptToken(peekToken(r), VAL_DELIM, "(");
-    freeValue(getToken(r));
+	acceptToken(r, VAL_KEYWORD, "if");
+	acceptToken(r, VAL_DELIM, "(");
 
 	Exp *cond = parse_exp(0, r);
 
-	acceptToken(peekToken(r), VAL_DELIM, ")");
-    freeValue(getToken(r));
-
-	acceptToken(peekToken(r), VAL_DELIM, "{");
-    freeValue(getToken(r));
+	acceptToken(r, VAL_DELIM, ")");
+	acceptToken(r, VAL_DELIM, "{");
 
 	Stmt *then = parse_stmt(r);
 
-	acceptToken(peekToken(r), VAL_DELIM, "}");
-    freeValue(getToken(r));
+	acceptToken(r, VAL_DELIM, "}");
 
 	Value *tok = peekToken(r);
 	Stmt *elseStmt = NULL;
-	if ((tok) && (tok->type == VAL_KEYWORD) && (tok->num == 5)) {//5 =	else
+	if ((tok) && (tok->type == VAL_KEYWORD) && (tok->key == KW_ELSE))
 		elseStmt = parseElse(r);
-	}
 	
 	return init_ifStmt(cond, then, elseStmt, parse_stmt(r));
 }
 
 Stmt *parseElse(Reader *r) {
-	acceptToken(peekToken(r), VAL_KEYWORD, "if");
-    freeValue(getToken(r));
-	
+	acceptToken(r, VAL_KEYWORD, "else");
+
 	Value *tok = peekToken(r);
 	if (!tok)
 		raise_error("expected statement after else");
 
 
-	if ((tok->type == VAL_KEYWORD) && (tok->num == 4))
+	if ((tok->type == VAL_KEYWORD) && (tok->key == KW_IF))
 		return parseIf(r);
 	else {
-		acceptToken(peekToken(r), VAL_DELIM, "{");
-		freeValue(getToken(r));
+		acceptToken(r, VAL_DELIM, "{");
 
 		Stmt *then = parse_stmt(r);
 
-		acceptToken(peekToken(r), VAL_DELIM, "}");
-		freeValue(getToken(r));
+		acceptToken(r, VAL_DELIM, "}");
 		return then;
 	}
 }
@@ -623,22 +559,16 @@ Stmt *parse_keyword(Reader *r) {
 	if (tok->type != VAL_KEYWORD)
 		return NULL;
 	
-	switch (tok->num) {
-		case 0: //VAR
-			return parseVar(r);
-			break;
-		case 1: //VAL
-			return parseVal(r);
-			break;
-		case 2: //WHILE:
+	switch (tok->key) {
+		case KW_VAR:
+		case KW_VAL:
+			return parseVar(r, tok->key == KW_VAR);
+		case KW_WHILE:
 			return parseWhile(r);
-			break;
-		case 3: //FOR
+		case KW_FOR:
 			return parseFor(r);
-			break;
-		case 4: //IF, 5 = ELSE
+		case KW_IF:
 			return parseIf(r);
-			break;
 		default:
 			Exp *expcall = parse_call(r);
 			if (!expcall)
@@ -666,9 +596,10 @@ Stmt *parse_stmt(Reader *r) {
 		default: //is an exp
 			out = init_expStmt(parse_exp(0, r), NULL);
 			tok = peekToken(r);
-			if ((!tok) || (tok->type != VAL_DELIM) || (tok->ch != ';'))
-				raise_error("expected semicolon at end of statement");
-			freeValue(getToken(r));
+			if (tok)
+				acceptToken(r, VAL_DELIM, ";");
+			else
+				return out;
 	}
 	
 	out->next = parse_stmt(r);

@@ -1,7 +1,8 @@
-#include <stdbool.h>
-#include "utils.h"
 #ifndef MS_H
 #define MS_H
+
+#include <stdbool.h>
+#include "utils.h"
 
 struct MS_Exp;
 
@@ -12,7 +13,7 @@ typedef struct Exp_t {
     union {//e.as (e.as.name for example).
 	char *str;
 	int num;
-	struct { char *name; struct Exp_t *call; } call;
+	struct { KeyType key; struct Exp_t *call; } call;
 	struct { struct Exp_t *left, *right; char *op; } op;
     };
 } Exp;
@@ -41,7 +42,7 @@ Exp *init_op(Exp *left, char *op, Exp *right);
 Exp *init_unary(Exp *left, char *op, Exp *right);
 Exp *init_num(int num);
 Exp *init_str(char *str);
-Exp *init_call(char *name, Exp *call);
+Exp *init_call(KeyType key, Exp *call);
 
 Stmt *init_stmt();
 Stmt *init_loop(Exp *cond, Stmt *body, Stmt *next);

@@ -39,9 +39,10 @@ int main () {
 	test_file("tests/binary24.txt", "OP(STR(x), %=, STR(y))");
 	test_file("tests/binary25.txt", "OP(STR(x), <<=, STR(y))");
 	test_file("tests/binary26.txt", "OP(STR(x), >>=, STR(y))");
-	test_file("tests/binary27.txt", "OP(STR(x), &=, STR(y))");
-	test_file("tests/binary28.txt", "OP(STR(x), ^=, STR(y))");
-	test_file("tests/binary29.txt", "OP(STR(x), |=, STR(y))");
+	test_file("tests/binary27.txt", "OP(STR(x), ,, STR(y))");
+	test_file("tests/binary28.txt", "OP(STR(x), &=, STR(y))");
+	test_file("tests/binary29.txt", "OP(STR(x), ^=, STR(y))");
+	test_file("tests/binary30.txt", "OP(STR(x), |=, STR(y))");
 	
 	test_file("tests/prec1.txt", "OP(STR(x), +, OP(STR(y), *, STR(z)))");
 	test_file("tests/prec2.txt", "OP(OP(STR(x), *, STR(y)), +, STR(z))");

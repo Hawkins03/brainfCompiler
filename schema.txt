@@ -1,0 +1,24 @@
+// the names following are the values held in each datatype
+
+<Stmt> 	::= <Exp> ";"
+		::= "var"||"val" <name> "=" <Exp> ";" <Stmt> //technically just "var"||"val" <Exp>; <Stmt> ()
+		::= "if (" <Exp> ") {" <Stmt> "}"  ( "else {" <Stmt> "}" )* <Stmt>  //cond, thenStmt, elseStmt, Next
+		::= "while (" <Exp> ") {" <Stmt> "}" <Stmt> //cond, body, next
+		::= "for (" <Exp> ";" <Exp> ";" <Exp> ") {" <Stmt>  "}" <Stmt> //initializaiton, cond, itteration, body, next
+		::= "" //Endpoint for recursion purposes
+
+<name> 	::= [a-zA-Z][a-zA-Z0-9_]+
+
+<Atom>	::= <name>
+		::= [0-9]+
+		::= <Unary><Atom>
+		::= <Atom><Un_suffix>
+		::= "(" <Exp> ")"
+		::= "'" <char> "'"
+		::= "break" || "end" || "input()" || "print(" <atom> ")"
+//possible <Unary> values = {"!", "~", "++", "--", NULL}
+//possible <Un_suffix> values = {"++", "--"}
+// <char> is just a single char stored as an int
+<Exp>	::= <Atom>
+		::= <Exp> <Op> <Exp>
+// <op> is defined at the start of utils.c

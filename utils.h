@@ -7,13 +7,13 @@
 #define MAX_NUM_LEN 10
 #define MAX_OP_LEN 3
 #define DELIMS ";()[]{}'"
-#define OP_START "=+-*/%!~<>&^|"
+#define OP_START "=+-*/%!~<>&^|,"
 #define RIGHT_ASSOC_PRIO 0
-#define UNARY_OP_PRIO 11
+#define UNARY_OP_PRIO 12
 
 //TODO: add ! handling
 #define KEYWORDS (const char*[]) {"var", "val", "while", "for", "if", "else", "print", "input", "break", "end"}
-#define KEYWORDS_COUNT 8
+#define KEYWORDS_COUNT 10
 
 #define SUFFIX_OPS (const char *[]) {"++", "--"}
 #define SUFFIX_OPS_LEN 2
@@ -22,16 +22,21 @@
     _raise_error((msg), __func__, __FILE__, __LINE__)
 
 
-#define NUM_PRIOS 12
+#define NUM_PRIOS 13
 extern const char *OPS[][12];
 
-
+typedef enum {
+		KW_INVALID = -1,
+		KW_VAR = 0, KW_VAL, KW_WHILE, KW_FOR, 
+		KW_IF, KW_ELSE, KW_PRINT, KW_INPUT, KW_BREAK, KW_END
+   } KeyType;
 typedef enum {VAL_EMPTY, VAL_STR, VAL_OP, VAL_NUM, VAL_DELIM, VAL_KEYWORD} ValueType;
 typedef struct Value {
     ValueType type;
     union {
 	char *str;
 	int num;
+	KeyType key;
 	char ch;
     };
 } Value;
@@ -64,14 +69,14 @@ void skip_spaces(Reader *r);
 char *stealTokString(Value *tok);
 int getNextNum(Reader *r);
 char *getNextWord(Reader *r);
-int getKeyIndex(char *keyword);
-char *getKeyStr(int key_index);
+KeyType getKeyType(char *keyword);
+const char *getKeyStr(KeyType key);
 char *getNextOp(Reader *r);
 char getNextDelim(Reader *r);
 Value *getRawToken(Reader *r);
 Value *getToken(Reader *r);
 Value *peekToken(Reader *r);
-void acceptToken(Value *tok, ValueType type, const char *expected);
+void acceptToken(Reader *r, ValueType type, const char *expected);
 void printVal(Value *tok);
 void killReader(Reader *r);
 bool isAlive(Reader *r);
