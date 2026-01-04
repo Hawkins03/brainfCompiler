@@ -72,6 +72,7 @@ char *getNextWord(Reader *r);
 KeyType getKeyType(char *keyword);
 const char *getKeyStr(KeyType key);
 char *getNextOp(Reader *r);
+int getCharacterValue(Reader *r); // i.e. for the input " 'x'; " it returns the ascii value of x.
 char getNextDelim(Reader *r);
 Value *getRawToken(Reader *r);
 Value *getToken(Reader *r);

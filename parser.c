@@ -314,44 +314,6 @@ Exp *parse_unary(Reader *r) {
     return init_unary(NULL, op, right);
 }
 
-Exp *parse_char(Reader *r) {
-    acceptToken(r, VAL_DELIM, "'");
-
-    Value *next = peekToken(r);
-    Exp *out;
-
-
-    switch (next->type) { //TODO: rework
-	case VAL_STR:
-	case VAL_OP:
-	    if ((!next->str) || (strlen(next->str) > 1))
-		raise_error("expected single character");
-	    
-	    out = init_num(next->str[0]);
-	    break;
-	case VAL_NUM:
-	    if (next->num >= 10)
-		raise_error("expected single character");
-	    
-	    out = init_num(next->num + '0');
-	    break;
-	case VAL_DELIM:
-	    if (next->type == '\'')
-		return init_num(0);
-
-	    out = init_num(next->ch);
-	    break;
-	default:
-	    raise_error("invalid character type");
-	    break;
-    }
-    freeValue(getToken(r)); // don't move to parse_atom
-
-    acceptToken(r, VAL_DELIM, "'");
-
-    return out;
-}
-
 Exp *parse_parenthesis(Reader *r) {
     //printf("parenthesis\n");
     acceptToken(r, VAL_DELIM, "(");
@@ -388,9 +350,7 @@ Exp *parse_atom(Reader *r) {
 			//printf("after parse_str\n");
 			break;
 		case VAL_DELIM:
-			if (tok->ch == '\'') {
-				return parse_char(r);
-			} else if (tok->ch == '(') {
+			if (tok->ch == '(') {
 				return parse_parenthesis(r);
 			} else {
 				return NULL;

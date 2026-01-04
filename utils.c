@@ -228,6 +228,16 @@ const char *getKeyStr(KeyType key) {
 	return KEYWORDS[key];
 }
 
+int getCharacterValue(Reader *r) { //i.e. 'x' it gives the int value of whatever x is
+	int out = advance(r);
+	if (out == '\'')
+		return 0;
+
+	if (advance(r) != '\'')
+		raise_error("missing ending single quote");
+	return out;
+}
+
 Value *getRawToken(Reader *r) {
     Value *val = initValue();
     if (peek(r) == EOF) return NULL;
@@ -250,8 +260,13 @@ Value *getRawToken(Reader *r) {
 		//printf("OP(%c)\n", out);
     } else if (isDelim(peek(r))) {
 		char delim = getNextDelim(r);
-        val->type = VAL_DELIM;
-        val->ch = delim;
+		if (delim == '\'') {
+			val->num = getCharacterValue(r);
+			val->type = VAL_NUM;
+		} else {
+			val->type = VAL_DELIM;
+			val->ch = delim;
+		}
         //printf("DELIM(%c)\n", delim);
     } else if (isdigit(peek(r))) {
 		int out = getNextNum(r);

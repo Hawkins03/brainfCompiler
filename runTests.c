@@ -12,6 +12,11 @@ int main () {
     test_file("tests/atomic8.txt", "UNARY(NULL, --, STR(x))");
     test_file("tests/atomic9.txt", "UNARY(NULL, -, STR(x))");
     test_file("tests/atomic10.txt", "UNARY(NULL, -, UNARY(STR(x), ++, NULL))");
+	test_file("tests/atomic11.txt", "NUM(97)");
+	test_file("tests/atomic12.txt", "NUM(49)");
+	test_file("tests/atomic13.txt", "NUM(33)");
+	test_file("tests/atomic14.txt", "NUM(32)");
+	test_file("tests/atomic15.txt", "NUM(0)");
 
     test_file("tests/binary1.txt", "OP(STR(x), +, STR(y))");
 	test_file("tests/binary2.txt", "OP(STR(x), -, STR(y))");
