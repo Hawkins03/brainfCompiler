@@ -1,0 +1,43 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Build and Run bfTester",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/bfTester",
+            "args": ["--catch-errors"],
+            "stopAtEntry": true,
+            "cwd": "${workspaceFolder}",
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "miDebuggerPath": "/usr/bin/gdb",
+            "preLaunchTask": "build (make)"
+        },
+        {
+            "name": "Run bfCompiler (choose file)",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/bfCompiler",
+            "args": ["${input:compileFile}"],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}",
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "miDebuggerPath": "/usr/bin/gdb",
+            "preLaunchTask": "build (make)"
+        }
+    ]
+    ,
+    "inputs": [
+        {
+            "id": "compileFile",
+            "type": "promptString",
+            "description": "Path to the source file to compile/run (relative to workspace)",
+            "default": "${file}"
+        }
+    ]
+}
+

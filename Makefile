@@ -1,18 +1,22 @@
 
 CC = gcc
-CFLAGS = -Wall -Wextra -std=c11 -g -MMD -MP
+CFLAGS = -g -O0 -Wall -Wextra -std=c11 -MMD -MP
+
+SRC_DIR := src
+BIN_DIR := bin
+INC_DIR := include
 
 COMPILER = bfCompiler
 TESTER = bfTester
 
-COMMON_SRCS = interp.c parser.c utils.c
-
+COMMON_SRCS = interp.c parser.c utils.c test.c
 COMPILER_SRCS = main.c $(COMMON_SRCS)
-TESTER_SRCS = runtests.c $(COMMON_SRCS) test.c
-DEPS = interp.h parser.h utils.h test.h
+TESTER_SRCS = runTests.c $(COMMON_SRCS)
 
-COMPILER_OBJS = $(COMPILER_SRCS:.c=.o)
-TESTER_OBJS = $(TESTER_SRCS:.c=.o)
+COMPILER_OBJS = $(COMPILER_SRCS:%.c=$(BIN_DIR)/%.o)
+TESTER_OBJS = $(TESTER_SRCS:%.c=$(BIN_DIR)/%.o)
+
+DEPS = interp.h parser.h utils.h test.h
 
 all: $(COMPILER) $(TESTER)
 
@@ -22,8 +26,11 @@ $(COMPILER): $(COMPILER_OBJS)
 $(TESTER): $(TESTER_OBJS)
 	$(CC) $(CFLAGS) -o $@ $^
 
-%.o: %.c $(DEPS)
-	$(CC) $(CFLAGS) -c $< -o $@
+$(BIN_DIR)/%.o: $(SRC_DIR)/%.c | $(BIN_DIR) #$(DEPS)
+	$(CC) $(CFLAGS) -I$(INC_DIR) -c $< -o $@
+
+$(BIN_DIR):
+	mkdir -p $(BIN_DIR)
 
 clean:
-	rm -f *.o *.d *.bak $(COMPILER_OBJS) $(TESTER_OBJS) $(COMPILER) $(TESTER)
+	rm -rf $(BIN_DIR) $(COMPILER) $(TESTER)
