@@ -12,7 +12,7 @@
 #define UNARY_OP_PRIO 12
 
 //TODO: add ! handling
-#define KEYWORDS (const char*[]) {"var", "val", "while", "for", "if", "else", "print", "input", "break", "end"}
+#define KEYWORDS (const char*[]) {"var", "val", "while", "for", "if", "else", "print", "input", "break"}
 #define KEYWORDS_COUNT 10
 
 #define SUFFIX_OPS (const char *[]) {"++", "--"}
