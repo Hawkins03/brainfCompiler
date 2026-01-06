@@ -26,7 +26,105 @@ const char *OPS[][12] = {         					// lowest priority to highest priority:
 };
 
 
+// Reader functions
+bool isAlive(Reader *r) {
+    return r->alive;
+}
 
+void printVal(Value *tok) {
+    if (!tok)
+		printf("NULL()\n");
+    switch (tok->type) {
+		case VAL_KEYWORD:
+			printf("KEYWORD(%s)\n", getKeyStr(tok->key));
+			break;
+		case VAL_STR:
+			printf("STR(%s)\n", tok->str);
+			break;
+		case VAL_OP:
+			printf("OP(%s)\n", tok->str);
+			break;
+		case VAL_DELIM:
+			printf("DELIM(%c)\n", tok->ch);
+			break;
+		case VAL_NUM:
+			printf("NUM(%d)\n", tok->num);
+			break;
+		case VAL_EMPTY:
+			printf("EMPTY()\n");
+			break;
+		default:
+			raise_error("invalid value type\n");
+			break;
+    }
+}
+
+Reader *readInFile(const char *filename) {
+    if (filename == NULL)
+		raise_error("bad filename");
+
+    Reader *r = calloc(1, sizeof(*r));
+    if (!r)
+		raise_error("bad Reader malloc");
+    r->fp = fopen(filename, "r");
+    if (!r->fp) {
+		free(r);
+		raise_error("bad file");
+    } else if (feof(r->fp)) {
+		free(r);
+		raise_error("EOF on file open");
+    }
+    r->alive = true;
+    r->curr_token = NULL;
+    r->curr = fgetc(r->fp);
+    getToken(r); //preloading token (aka first crank);
+    return r;
+}
+
+void killReader(Reader *r) {
+    if (!r) raise_error("Error, double freeing reader");
+
+    if (r->curr_token)
+		freeValue(r->curr_token);
+
+    r->curr_token = NULL;
+
+    fclose(r->fp);
+    r->fp = NULL;
+    free(r);
+}
+
+int peek(Reader *r) {
+    if (!isAlive(r))
+		return EOF;
+	else
+    	return r->curr;
+}
+
+int advance(Reader *r) {
+    if (!isAlive(r))
+		return EOF;
+
+	int out = r->curr;
+	if (r->fp && !feof(r->fp))
+		r->curr = fgetc(r->fp);
+
+	if (!r->fp)
+		r->alive = false;
+	else if (feof(r->fp))
+		r->alive = false;
+	return out;
+}
+
+void skip_spaces(Reader *r) {
+	if (!isAlive(r))
+		return;
+	while (isspace(peek(r)) && isAlive(r))
+		advance(r);
+}
+
+
+// Checker Functions
 bool isWordChar(const char ch) {
     return (isalnum(ch) || (ch == '_'));
 }
@@ -85,6 +183,7 @@ bool hasNextStmt(Reader *r) {
 }
 
 
+// Value Functions
 Value *initValue() {
     Value *val =  calloc(1, sizeof(*val));
     if (val == NULL)
@@ -104,63 +203,7 @@ void freeValue(Value *val) {
 	free(val);
 }
 
-Reader *readInFile(const char *filename) {
-    if (filename == NULL)
-		raise_error("bad filename");
 
-    Reader *r = calloc(1, sizeof(*r));
-    if (!r)
-		raise_error("bad Reader malloc");
-    r->fp = fopen(filename, "r");
-    if (!r->fp) {
-		free(r);
-		raise_error("bad file");
-    } else if (feof(r->fp)) {
-		free(r);
-		raise_error("EOF on file open");
-    }
-    r->alive = true;
-    r->curr_token = NULL;
-    r->curr = fgetc(r->fp);
-    getToken(r); //preloading token (aka first crank);
-    return r;
-}
-
-int peek(Reader *r) {
-    if (!isAlive(r))
-		return EOF;
-	else
-    	return r->curr;
-}
-
-int advance(Reader *r) {
-    if (!isAlive(r))
-		return EOF;
-
-	int out = r->curr;
-	if (r->fp && !feof(r->fp))
-		r->curr = fgetc(r->fp);
-
-	if (!r->fp)
-		r->alive = false;
-	else if (feof(r->fp))
-		r->alive = false;
-	return out;
-}
-
-void skip_spaces(Reader *r) {
-	if (!isAlive(r))
-		return;
-
-	while (r->fp && !feof(r->fp)) {
-		if (peek(r) == EOF)
-			return;
-		if (!isspace((char) peek(r)))
-			return;
-		if (advance(r) == '\0')
-			return;
-	}
-}
 
 char *stealTokString(Value *tok) {
     char *s = tok->str;
@@ -234,14 +277,14 @@ char *getNextWord(Reader *r) {
 KeyType getKeyType(char *keyword) {
 	if (!keyword)
 		return -1;
-	for (int i = 0; i < KEYWORDS_COUNT; i++)
+	for (int i = 0; KEYWORDS[i] != NULL; i++)
 		if (!strcmp(KEYWORDS[i], keyword))
 			return (KeyType) i;
 	
 	return -1;
 }
 
-const char *getKeyStr(KeyType key) {
+const char *getKeyStr(KeyType key) { //TODO: ensure that key is a valid KeyType
 	return KEYWORDS[key];
 }
 
@@ -255,6 +298,16 @@ int getCharacterValue(Reader *r) { //i.e. 'x' it gives the int value of whatever
 	return out;
 }
 
+int GetTrueFalseValue(KeyType key) {
+	if (key == KW_TRUE)
+		return 1;
+	else if (key == KW_FALSE)
+		return 0;
+	else
+		raise_error("Invalid KeyType for true/false value");
+	return -1; //to silence compiler warning
+}
+
 Value *getRawToken(Reader *r) {
     Value *val = initValue();
     if (peek(r) == EOF)
@@ -263,7 +316,11 @@ Value *getRawToken(Reader *r) {
     if (isalpha(peek(r))) {
 		char *out = getNextWord(r);
 		KeyType key = getKeyType(out);
-		if (key != -1) {
+		if ((key != -1) && (GetTrueFalseValue(key) != -1)) {
+			val->type = VAL_NUM;
+			val->num = GetTrueFalseValue(key);
+			free(out);
+		} else if (key != -1) {
 			val->type = VAL_KEYWORD;
 			val->key = key;
 			free(out);
@@ -315,10 +372,6 @@ Value *peekToken(Reader *r) {
     return r->curr_token;
 }
 
-// yes the free statements are kind of a mess, but the real problem
-// with not freeing memory is only really a big problem in bfTester
-// so yeah, that's why I'm not moving them all to raise_error.
-// that said, it looks kinda ugly, so TODO: clean up later
 void acceptToken(Reader *r, ValueType type, const char *expected) {
 	Value *tok = getToken(r);
 	if (!tok) {
@@ -357,52 +410,8 @@ void acceptToken(Reader *r, ValueType type, const char *expected) {
 	freeValue(tok);
 }
 
-bool isAlive(Reader *r) {
-    return r->alive;
-}
 
-void printVal(Value *tok) {
-    if (!tok)
-		printf("NULL()\n");
-    switch (tok->type) {
-		case VAL_KEYWORD:
-			printf("KEYWORD(%s)\n", getKeyStr(tok->key));
-			break;
-		case VAL_STR:
-			printf("STR(%s)\n", tok->str);
-			break;
-		case VAL_OP:
-			printf("OP(%s)\n", tok->str);
-			break;
-		case VAL_DELIM:
-			printf("DELIM(%c)\n", tok->ch);
-			break;
-		case VAL_NUM:
-			printf("NUM(%d)\n", tok->num);
-			break;
-		case VAL_EMPTY:
-			printf("EMPTY()\n");
-			break;
-		default:
-			raise_error("invalid value type\n");
-			break;
-    }
-}
-
-
-void killReader(Reader *r) {
-    if (!r) raise_error("Error, double freeing reader");
-
-    if (r->curr_token)
-		freeValue(r->curr_token);
-
-    r->curr_token = NULL;
-
-    fclose(r->fp);
-    r->fp = NULL;
-    free(r);
-}
-
+// Error Handling
 void _raise_error(const char *msg, const char *func, const char *file, int line) {
     fprintf(stderr, "ERROR in %s at %s:%d - %s:%s\n", func, file, line, msg, strerror(errno));
     fflush(stderr);

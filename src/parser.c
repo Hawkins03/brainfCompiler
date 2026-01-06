@@ -265,12 +265,6 @@ Exp *parseBreak(Reader *r) {
     return init_call(KW_BREAK, NULL);
 }
 
-Exp *parseEnd(Reader *r) { //TODO: just use break to simplify language
-	acceptToken(r, VAL_KEYWORD, "end");
-    acceptToken(r, VAL_DELIM, ";");
-    return init_call(KW_END, NULL);
-}
-
 Exp *parse_call(Reader *r) {
 	Value *tok = peekToken(r);
 	if ((!tok) || (tok->type != VAL_KEYWORD))
@@ -283,8 +277,6 @@ Exp *parse_call(Reader *r) {
 			return parseInput(r);
 		case KW_BREAK: //BREAK
 			return parseBreak(r);
-		case KW_END: //END
-			return parseEnd(r);
 		default:
 			raise_error("invalid value");
 			return NULL;
