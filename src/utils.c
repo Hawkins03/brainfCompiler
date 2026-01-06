@@ -140,7 +140,7 @@ bool isUnaryOp(const char *op) {
     return ((prio == 10) || (prio == 12));
 }
 
-bool isSuffixOp(Value *tok) {
+bool isSuffixOp(value_t *tok) {
     if (!tok || (tok->type != VAL_OP) || !(tok->str))
 		return false;
 
@@ -155,26 +155,26 @@ bool isDelim(const char delim) {
     return (strchr(DELIMS, delim) != NULL);
 }
 
-bool isStrType(Value *v) {
+bool isStrType(value_t *v) {
     return ((v->type == VAL_NAME) || (v->type == VAL_OP));
 }
 
 bool hasNextStmt(Reader *r) {
-	Value *tok = peekToken(r);
+	value_t *tok = peekToken(r);
 	return (tok != NULL) && !((tok->type == VAL_DELIM) && (tok->ch == '}'));
 }
 
 
-// Value Functions
-Value *initValue() {
-    Value *val =  calloc(1, sizeof(*val));
+// value_t Functions
+value_t *initValue() {
+    value_t *val =  calloc(1, sizeof(*val));
     if (val == NULL)
-		raise_error("Error, bad Value malloc");
+		raise_error("Error, bad value_t malloc");
     val->type = VAL_EMPTY;
     return val;
 }
 
-void printVal(Value *tok) {
+void printVal(value_t *tok) {
     if (!tok)
 		printf("NULL()\n");
     switch (tok->type) {
@@ -200,12 +200,12 @@ void printVal(Value *tok) {
 			printf("EMPTY()\n");
 			break;
 		default:
-			raise_error("invalid value type\n");
+			raise_error("invalid value_t type\n");
 			break;
     }
 }
 
-void freeValue(Value *val) {
+void freeValue(value_t *val) {
 	if (val == NULL)
 		return;
 	if (val->type == VAL_EMPTY)
@@ -218,7 +218,7 @@ void freeValue(Value *val) {
 
 
 // Tokenization Functions
-char *stealTokString(Value *tok) {
+char *stealTokString(value_t *tok) {
     char *s = tok->str;
     tok->str = NULL;
     return s;
@@ -297,21 +297,21 @@ char *getNextWord(Reader *r) {
     return word;
 }
 
-KeyType getKeyType(char *keyword) {
+key_t getKeyType(char *keyword) {
 	if (!keyword)
 		return -1;
 	for (int i = 0; KEYWORDS[i] != NULL; i++)
 		if (!strcmp(KEYWORDS[i], keyword))
-			return (KeyType) i;
+			return (key_t) i;
 	
 	return -1;
 }
 
-const char *getKeyStr(KeyType key) { //TODO: ensure that key is a valid KeyType
+const char *getKeyStr(key_t key) { //TODO: ensure that key is a valid KeyType
 	return KEYWORDS[key];
 }
 
-int getCharacterValue(Reader *r) { //i.e. 'x' it gives the int value of whatever x is
+int getCharacterValue(Reader *r) { //i.e. 'x' it gives the int value_t of whatever x is
 	int out = advance(r);
 	if (out == '\'')
 		return 0;
@@ -387,7 +387,7 @@ char *getStringValue(Reader *r) {
 	return buf;
 }
 
-int GetTrueFalseValue(KeyType key) {
+int GetTrueFalseValue(key_t key) {
 	if (key == KW_TRUE)
 		return 1;
 	else if (key == KW_FALSE)
@@ -395,14 +395,14 @@ int GetTrueFalseValue(KeyType key) {
 	return -1; //to silence compiler warning
 }
 
-Value *getRawToken(Reader *r) {
-    Value *val = initValue();
+value_t *getRawToken(Reader *r) {
+    value_t *val = initValue();
     if (peek(r) == EOF)
 		return NULL;
 
     if (isalpha(peek(r))) {
 		char *out = getNextWord(r);
-		KeyType key = getKeyType(out);
+		key_t key = getKeyType(out);
 		if ((key != -1) && (GetTrueFalseValue(key) != -1)) {
 			val->type = VAL_NUM;
 			val->num = GetTrueFalseValue(key);
@@ -446,24 +446,24 @@ Value *getRawToken(Reader *r) {
     return val;
 }
 
-Value *getToken(Reader *r) {
+value_t *getToken(Reader *r) {
     if (!isAlive(r)) return NULL;
 
     skip_spaces(r);
 
-    Value *out = r->curr_token;
+    value_t *out = r->curr_token;
     r->curr_token = getRawToken(r);
     return out;
 }
 
-Value *peekToken(Reader *r) {
+value_t *peekToken(Reader *r) {
     if (!isAlive(r))
 		return NULL;
     return r->curr_token;
 }
 
-void acceptToken(Reader *r, ValueType type, const char *expected) {
-	Value *tok = getToken(r);
+void acceptToken(Reader *r, value_type_t type, const char *expected) {
+	value_t *tok = getToken(r);
 	if (!tok) {
 		freeValue(tok);
 		if (r->curr_token)

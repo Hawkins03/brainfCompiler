@@ -9,7 +9,7 @@ int main(int argc, char *argv[]) {
 	// uncomment to run interpreter (should be hello world)
     // interp(">+++++++++[<++++++++>-]<.>+++++++[<++++>-]<+.+++++++..+++.[-]>++++++++[<++++>-] <.>+++++++++++[<++++++++>-]<-.--------.+++.------.--------.[-]>++++++++[<++++>- ]<+.[-]++++++++++.");
 
-    Stmt *expression;
+    stmt_t *expression;
     
     for (int i = 1; (i < argc) && (argv[i] != NULL); i++) {
 		if (!argv[i])

@@ -6,62 +6,62 @@
 
 struct MS_Exp;
 
-typedef enum {EXP_EMPTY, EXP_STR, EXP_NUM, EXP_OP, EXP_UNARY, EXP_CALL, EXP_ARRAY, EXP_INITLIST, EXP_INDEX} ExpType;
+typedef enum {EXP_EMPTY, EXP_STR, EXP_NUM, EXP_OP, EXP_UNARY, EXP_CALL, EXP_ARRAY, EXP_INITLIST, EXP_INDEX} exp_type_t;
 
-typedef struct Exp_t {
-    ExpType type;
+typedef struct exp {
+    exp_type_t type;
     union {//e.as (e.as.name for example).
 	char *str;
 	int num;
-    struct Exp_t *initlist;
-    struct { struct Exp_t *index, *next; } index;
-    struct { struct Exp_t *arr_name, *index;} arr;
-	struct { KeyType key; struct Exp_t *call; } call;
-	struct { struct Exp_t *left, *right; char *op; } op;
+    struct exp *initlist;
+    struct { struct exp *index, *next; } index;
+    struct { struct exp *arr_name, *index;} arr;
+	struct { key_t key; struct exp *call; } call;
+	struct { struct exp *left, *right; char *op; } op;
     };
-} Exp;
+} exp_t;
 
-typedef enum {STMT_EMPTY, STMT_VAR, STMT_VAL, STMT_LOOP, STMT_IF, STMT_EXPR, STMT_CALL} StmtType;
+typedef enum {STMT_EMPTY, STMT_VAR, STMT_VAL, STMT_LOOP, STMT_IF, STMT_EXPR, STMT_CALL} stmt_type_t;
 
-typedef struct Stmt_t {
-    StmtType type;
+typedef struct stmt {
+    stmt_type_t type;
     union {
-	struct { Exp *cond; struct Stmt_t *body; } loop;
-	struct { Exp *cond; struct Stmt_t *thenStmt; struct Stmt_t *elseStmt;} ifStmt;
-	Exp *exp;
+	struct { exp_t *cond; struct stmt *body; } loop;
+	struct { exp_t *cond; struct stmt *thenStmt; struct stmt *elseStmt;} ifStmt;
+	exp_t* exp;
     };
-    struct Stmt_t *next;
-} Stmt;
+    struct stmt *next;
+} stmt_t;
 
-void free_exp(Exp *exp);
-void free_stmt(Stmt *stmt);
+void free_exp(exp_t *exp);
+void free_stmt(stmt_t *stmt);
 
-void print_full_exp(const Exp *atom);
-void print_exp(const Exp *exp);
-void print_stmt(const Stmt *stmt);
+void print_full_exp(const exp_t *atom);
+void print_exp(const exp_t *exp);
+void print_stmt(const stmt_t *stmt);
 
-Exp *init_exp();
-Exp *init_op(Exp *left, char *op, Exp *right);
-Exp *init_unary(Exp *left, char *op, Exp *right);
-Exp *init_num(int num);
-Exp *init_str(char *str);
-Exp *init_call(KeyType key, Exp *call);
+exp_t *init_exp();
+exp_t *init_op(exp_t *left, char *op, exp_t *right);
+exp_t *init_unary(exp_t *left, char *op, exp_t *right);
+exp_t *init_num(int num);
+exp_t *init_str(char *str);
+exp_t *init_call(key_t key, exp_t *call);
 
-Stmt *init_stmt();
-Stmt *init_loop(Exp *cond, Stmt *body, Stmt *next);
-Stmt *init_ifStmt(Exp *cond, Stmt *thenStmt, Stmt *elseStmt, Stmt *next);
-Stmt *init_expStmt(Exp *exp, Stmt *next);
+stmt_t *init_stmt();
+stmt_t *init_loop(exp_t *cond, stmt_t *body, stmt_t *next);
+stmt_t *init_ifStmt(exp_t *cond, stmt_t *thenStmt, stmt_t *elseStmt, stmt_t *next);
+stmt_t *init_expStmt(exp_t *exp, stmt_t *next);
 
-Exp *parse_call(Reader *r);
+exp_t *parse_call(Reader *r);
 
-Exp *parse_unary(Reader *r);
-Exp *parse_char(Reader *r);
-Exp *parse_parenthesis(Reader *r);
-Exp *parse_atom(Reader *r);
-Exp *parse_exp(int minPrio, Reader *r);
-Stmt *parse_keyword(Reader *r);
-Stmt *parse_stmt(Reader *r);
-Stmt *parse_file(const char *filename);
+exp_t *parse_unary(Reader *r);
+exp_t *parse_char(Reader *r);
+exp_t *parse_parenthesis(Reader *r);
+exp_t *parse_atom(Reader *r);
+exp_t *parse_exp(int minPrio, Reader *r);
+stmt_t *parse_keyword(Reader *r);
+stmt_t *parse_stmt(Reader *r);
+stmt_t *parse_file(const char *filename);
 
 
 #endif //MS_H

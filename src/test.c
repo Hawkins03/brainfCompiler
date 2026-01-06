@@ -11,7 +11,7 @@
 #include "test.h"
 
 int test_file(const char *input_file, const char *expected) {
-	Stmt *stmt = parse_file(input_file);
+	stmt_t *stmt = parse_file(input_file);
 
 	int size = measure_stmt_strlen(stmt) + 1;
 	char *act = calloc(size, sizeof(*act));
@@ -37,7 +37,7 @@ int test_file(const char *input_file, const char *expected) {
 	return status;
 }
 
-size_t measure_exp_strlen(const Exp *exp) {
+size_t measure_exp_strlen(const exp_t *exp) {
     if (!exp || (exp->type == EXP_EMPTY))
 		return strlen("NULL");
     int size = 0;
@@ -89,7 +89,7 @@ size_t measure_exp_strlen(const Exp *exp) {
     return size;
 }
 
-size_t measure_stmt_strlen(const Stmt *stmt) {
+size_t measure_stmt_strlen(const stmt_t *stmt) {
 	if (!stmt)
 		return strlen("NULL");
 	int size = 0;
@@ -117,7 +117,7 @@ size_t measure_stmt_strlen(const Stmt *stmt) {
 	return size;
 }
 
-void getExpStr(char *out, const Exp *exp) {
+void getExpStr(char *out, const exp_t *exp) {
     if (!exp || !out) {
 		sprintf(out, "NULL");
 		return;
@@ -173,7 +173,7 @@ void getExpStr(char *out, const Exp *exp) {
     }
 }
 
-void getStmtStr(char *out, const Stmt *stmt) {
+void getStmtStr(char *out, const stmt_t *stmt) {
 	if (!stmt || !out) return;
 	switch (stmt->type) {
 		case STMT_EXPR:

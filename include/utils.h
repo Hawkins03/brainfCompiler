@@ -31,22 +31,22 @@ typedef enum {
 		KW_VAR = 0, KW_VAL, KW_WHILE, KW_FOR, 
 		KW_IF, KW_ELSE, KW_PRINT, KW_INPUT, KW_BREAK, 
         KW_TRUE, KW_FALSE
-   } KeyType;
-typedef enum {VAL_EMPTY, VAL_NAME, VAL_STR, VAL_OP, VAL_NUM, VAL_DELIM, VAL_KEYWORD} ValueType;
-typedef struct Value {
-    ValueType type;
+   } key_t;
+typedef enum {VAL_EMPTY, VAL_NAME, VAL_STR, VAL_OP, VAL_NUM, VAL_DELIM, VAL_KEYWORD} value_type_t;
+typedef struct value {
+    value_type_t type;
     union {
 	char *str;
 	int num;
-	KeyType key;
+	key_t key;
 	char ch;
     };
-} Value;
+} value_t;
 
 typedef struct {
     FILE *fp;
     int curr;
-    Value *curr_token;
+    value_t *curr_token;
     bool alive;
 } Reader;
 
@@ -60,36 +60,36 @@ bool isOp(const char *op);
 bool matchesOp(const char op);
 bool isRightAssoc(int prio);
 bool isUnaryOp(const char *op);
-bool isSuffixOp(Value *tok);
+bool isSuffixOp(value_t *tok);
 int getPrio(const char *op);
 bool isDelim(char delim);
 bool isBinOp(const char *binop);
-bool isStrType(Value *v);
+bool isStrType(value_t *v);
 bool hasNextStmt(Reader *r);
 
-Value *initValue();
-void freeValue(Value *val);
+value_t *initValue();
+void freeValue(value_t *val);
 int peek(Reader *r);
 int advance(Reader *r);
 void skip_spaces(Reader *r);
 char *strdup(const char *s);
 
-void printVal(Value *tok);
+void printVal(value_t *tok);
 
-char *stealTokString(Value *tok);
+char *stealTokString(value_t *tok);
 
 int getNextNum(Reader *r);
 char *getNextWord(Reader *r);
-KeyType getKeyType(char *keyword);
-const char *getKeyStr(KeyType key);
+key_t getKeyType(char *keyword);
+const char *getKeyStr(key_t key);
 char *getNextOp(Reader *r);
 int getCharacterValue(Reader *r); // i.e. for the input " 'x'; " it returns the ascii value of x.
 char getNextDelim(Reader *r);
-Value *getRawToken(Reader *r);
+value_t *getRawToken(Reader *r);
 
-Value *getToken(Reader *r);
-Value *peekToken(Reader *r);
-void acceptToken(Reader *r, ValueType type, const char *expected);
+value_t *getToken(Reader *r);
+value_t *peekToken(Reader *r);
+void acceptToken(Reader *r, value_type_t type, const char *expected);
 
 
 void _raise_error(const char *msg, const char *file, const char *func, int line);

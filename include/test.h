@@ -2,9 +2,9 @@
 #define TEST_H
 
 int test_file(const char *input_file, const char *expected);
-size_t measure_stmt_strlen(const Stmt *stmt);
-size_t measure_exp_strlen(const Exp *exp);
-void getStmtStr(char *out, const Stmt *stmt);
-void getExpStr(char *out, const Exp *exp);
+size_t measure_stmt_strlen(const stmt_t *stmt);
+size_t measure_exp_strlen(const exp_t *exp);
+void getStmtStr(char *out, const stmt_t *stmt);
+void getExpStr(char *out, const exp_t *exp);
 
 #endif //TEST_H
