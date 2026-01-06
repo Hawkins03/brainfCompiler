@@ -6,13 +6,16 @@
 
 struct MS_Exp;
 
-typedef enum {EXP_EMPTY, EXP_STR, EXP_NUM, EXP_OP, EXP_UNARY, EXP_CALL} ExpType;
+typedef enum {EXP_EMPTY, EXP_STR, EXP_NUM, EXP_OP, EXP_UNARY, EXP_CALL, EXP_ARRAY, EXP_INITLIST, EXP_INDEX} ExpType;
 
 typedef struct Exp_t {
     ExpType type;
     union {//e.as (e.as.name for example).
 	char *str;
 	int num;
+    struct Exp_t *initlist;
+    struct { struct Exp_t *index, *next; } index;
+    struct { struct Exp_t *arr_name, *index;} arr;
 	struct { KeyType key; struct Exp_t *call; } call;
 	struct { struct Exp_t *left, *right; char *op; } op;
     };

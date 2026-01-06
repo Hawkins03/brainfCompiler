@@ -74,6 +74,9 @@ int main(int argc, char **argv) {
 	run_one("tests/atomic14.txt", "NUM(32)", catch_errors, &total, &passed, &failed, &errors);
 	run_one("tests/atomic15.txt", "NUM(0)", catch_errors, &total, &passed, &failed, &errors);
 
+	run_one("tests/true1.txt", "NUM(1)", catch_errors, &total, &passed, &failed, &errors);
+	run_one("tests/false1.txt", "NUM(0)", catch_errors, &total, &passed, &failed, &errors);
+
 	run_one("tests/binary1.txt", "OP(STR(x), +, STR(y))", catch_errors, &total, &passed, &failed, &errors);
 	run_one("tests/binary2.txt", "OP(STR(x), -, STR(y))", catch_errors, &total, &passed, &failed, &errors);
 	run_one("tests/binary3.txt", "OP(STR(x), *, STR(y))", catch_errors, &total, &passed, &failed, &errors);
@@ -137,12 +140,19 @@ int main(int argc, char **argv) {
 	run_one("tests/stmt_while.txt", "LOOP(OP(STR(x), <, NUM(10)), OP(STR(x), =, OP(STR(x), +, NUM(1)))); ", catch_errors, &total, &passed, &failed, &errors);
 
 	run_one("tests/call_print.txt", "CALL(6, STR(x))", catch_errors, &total, &passed, &failed, &errors);
-	run_one("tests/call_input.txt", "CALL(7, )", catch_errors, &total, &passed, &failed, &errors);
-	run_one("tests/call_break.txt", "CALL(8, )", catch_errors, &total, &passed, &failed, &errors);
+	run_one("tests/call_input.txt", "CALL(7, NULL)", catch_errors, &total, &passed, &failed, &errors);
+	run_one("tests/call_break.txt", "CALL(8, NULL)", catch_errors, &total, &passed, &failed, &errors);
 
-	
+	run_one("tests/array1.txt", "ARR(STR(x), INDEX(NUM(3), NULL))", catch_errors, &total, &passed, &failed, &errors);
+	run_one("tests/array2.txt", "ARR(STR(x), INDEX(NUM(1), INDEX(STR(y), NULL)))", catch_errors, &total, &passed, &failed, &errors);
+	run_one("tests/init1.txt", "INITLIST(STR(x))", catch_errors, &total, &passed, &failed, &errors);
 
-	/* Summary */
+	run_one("tests/string_simple.txt", "INITLIST(OP(NUM(97), ,, OP(NUM(98), ,, NUM(99))))", catch_errors, &total, &passed, &failed, &errors);
+	run_one("tests/string_newline.txt", "INITLIST(OP(NUM(97), ,, OP(NUM(10), ,, NUM(98))))", catch_errors, &total, &passed, &failed, &errors);
+	run_one("tests/string_quote.txt", "INITLIST(OP(NUM(97), ,, OP(NUM(34), ,, NUM(98))))", catch_errors, &total, &passed, &failed, &errors);
+	run_one("tests/string_backslash.txt", "INITLIST(OP(NUM(97), ,, OP(NUM(92), ,, NUM(98))))", catch_errors, &total, &passed, &failed, &errors);
+	run_one("tests/string_tab.txt", "INITLIST(OP(NUM(97), ,, OP(NUM(9), ,, NUM(98))))", catch_errors, &total, &passed, &failed, &errors);
+
 	printf("\n===== Test Summary =====\n");
 	printf("Total: %d\n", total);
 	printf("Passed: %d\n", passed);

@@ -31,6 +31,22 @@ void free_exp(Exp *exp) {
 			if (exp->call.call)
 				free_exp(exp->call.call);
 			break;
+		case EXP_ARRAY:
+			if (exp->arr.arr_name)
+				free_exp(exp->arr.arr_name);
+			if (exp->arr.index)
+				free_exp(exp->arr.index);
+			break;
+		case EXP_INITLIST:
+			if (exp->initlist)
+				free_exp(exp->initlist);
+			break;
+		case EXP_INDEX:
+			if (exp->index.index)
+				free_exp(exp->index.index);
+			if (exp->index.next)
+				free_exp(exp->index.next);
+			break;
 		default:
 			raise_error("Unhandled expression type");
     }
@@ -77,17 +93,17 @@ void print_exp(const Exp *exp) {
 		return;
     switch (exp->type) {
 		case EXP_STR:
-			printf("NAME(%s) ", exp->str);
+			printf("NAME(%s)", exp->str);
 			break;
 		case EXP_NUM:
-			printf("NUM(%d) ", exp->num);
+			printf("NUM(%d)", exp->num);
 			break;
 		case EXP_OP:
 			printf("OP( ");
 			print_exp(exp->op.left);
 			printf(", %s, ", exp->op.op);
 			print_exp(exp->op.right);
-			printf(") ");
+			printf(")");
 			break;
 		case EXP_UNARY:
 			printf("UNARY(");
@@ -105,6 +121,25 @@ void print_exp(const Exp *exp) {
 		case EXP_CALL:
 			printf("%s(", getKeyStr(exp->call.key));
 			print_exp(exp->call.call);
+			printf(")");
+			break;
+		case EXP_ARRAY:
+			printf("ARR(");
+			print_exp(exp->arr.arr_name);
+			printf(", ");
+			print_exp(exp->arr.index);
+			printf(")");
+			break;
+		case EXP_INDEX:
+			printf("INDEX(");
+			print_exp(exp->index.index);
+			printf(", ");
+			print_exp(exp->index.next);
+			printf(")");
+			break;
+		case EXP_INITLIST:
+			printf("INITLIST(");
+			print_exp(exp->initlist);
 			printf(")");
 			break;
 		case EXP_EMPTY:
@@ -198,6 +233,29 @@ Exp *init_call(KeyType key, Exp *call) {
 	exp->type = EXP_CALL;
 	exp->call.key = key;
 	exp->call.call = call;
+	return exp;
+}
+
+Exp *init_array(Exp *name, Exp *index) {
+    Exp *exp = init_exp();
+    exp->type = EXP_ARRAY;
+    exp->arr.arr_name = name;
+    exp->arr.index = index;
+    return exp;
+}
+
+Exp *init_initList(Exp *op) {
+	Exp *exp = init_exp();
+	exp->type = EXP_INITLIST;
+	exp->initlist = op;
+	return exp;
+}
+
+Exp *init_index(Exp *index, Exp *next) {
+	Exp *exp = init_exp();
+	exp->type = EXP_INDEX;
+	exp->index.index = index;
+	exp->index.next = next;
 	return exp;
 }
 
@@ -318,6 +376,30 @@ Exp *parse_parenthesis(Reader *r) {
     return out;
 }
 
+Exp *parse_initList(Reader *r) {
+	acceptToken(r, VAL_DELIM, "{");
+
+	Exp *out = init_exp();
+	out->type = EXP_INITLIST;
+	out->initlist = parse_exp(0, r);
+
+	acceptToken(r, VAL_DELIM, "}");
+	return out;
+}
+
+Exp *parse_index(Reader *r) {
+	acceptToken(r, VAL_DELIM, "[");
+	Exp *out = parse_exp(0, r);
+	acceptToken(r, VAL_DELIM, "]");
+	Value *tok = peekToken(r);
+
+	if (tok && (tok->type == VAL_DELIM) && (tok->ch == '['))
+		out = init_index(out, parse_index(r));
+	else
+		out = init_index(out, NULL);
+	return out;
+}
+
 Exp *parse_atom(Reader *r) {
     Value *tok = peekToken(r);
 
@@ -334,15 +416,44 @@ Exp *parse_atom(Reader *r) {
 
 			freeValue(getToken(r));
 			break;
-		case VAL_STR:
-			exp = init_str(stealTokString(tok)); // helper fn makes ownership explicit
+		case VAL_NAME:
+			char *name = stealTokString(tok);
 			freeValue(getToken(r));
+			exp = init_str(name); // base name expression
+
+			//check for array indexing
+			Value *nextTok = peekToken(r);
+			if (nextTok && (nextTok->type == VAL_DELIM) && (nextTok->ch == '['))
+				exp = init_array(exp, parse_index(r));
+			break;
+		case VAL_STR:
+			char *str = stealTokString(tok);
+			freeValue(getToken(r));
+			char *comma = strdup(",");
+			exp = init_initList(init_op(init_num(str[0]), comma, NULL));
+			Exp *currExp = exp->initlist;
+			for (size_t i = 1; i < strlen(str) - 1; i++) {
+				comma = strdup(",");
+				currExp->op.right = init_op(init_num(str[i]), comma, NULL);
+				currExp = currExp->op.right;
+			}
+			currExp->op.right = init_num(str[strlen(str) - 1]);
+			free(str);
 			break;
 		case VAL_DELIM:
-			if (tok->ch == '(') {
-				return parse_parenthesis(r);
-			} else {
-				return NULL;
+			switch (tok->ch) {
+				case '{':
+					exp = parse_initList(r);
+					break;
+				case '(':
+					exp = parse_parenthesis(r);
+					break;
+				case '[':
+					exp = parse_index(r);
+					break;
+				default:
+					raise_error("invalid character in code");
+					break;
 			}
 			break;
 		case VAL_KEYWORD:
@@ -387,7 +498,7 @@ Stmt *parseVar(Reader *r, bool is_mutable) {
 	acceptToken(r, VAL_KEYWORD, getKeyStr(key));
 
 	Value *tok = peekToken(r);
-	if ((!tok) || (tok->type != VAL_STR) || (!tok->str))
+	if ((!tok) || (tok->type != VAL_NAME) || (!tok->str))
 		raise_error("invalid variable name");
 	
 	Exp *exp = init_call(key, parse_exp(0, r)); //= is an op, so this should be OP(NAME(...), =, OP(...))

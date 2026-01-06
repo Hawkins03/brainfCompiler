@@ -6,7 +6,7 @@
 #define MAX_WORD_LEN 32
 #define MAX_NUM_LEN 10
 #define MAX_OP_LEN 3
-#define DELIMS ";()[]{}'"
+#define DELIMS ";()[]{}'\""
 #define OP_START "=+-*/%!~<>&^|,"
 #define RIGHT_ASSOC_PRIO 0
 #define UNARY_OP_PRIO 12
@@ -32,7 +32,7 @@ typedef enum {
 		KW_IF, KW_ELSE, KW_PRINT, KW_INPUT, KW_BREAK, 
         KW_TRUE, KW_FALSE
    } KeyType;
-typedef enum {VAL_EMPTY, VAL_STR, VAL_OP, VAL_NUM, VAL_DELIM, VAL_KEYWORD} ValueType;
+typedef enum {VAL_EMPTY, VAL_NAME, VAL_STR, VAL_OP, VAL_NUM, VAL_DELIM, VAL_KEYWORD} ValueType;
 typedef struct Value {
     ValueType type;
     union {
@@ -72,6 +72,7 @@ void freeValue(Value *val);
 int peek(Reader *r);
 int advance(Reader *r);
 void skip_spaces(Reader *r);
+char *strdup(const char *s);
 
 void printVal(Value *tok);
 

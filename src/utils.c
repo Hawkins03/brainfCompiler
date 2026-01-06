@@ -31,34 +31,6 @@ bool isAlive(Reader *r) {
     return r->alive;
 }
 
-void printVal(Value *tok) {
-    if (!tok)
-		printf("NULL()\n");
-    switch (tok->type) {
-		case VAL_KEYWORD:
-			printf("KEYWORD(%s)\n", getKeyStr(tok->key));
-			break;
-		case VAL_STR:
-			printf("STR(%s)\n", tok->str);
-			break;
-		case VAL_OP:
-			printf("OP(%s)\n", tok->str);
-			break;
-		case VAL_DELIM:
-			printf("DELIM(%c)\n", tok->ch);
-			break;
-		case VAL_NUM:
-			printf("NUM(%d)\n", tok->num);
-			break;
-		case VAL_EMPTY:
-			printf("EMPTY()\n");
-			break;
-		default:
-			raise_error("invalid value type\n");
-			break;
-    }
-}
-
 Reader *readInFile(const char *filename) {
     if (filename == NULL)
 		raise_error("bad filename");
@@ -119,8 +91,18 @@ int advance(Reader *r) {
 void skip_spaces(Reader *r) {
 	if (!isAlive(r))
 		return;
-	while (isspace(peek(r)) && isAlive(r))
+	while (((peek(r) == '\n') || isspace(peek(r))) && isAlive(r))
 		advance(r);
+}
+
+char* strdup(const char* s) {
+    size_t len = strlen(s);
+    char* result = calloc(len + 1, sizeof(*result));
+    if (result == NULL) {
+		raise_error("failed to allocate space on the heap");
+    }
+    strcpy(result, s);
+    return result;
 }
 
 
@@ -174,7 +156,7 @@ bool isDelim(const char delim) {
 }
 
 bool isStrType(Value *v) {
-    return ((v->type == VAL_STR) || (v->type == VAL_OP));
+    return ((v->type == VAL_NAME) || (v->type == VAL_OP));
 }
 
 bool hasNextStmt(Reader *r) {
@@ -192,6 +174,37 @@ Value *initValue() {
     return val;
 }
 
+void printVal(Value *tok) {
+    if (!tok)
+		printf("NULL()\n");
+    switch (tok->type) {
+		case VAL_KEYWORD:
+			printf("KEYWORD(%s)\n", getKeyStr(tok->key));
+			break;
+		case VAL_NAME:
+			printf("NAME(%s)\n", tok->str);
+			break;
+		case VAL_STR:
+			printf("STR(%s)\n", tok->str);
+			break;
+		case VAL_OP:
+			printf("OP(%s)\n", tok->str);
+			break;
+		case VAL_DELIM:
+			printf("DELIM(%c)\n", tok->ch);
+			break;
+		case VAL_NUM:
+			printf("NUM(%d)\n", tok->num);
+			break;
+		case VAL_EMPTY:
+			printf("EMPTY()\n");
+			break;
+		default:
+			raise_error("invalid value type\n");
+			break;
+    }
+}
+
 void freeValue(Value *val) {
 	if (val == NULL)
 		return;
@@ -204,7 +217,7 @@ void freeValue(Value *val) {
 }
 
 
-
+// Tokenization Functions
 char *stealTokString(Value *tok) {
     char *s = tok->str;
     tok->str = NULL;
@@ -220,12 +233,14 @@ char getNextDelim(Reader *r) {
 		return '\0';
 }
 
-char *getNextOp(Reader *r) { //operates under assumption that all ops can be made from smaller ops : i.e. <<=, <<, <
+char *getNextOp(Reader *r) { //
     if (peek(r) == EOF)
         raise_error("unexpected: reached end of file while reading in binop");
     if (!matchesOp(peek(r)))
         return NULL;
     char *out = calloc(MAX_OP_LEN + 1, sizeof(*out));
+	if (!out)
+		raise_error("failed to allocate space on the heap");
     for (int i = 0; ((i < MAX_OP_LEN) && (peek(r) != EOF)); i++) {
     	out[i] = (char) peek(r); // no touchey. It works right now, and isn't unsatable, just a bit inelegant
 		if (!isOp(out)) {
@@ -235,6 +250,14 @@ char *getNextOp(Reader *r) { //operates under assumption that all ops can be mad
 			advance(r);
 		}
     }
+	if (strlen(out) < MAX_OP_LEN) {
+		char *temp = realloc(out, strlen(out) + 1);
+		if (!temp) {
+			free(out);
+			raise_error("failed to reallocate space on the heap");
+		}
+		out = temp;
+	}
     return out;
 }
 
@@ -298,13 +321,77 @@ int getCharacterValue(Reader *r) { //i.e. 'x' it gives the int value of whatever
 	return out;
 }
 
+char *getStringValue(Reader *r) {
+	if (!isAlive(r) || !peek(r) || (peek(r) == EOF))
+		return NULL;
+	size_t cap = 16;
+	size_t len = 0;
+	char *buf = calloc(cap, sizeof(*buf));
+	if (!buf)
+		raise_error("ran out of memory space on the heap");
+	while (true) {
+		int nextCh = peek(r);
+
+		if (nextCh == EOF) {
+				free(buf);
+				raise_error("got EOF before end of string");
+		} else if ( nextCh == '"') {
+			advance(r);
+			break;
+		} else if (nextCh == '\\') {
+			advance(r); // consume '\'
+			nextCh = advance(r);
+			
+			switch (nextCh) {
+				case 'n':  
+					nextCh = '\n';
+					break;
+				case 't':  
+					nextCh = '\t';
+					break;
+				case 'r':  
+					nextCh = '\r';
+					break;
+				case '"':  
+					nextCh = '"';
+					break;
+				case '\\': 
+					nextCh = '\\';
+					break;
+				default:
+					free(buf);
+					return NULL; // invalid escape
+			}
+		} else
+			nextCh = advance(r);
+
+		if (len + 1 >= cap) {
+			cap *= 2;
+			char *temp = realloc(buf, cap);
+			if (!temp) {
+				free(buf);
+				raise_error("ran out of memory space on the heap");
+			}
+			buf = temp;
+		}
+
+		buf[len++] = (char) nextCh;
+	}
+	char *temp = realloc(buf, len + 1);
+	if (!temp) {
+		free(buf);
+		raise_error("ran out of memory space on the heap");
+	}
+	buf = temp;
+	buf[len] = '\0';
+	return buf;
+}
+
 int GetTrueFalseValue(KeyType key) {
 	if (key == KW_TRUE)
 		return 1;
 	else if (key == KW_FALSE)
 		return 0;
-	else
-		raise_error("Invalid KeyType for true/false value");
 	return -1; //to silence compiler warning
 }
 
@@ -325,7 +412,7 @@ Value *getRawToken(Reader *r) {
 			val->key = key;
 			free(out);
 		} else {
-			val->type = VAL_STR;
+			val->type = VAL_NAME;
 			val->str = out;
 		}
     } else if (matchesOp(peek(r))) {
@@ -337,6 +424,9 @@ Value *getRawToken(Reader *r) {
 		if (delim == '\'') {
 			val->num = getCharacterValue(r);
 			val->type = VAL_NUM;
+		} else if (delim == '"') {
+			val->str = getStringValue(r);
+			val->type = VAL_STR;
 		} else {
 			val->type = VAL_DELIM;
 			val->ch = delim;
