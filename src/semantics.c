@@ -7,7 +7,7 @@
 env_t *init_env(env_t *parent) {
   env_t *env = calloc(1, sizeof(*env));
   if (!env)
-    raise_error("failed to allocate space on the heap");
+    return NULL;
   env->parent = parent;
   return env;
 }
@@ -21,8 +21,8 @@ void free_env(env_t *env) {
 
 void define_var(env_t *env, char *name, exp_t *value, bool is_mutable, bool is_array) {
   if (var_exists(env, name)) {
-    //TODO: do an actual buffer into the raise error with the name
-    raise_error("variable name already defined");
+    return;
+    //raise_error("variable name already defined");
   }
   var_data_t *var_loc = env->vars + (env->count)++;
   var_loc->name = name;
@@ -34,7 +34,8 @@ void define_var(env_t *env, char *name, exp_t *value, bool is_mutable, bool is_a
 void set_var(env_t *env, char *name, exp_t *value) {
   var_data_t *var = get_var(env, name);
   if (!var->is_mutable && var->value != NULL)
-    raise_error("user is attempting to reassign an immutable variable");
+    return;
+    //raise_error("user is attempting to reassign an immutable variable");
   var->value = value;
 }
 var_data_t *get_var(const env_t *env, const char *name) {

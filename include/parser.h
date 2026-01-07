@@ -26,6 +26,7 @@ typedef enum {STMT_EMPTY, STMT_VAR, STMT_VAL, STMT_LOOP, STMT_IF, STMT_EXPR, STM
 typedef struct stmt {
     stmt_type_t type;
     union {
+    struct { exp_t *name; exp_t *value; } var;
 	struct { exp_t *cond; struct stmt *body; } loop;
 	struct { exp_t *cond; struct stmt *thenStmt; struct stmt *elseStmt;} ifStmt;
 	exp_t* exp;
@@ -48,6 +49,7 @@ exp_t *init_str(char *str);
 exp_t *init_call(key_t key, exp_t *call);
 
 stmt_t *init_stmt();
+stmt_t *init_var(exp_t *name, exp_t *value);
 stmt_t *init_loop(exp_t *cond, stmt_t *body, stmt_t *next);
 stmt_t *init_ifStmt(exp_t *cond, stmt_t *thenStmt, stmt_t *elseStmt, stmt_t *next);
 stmt_t *init_expStmt(exp_t *exp, stmt_t *next);

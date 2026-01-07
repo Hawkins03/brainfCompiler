@@ -20,20 +20,30 @@
 #define SUFFIX_OPS_LEN 2
 
 //TODO: need to have it free r automatically
-#define raise_error(msg) \
-    _raise_error((msg), __func__, __FILE__, __LINE__)
+#define raise_error(msg, err_type, r) \
+    _raise_error((msg), err_type, __func__, __FILE__, __LINE__, r)
 
 
 #define NUM_PRIOS 13
 extern const char *OPS[][12];
 
 typedef enum {
-		KW_INVALID = -1, //TODO: determine if needed
+    ERR_NONE = 0,
+    ERR_SYNTAX,
+    ERR_UNEXPECTED_TOKEN,
+    ERR_OOM,
+    ERR_EOF,
+    ERR_FILE,
+} ErrorType;
+
+typedef enum {
 		KW_VAR = 0, KW_VAL, KW_WHILE, KW_FOR, 
 		KW_IF, KW_ELSE, KW_PRINT, KW_INPUT, KW_BREAK, 
         KW_TRUE, KW_FALSE
    } key_t;
-typedef enum {VAL_EMPTY, VAL_NAME, VAL_STR, VAL_OP, VAL_NUM, VAL_DELIM, VAL_KEYWORD} value_type_t;
+
+typedef enum {VAL_NAME, VAL_STR, VAL_OP, VAL_NUM, VAL_DELIM, VAL_KEYWORD} value_type_t;
+
 typedef struct value {
     value_type_t type;
     union {
@@ -46,9 +56,12 @@ typedef struct value {
 
 typedef struct {
     FILE *fp;
+
     int curr;
     value_t *curr_token;
-    bool alive;
+
+    ErrorType error;
+    const char *error_msg;
 } Reader;
 
 //reader struct:
@@ -67,6 +80,7 @@ bool isDelim(char delim);
 bool isBinOp(const char *binop);
 bool isStrType(value_t *v);
 bool hasNextStmt(Reader *r);
+bool atSemicolon(Reader *r);
 
 value_t *initValue();
 void freeValue(value_t *val);
@@ -93,5 +107,5 @@ value_t *peekToken(Reader *r);
 void acceptToken(Reader *r, value_type_t type, const char *expected);
 
 
-void _raise_error(const char *msg, const char *file, const char *func, int line);
+void _raise_error(const char *msg, ErrorType err_type, const char *func, const char *file, int line, Reader *r);
 #endif //UTILS_H

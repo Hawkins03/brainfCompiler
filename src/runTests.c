@@ -135,7 +135,7 @@ int main(int argc, char **argv) {
 	run_one("tests/parenthesis7.txt", "STR(x)", catch_errors, &total, &passed, &failed, &errors);
 	run_one("tests/parenthesis8.txt", "OP(STR(x), +, OP(STR(y), *, OP(STR(z), +, STR(w))))", catch_errors, &total, &passed, &failed, &errors);
 
-	run_one("tests/stmt_var.txt", "CALL(0, OP(STR(x), =, NUM(3)))", catch_errors, &total, &passed, &failed, &errors);
+	run_one("tests/stmt_var.txt", "VAR(STR(x), NUM(3))", catch_errors, &total, &passed, &failed, &errors);
 	run_one("tests/stmt_if.txt", "IF(OP(STR(x), >, NUM(0)), OP(STR(x), =, OP(STR(x), -, NUM(1))), OP(STR(x), =, OP(STR(x), +, NUM(1)))); ", catch_errors, &total, &passed, &failed, &errors);
 	run_one("tests/stmt_while.txt", "LOOP(OP(STR(x), <, NUM(10)), OP(STR(x), =, OP(STR(x), +, NUM(1)))); ", catch_errors, &total, &passed, &failed, &errors);
 

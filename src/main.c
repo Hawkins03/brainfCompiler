@@ -1,4 +1,6 @@
+#include <errno.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include "interp.h"
 #include "parser.h"
@@ -12,8 +14,11 @@ int main(int argc, char *argv[]) {
     stmt_t *expression;
     
     for (int i = 1; (i < argc) && (argv[i] != NULL); i++) {
-		if (!argv[i])
-			raise_error("invalid string");
+		if (!argv[i]) {
+			fprintf(stderr, "invalid argument");
+			exit(EXIT_FAILURE);
+		}
+			
 
 		expression = parse_file(argv[i]);
 		

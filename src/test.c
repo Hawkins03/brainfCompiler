@@ -17,7 +17,8 @@ int test_file(const char *input_file, const char *expected) {
 	char *act = calloc(size, sizeof(*act));
 	if (!act) {
 		free_stmt(stmt);
-		raise_error("memory allocation failed");
+		fprintf(stderr, "memory allocation failed");
+		exit(EXIT_FAILURE);
 	}
 
 	getStmtStr(act, stmt);
@@ -94,6 +95,12 @@ size_t measure_stmt_strlen(const stmt_t *stmt) {
 		return strlen("NULL");
 	int size = 0;
 	switch (stmt->type) {
+		case STMT_VAR:
+		case STMT_VAL:
+			size += strlen("VAR( , )");
+			size += measure_exp_strlen(stmt->var.name);
+			size += measure_exp_strlen(stmt->var.value);
+			break;
 		case STMT_EXPR:
 			size += measure_exp_strlen(stmt->exp);
 			break;
@@ -178,6 +185,15 @@ void getStmtStr(char *out, const stmt_t *stmt) {
 	switch (stmt->type) {
 		case STMT_EXPR:
 			getExpStr(out, stmt->exp);
+			break;
+		case STMT_VAR:
+		case STMT_VAL:
+			char *name = (stmt->type == STMT_VAR) ? "VAR" : "VAL";
+			sprintf(out, "%s(", name);
+			getExpStr(out + strlen(out), stmt->var.name);
+			sprintf(out + strlen(out), ", ");
+			getExpStr(out + strlen(out), stmt->var.value);
+			sprintf(out + strlen(out), ")");
 			break;
 		case STMT_IF:
 			sprintf(out, "IF(");
