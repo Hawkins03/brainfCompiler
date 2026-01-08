@@ -16,7 +16,7 @@ int test_file(const char *input_file, const char *expected) {
 	int size = measure_stmt_strlen(stmt) + 1;
 	char *act = calloc(size, sizeof(*act));
 	if (!act) {
-		free_stmt(stmt);
+		free_stmt(NULL, stmt);
 		fprintf(stderr, "memory allocation failed");
 		exit(EXIT_FAILURE);
 	}
@@ -34,7 +34,7 @@ int test_file(const char *input_file, const char *expected) {
 	}
 
 	free(act);
-	free_stmt(stmt);
+	free_stmt(NULL, stmt);
 	return status;
 }
 

@@ -28,8 +28,8 @@ const char *OPS[][12] = {         					// lowest priority to highest priority:
 
 
 // Reader functions
-bool isAlive(Reader *r) {
-    return (r->error == ERR_NONE);
+bool isAlive(Reader *r) { //TODO: update to 
+    return (!r || !r->fp || !feof(r->fp) || r->curr_char == EOF);
 }
 
 Reader *readInFile(const char *filename) {
@@ -47,10 +47,21 @@ Reader *readInFile(const char *filename) {
 		free(r);
 		return NULL;
     }
-	r->error = ERR_NONE;
-    r->curr_token = NULL;
-    r->curr = fgetc(r->fp);
-    getToken(r); //preloading token (aka first crank);
+	
+	r->root = init_stmt();
+	if (!r->root) {
+		fclose(r->fp);
+		free(r);
+		raise_error("failed to init root statement", r);
+		return NULL;
+	}
+
+	r->root->next = r->root; // self loop to mark as sentinal
+	r->curr_stmt = r->root;
+
+	advance(r);
+	skip_spaces(r);
+    r->curr_token = getRawToken(r); //preloading token (aka first crank);
     return r;
 }
 
@@ -60,6 +71,8 @@ void killReader(Reader *r) {
 		exit(EXIT_FAILURE);
 	}
 
+	free_stmt(r->root, r->root);
+	r->root = NULL;
 
     if (r->curr_token)
 		freeValue(r->curr_token);
@@ -75,24 +88,22 @@ int peek(Reader *r) {
     if (!isAlive(r))
 		return EOF;
 	else
-    	return r->curr;
+    	return r->curr_char;
 }
 
 int advance(Reader *r) {
     if (!isAlive(r))
 		return EOF;
 
-	int out = r->curr;
+	int out = r->curr_char;
 	if (r->fp && !feof(r->fp))
-		r->curr = fgetc(r->fp);
+		r->curr_char = fgetc(r->fp);
 
-	if (!r->fp) {
-		r->error = ERR_EOF;
-		r->error_msg = strdup("End of file");
+	/*if (!r->fp) {
+		raise_error("End of file", r);
 	} else if (feof(r->fp)) {
-		r->error = ERR_EOF;
-		r->error_msg = strdup("End of file");
-	}
+		raise_error("End of file", r);
+	}*/
 	return out;
 }
 
@@ -103,11 +114,11 @@ void skip_spaces(Reader *r) {
 		advance(r);
 }
 
-char* strdup(const char* s) {
+char* strdup(const char* s, Reader *r) {
     size_t len = strlen(s);
     char* result = calloc(len + 1, sizeof(*result));
     if (result == NULL)
-		return NULL;
+		raise_error("failed to allocate space for a string", r);
     strcpy(result, s);
     return result;
 }
@@ -211,10 +222,10 @@ void printVal(value_t *tok) {
 }
 
 void freeValue(value_t *val) {
-	if (val == NULL) {
-		fprintf(stderr, "value is null");
-		exit(EXIT_FAILURE);
-	} else if ((isStrType(val)) && (val->str != NULL))
+	if (val == NULL)
+		return;
+	
+	if ((isStrType(val)) && (val->str != NULL))
 		free(val->str);
 	free(val);
 }
@@ -238,14 +249,14 @@ char getNextDelim(Reader *r) {
 
 char *getNextOp(Reader *r) { //
     if (peek(r) == EOF) {
-		raise_error("unexpected: reached end of file while reading in op", ERR_UNEXPECTED_TOKEN, r);
+		raise_error("unexpected: reached end of file while reading in op", r);
 		return NULL;
 	}
     if (!matchesOp(peek(r)))
         return NULL;
     char *out = calloc(MAX_OP_LEN + 1, sizeof(*out));
 	if (!out) {
-		raise_error("failed to allocate space on the heap", ERR_OOM, r);
+		raise_error("failed to allocate space on the heap", r);
 		return NULL;
 	}
     for (int i = 0; ((i < MAX_OP_LEN) && (peek(r) != EOF)); i++) {
@@ -261,7 +272,7 @@ char *getNextOp(Reader *r) { //
 		char *temp = realloc(out, strlen(out) + 1);
 		if (!temp) {
 			free(out);
-			raise_error("failed to reallocate space on the heap", ERR_OOM, r);
+			raise_error("failed to reallocate space on the heap", r);
 			return NULL;
 		}
 		out = temp;
@@ -271,7 +282,7 @@ char *getNextOp(Reader *r) { //
 
 int getNextNum(Reader *r) {
     if (!isAlive(r)) {
-		raise_error("Error, getting num when Reader died", ERR_UNEXPECTED_TOKEN, r);
+		raise_error("Error, getting num when Reader died", r);
 		return 0;
 	}
     int num = 0;
@@ -283,12 +294,12 @@ int getNextNum(Reader *r) {
 
 char *getNextWord(Reader *r) {
     if (!isAlive(r)) {
-		raise_error("Error, getting word when Reader died", ERR_UNEXPECTED_TOKEN, r);
+		raise_error("Error, getting word when Reader died", r);
 		return NULL;
 	}
 
     if (!isalpha(peek(r))) {
-		raise_error("Invallid first letter in word (first letter must be in the range 'a-zA-Z')", ERR_UNEXPECTED_TOKEN, r);
+		raise_error("Invallid first letter in word (first letter must be in the range 'a-zA-Z')", r);
 		return NULL;
 	}
     
@@ -333,7 +344,7 @@ int getCharacterValue(Reader *r) { //i.e. 'x' it gives the int value_t of whatev
 		return 0;
 
 	if (advance(r) != '\'') {
-		raise_error("missing ending single quote", ERR_UNEXPECTED_TOKEN, r);
+		raise_error("missing ending single quote", r);
 		return 0;
 	}
 	return out;
@@ -346,7 +357,7 @@ char *getStringValue(Reader *r) {
 	size_t len = 0;
 	char *buf = calloc(cap, sizeof(*buf));
 	if (!buf) { 
-		raise_error("ran out of memory space on the heap", ERR_OOM, r);
+		raise_error("ran out of memory space on the heap", r);
 		return NULL;
 	}
 	while (true) {
@@ -354,7 +365,7 @@ char *getStringValue(Reader *r) {
 
 		if (nextCh == EOF) {
 				free(buf);
-				raise_error("got EOF before end of string", ERR_UNEXPECTED_TOKEN, r);
+				raise_error("got EOF before end of string", r);
 				return NULL;
 		} else if ( nextCh == '"') {
 			advance(r);
@@ -381,7 +392,7 @@ char *getStringValue(Reader *r) {
 					break;
 				default:
 					free(buf);
-					raise_error("invalid escape in string", ERR_UNEXPECTED_TOKEN, r);
+					raise_error("invalid escape in string", r);
 					return NULL;
 			}
 		} else
@@ -392,7 +403,7 @@ char *getStringValue(Reader *r) {
 			char *temp = realloc(buf, cap);
 			if (!temp) {
 				free(buf);
-				raise_error("ran out of memory space on the heap", ERR_OOM, r);
+				raise_error("ran out of memory space on the heap", r);
 				return NULL;
 			}
 			buf = temp;
@@ -403,7 +414,7 @@ char *getStringValue(Reader *r) {
 	char *temp = realloc(buf, len + 1);
 	if (!temp) {
 		free(buf);
-		raise_error("ran out of memory space on the heap", ERR_OOM, r);
+		raise_error("ran out of memory space on the heap", r);
 		return NULL;
 	}
 	buf = temp;
@@ -420,9 +431,9 @@ int GetTrueFalseValue(key_t key) {
 }
 
 value_t *getRawToken(Reader *r) {
-	value_t *val = initValue();
+	value_t *val = initValue(r);
 	if (!val) {
-		raise_error("failed to initialize value", ERR_OOM, r);
+		raise_error("failed to initialize value", r);
 		return NULL;
 	}
     if (peek(r) == EOF)
@@ -469,7 +480,7 @@ value_t *getRawToken(Reader *r) {
     } else {
 		printf("val = %c, %d\n", peek(r), matchesOp(peek(r)));
 		free(val);
-		raise_error("Error, unexpected character", ERR_UNEXPECTED_TOKEN, r);
+		raise_error("Error, unexpected character", r);
 		return NULL;
     }
     return val;
@@ -497,36 +508,36 @@ void acceptToken(Reader *r, value_type_t type, const char *expected) {
 		freeValue(tok);
 		if (r->curr_token)
 			freeValue(r->curr_token);
-		raise_error("Invalid Null token value", ERR_UNEXPECTED_TOKEN, r);
+		raise_error("Invalid Null token value", r);
 		return;
 	} else if (!expected) {
 		freeValue(tok);
 		if (r->curr_token)
 			freeValue(r->curr_token);
-		raise_error("Invalid expected value", ERR_UNEXPECTED_TOKEN, r);
+		raise_error("Invalid expected value", r);
 		return;
 	} else if (tok->type != type) {
 		freeValue(tok);
 		if (r->curr_token)
 			freeValue(r->curr_token);
-		raise_error("Unexpected token type", ERR_UNEXPECTED_TOKEN, r);
+		raise_error("Unexpected token type", r);
 		return;
 	}
 	
 	if (tok->type == VAL_KEYWORD) {
 		if (strcmp(getKeyStr(tok->key), expected)) {
 			freeValue(tok);
-			raise_error("Unexpected keyword value", ERR_UNEXPECTED_TOKEN, r);
+			raise_error("Unexpected keyword value", r);
 		}
     } else if (isStrType(tok)) {
 		if (!tok->str || strcmp(tok->str, expected)) {
 			freeValue(tok);
-			raise_error("Missing token string", ERR_UNEXPECTED_TOKEN, r);
+			raise_error("Missing token string", r);
 		}
     } else if (tok->type == VAL_DELIM) {
 		if (tok->ch != expected[0]) {
 			freeValue(tok);
-			raise_error("Unexpected token value", ERR_UNEXPECTED_TOKEN, r);
+			raise_error("Unexpected token value", r);
 			return;
 		}
 	}
@@ -535,22 +546,9 @@ void acceptToken(Reader *r, value_type_t type, const char *expected) {
 
 
 // Error Handling
-void _raise_error(const char *msg, ErrorType err_type, const char *func, const char *file, int line, Reader *r) {
-	if (r) {
-		r->error = err_type;
-		char *temp = NULL;
-		int needed = snprintf(NULL, 0, "ERROR (%d) in %s at %s:%d - %s\n", err_type, func, file, line, msg);
-		if (needed < 0) {
-			r->error_msg = NULL;
-			return;
-		}
-		temp = malloc((size_t) needed + 1); /* allocate exact size (assume int fits) */
-		if (!temp) {
-			r->error_msg = NULL;
-			return;
-		}
-		snprintf(temp, (size_t) needed + 1, "ERROR (%d) in %s at %s:%d - %s\n", err_type, func, file, line, msg);
-		r->error_msg = strdup(temp); /* duplicate into reader-owned memory */
-		free(temp);
-	}
+void _raise_error(const char *msg,const char *func, const char *file, int line, Reader *r) {
+	if (r)
+		killReader(r);
+	fprintf(stderr, "ERROR in %s at %s:%d - %s\n", func, file, line, msg);
+	exit(EXIT_FAILURE);
 }

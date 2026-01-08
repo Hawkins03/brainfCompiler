@@ -1,8 +1,10 @@
+#ifndef UTILS_H
+#define UTILS_H
 #include <stdio.h>
 #include <stdbool.h>
 
-#ifndef UTILS_H
-#define UTILS_H
+typedef struct stmt stmt_t;
+
 
 #define MAX_WORD_LEN 32
 #define MAX_NUM_LEN 10
@@ -19,22 +21,15 @@
 #define SUFFIX_OPS (const char *[]) {"++", "--"}
 #define SUFFIX_OPS_LEN 2
 
+#define ALLOC_LIST_START_LEN 8
+
 //TODO: need to have it free r automatically
-#define raise_error(msg, err_type, r) \
-    _raise_error((msg), err_type, __func__, __FILE__, __LINE__, r)
+#define raise_error(msg, r) \
+    _raise_error((msg), __func__, __FILE__, __LINE__, r)
 
 
 #define NUM_PRIOS 13
 extern const char *OPS[][12];
-
-typedef enum {
-    ERR_NONE = 0,
-    ERR_SYNTAX,
-    ERR_UNEXPECTED_TOKEN,
-    ERR_OOM,
-    ERR_EOF,
-    ERR_FILE,
-} ErrorType;
 
 typedef enum {
 		KW_VAR = 0, KW_VAL, KW_WHILE, KW_FOR, 
@@ -57,11 +52,13 @@ typedef struct value {
 typedef struct {
     FILE *fp;
 
-    int curr;
+    // storage for tokens
+    int curr_char;
     value_t *curr_token;
 
-    ErrorType error;
-    const char *error_msg;
+    // for freeing structs
+    stmt_t *root;
+    stmt_t *curr_stmt;
 } Reader;
 
 //reader struct:
@@ -87,7 +84,7 @@ void freeValue(value_t *val);
 int peek(Reader *r);
 int advance(Reader *r);
 void skip_spaces(Reader *r);
-char *strdup(const char *s);
+char *strdup(const char *s, Reader *r);
 
 void printVal(value_t *tok);
 
@@ -107,5 +104,5 @@ value_t *peekToken(Reader *r);
 void acceptToken(Reader *r, value_type_t type, const char *expected);
 
 
-void _raise_error(const char *msg, ErrorType err_type, const char *func, const char *file, int line, Reader *r);
+void _raise_error(const char *msg, const char *func, const char *file, int line, Reader *r);
 #endif //UTILS_H

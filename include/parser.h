@@ -21,7 +21,7 @@ typedef struct exp {
     };
 } exp_t;
 
-typedef enum {STMT_EMPTY, STMT_VAR, STMT_VAL, STMT_LOOP, STMT_IF, STMT_EXPR, STMT_CALL} stmt_type_t;
+typedef enum {STMT_EMPTY, STMT_VAR, STMT_VAL, STMT_LOOP, STMT_IF, STMT_EXPR} stmt_type_t;
 
 typedef struct stmt {
     stmt_type_t type;
@@ -35,24 +35,24 @@ typedef struct stmt {
 } stmt_t;
 
 void free_exp(exp_t *exp);
-void free_stmt(stmt_t *stmt);
+void free_stmt(stmt_t *root, stmt_t *stmt);
 
 void print_full_exp(const exp_t *atom);
 void print_exp(const exp_t *exp);
 void print_stmt(const stmt_t *stmt);
 
 exp_t *init_exp();
-exp_t *init_op(exp_t *left, char *op, exp_t *right);
-exp_t *init_unary(exp_t *left, char *op, exp_t *right);
-exp_t *init_num(int num);
-exp_t *init_str(char *str);
-exp_t *init_call(key_t key, exp_t *call);
+exp_t *init_op(exp_t *left, char *op, exp_t *right, Reader *r);
+exp_t *init_unary(exp_t *left, char *op, exp_t *right, Reader *r);
+exp_t *init_num(int num, Reader *r);
+exp_t *init_str(char *str, Reader *r);
+exp_t *init_call(key_t key, exp_t *call, Reader *r);
 
 stmt_t *init_stmt();
-stmt_t *init_var(exp_t *name, exp_t *value);
-stmt_t *init_loop(exp_t *cond, stmt_t *body, stmt_t *next);
-stmt_t *init_ifStmt(exp_t *cond, stmt_t *thenStmt, stmt_t *elseStmt, stmt_t *next);
-stmt_t *init_expStmt(exp_t *exp, stmt_t *next);
+stmt_t *init_var(exp_t *name, exp_t *value, Reader *r);
+stmt_t *init_loop(exp_t *cond, stmt_t *body, Reader *r);
+stmt_t *init_ifStmt(exp_t *cond, stmt_t *thenStmt, stmt_t *elseStmt, Reader *r);
+stmt_t *init_expStmt(exp_t *exp, Reader *r);
 
 exp_t *parse_call(Reader *r);
 
@@ -61,7 +61,6 @@ exp_t *parse_char(Reader *r);
 exp_t *parse_parenthesis(Reader *r);
 exp_t *parse_atom(Reader *r);
 exp_t *parse_exp(int minPrio, Reader *r);
-stmt_t *parse_keyword(Reader *r);
 stmt_t *parse_stmt(Reader *r);
 stmt_t *parse_file(const char *filename);
 

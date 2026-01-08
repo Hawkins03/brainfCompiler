@@ -64,7 +64,7 @@ void free_exp(exp_t *exp) {
     free(exp);
 }
 
-void free_stmt(stmt_t *stmt) {
+void free_stmt(stmt_t *root, stmt_t *stmt) { //TODO: make so you can't double free r->root
 	if (!stmt)
 		return;
 	switch (stmt->type) {
@@ -80,15 +80,15 @@ void free_stmt(stmt_t *stmt) {
 		case STMT_LOOP:
 			free_exp(stmt->loop.cond);
 			stmt->loop.cond = NULL;
-			free_stmt(stmt->loop.body);
+			free_stmt(root, stmt->loop.body);
 			stmt->loop.body = NULL;
 			break;
 		case STMT_IF:
 			free_exp(stmt->ifStmt.cond);
 			stmt->ifStmt.cond = NULL;
-			free_stmt(stmt->ifStmt.thenStmt);
+			free_stmt(root, stmt->ifStmt.thenStmt);
 			stmt->ifStmt.thenStmt = NULL;
-			free_stmt(stmt->ifStmt.elseStmt);
+			free_stmt(root, stmt->ifStmt.elseStmt);
 			stmt->ifStmt.elseStmt = NULL;
 			break;
 		case STMT_EXPR:
@@ -99,8 +99,8 @@ void free_stmt(stmt_t *stmt) {
 
 	if (stmt->next == stmt)
 		return;
-
-	free_stmt(stmt->next);
+	if (!root || (stmt->next != root))
+		free_stmt(root, stmt->next);
 	stmt->next = NULL;
 	free(stmt);
 }
@@ -177,6 +177,7 @@ void print_stmt(const stmt_t *stmt) {
 	switch (stmt->type) {
 		case STMT_EMPTY:
 			printf("EMPTY()");
+			printf(";\n");
 			break;
 		case STMT_VAR:
 			printf("VAR(");
@@ -184,6 +185,15 @@ void print_stmt(const stmt_t *stmt) {
 			printf(", ");
 			print_exp(stmt->var.value);
 			printf(")");
+			printf(";\n");
+			break;
+		case STMT_VAL:
+			printf("VAL(");
+			print_exp(stmt->var.name);
+			printf(", ");
+			print_exp(stmt->var.value);
+			printf(")");
+			printf(";\n");
 			break;
 		case STMT_LOOP:
 			printf("LOOP(");
@@ -199,18 +209,44 @@ void print_stmt(const stmt_t *stmt) {
 			print_stmt(stmt->ifStmt.thenStmt);
 			printf("} else {\n");
 			print_stmt(stmt->ifStmt.elseStmt);
-			printf("}");
+			printf("}\n");
 			break;
 		case STMT_EXPR:
 			printf("EXP_");
 			print_exp(stmt->exp);
+			printf(";\n");
 			break;
 	}
-	printf(";\n");
 
 	if (stmt->next == stmt)
 		return;
 	print_stmt(stmt->next);
+}
+
+stmt_t *stealRoot(Reader *r) {
+	stmt_t *root = r->root;
+
+	if (root && root->next == root) {
+		r->root = NULL;
+		free(root);
+		return NULL;
+	} else 
+
+	if (root) {
+		stmt_t *first = root->next;
+		free(root);
+		root = first;
+	}
+
+	r->root = NULL;
+	return root;
+}
+
+void set_next_stmt(Reader *r, stmt_t *stmt) {
+	if (stmt) {
+		r->curr_stmt->next = stmt;
+		r->curr_stmt = stmt;
+	}
 }
 
 exp_t *init_exp() {
@@ -223,9 +259,15 @@ exp_t *init_exp() {
     return exp;
 }
 
-exp_t *init_op(exp_t *left, char *op, exp_t *right) {
+exp_t *init_op(exp_t *left, char *op, exp_t *right, Reader *r) {
     exp_t *exp = init_exp();
-	if (!exp) return NULL;
+	if (!exp) {
+		free_exp(left);
+		free(op);
+		free_exp(right);
+		killReader(r);
+		raise_error("failed to initialize exp", r);
+	}
     exp->type = EXP_OP;
     exp->op.left = left;
     exp->op.op = op;
@@ -233,58 +275,89 @@ exp_t *init_op(exp_t *left, char *op, exp_t *right) {
     return exp;
 }
 
-exp_t *init_unary(exp_t *left, char *op, exp_t *right) {
-    exp_t *exp = init_op(left, op, right);
-	if (!exp) return NULL;
+exp_t *init_unary(exp_t *left, char *op, exp_t *right, Reader *r) {
+    exp_t *exp = init_op(left, op, right, r);
+	if (!exp) {
+		free_exp(left);
+		free(op);
+		free_exp(right);
+		killReader(r);
+		raise_error("failed to initialize exp", r);
+	}
     exp->type = EXP_UNARY;
     return exp;
 }
 
-exp_t *init_num(int num) {
+exp_t *init_num(int num, Reader *r) {
     exp_t *exp = init_exp();
-	if (!exp) return NULL;
+	if (!exp) {
+		killReader(r);
+		raise_error("failed to initialize exp", r);
+	}
     exp->type = EXP_NUM;
     exp->num= num;
     return exp;
 }
 
-exp_t *init_str(char *str) {
+exp_t *init_str(char *str, Reader *r) {
 	exp_t *exp = init_exp();
-	if (!exp) return NULL;
+	if (!exp) {
+		free(str);
+		killReader(r);
+		raise_error("failed to initialize exp", r);
+	}
     exp->type = EXP_STR;
     exp->str = str;
     return exp;
 }
 
-exp_t *init_call(key_t key, exp_t *call) {
+exp_t *init_call(key_t key, exp_t *call, Reader *r) {
 	exp_t *exp = init_exp();
-	if (!exp) return NULL;
+	if (!exp) {
+		free_exp(call);
+		killReader(r);
+		raise_error("failed to initialize exp", r);
+	}
 	exp->type = EXP_CALL;
 	exp->call.key = key;
 	exp->call.call = call;
 	return exp;
 }
 
-exp_t *init_array(exp_t *name, exp_t *index) {
+exp_t *init_array(exp_t *name, exp_t *index, Reader *r) {
     exp_t *exp = init_exp();
-	if (!exp) return NULL;
+	if (!exp) {
+		free_exp(name);
+		free_exp(index);
+		killReader(r);
+		raise_error("failed to initialize exp", r);
+	}
     exp->type = EXP_ARRAY;
     exp->arr.arr_name = name;
     exp->arr.index = index;
     return exp;
 }
 
-exp_t *init_initList(exp_t *op) {
+exp_t *init_initList(exp_t *op, Reader *r) {
 	exp_t *exp = init_exp();
-	if (!exp) return NULL;
+	if (!exp) {
+		free_exp(op);
+		killReader(r);
+		raise_error("failed to initialize exp", r);
+	}
 	exp->type = EXP_INITLIST;
 	exp->initlist = op;
 	return exp;
 }
 
-exp_t *init_index(exp_t *index, exp_t *next) {
+exp_t *init_index(exp_t *index, exp_t *next, Reader *r) {
 	exp_t *exp = init_exp();
-	if (!exp) return NULL;
+	if (!exp) {
+		free_exp(index);
+		free_exp(next);
+		killReader(r);
+		raise_error("failed to initialize exp", r);
+	}
 	exp->type = EXP_INDEX;
 	exp->index.index = index;
 	exp->index.next = next;
@@ -295,45 +368,63 @@ stmt_t *init_stmt() {
 	stmt_t *stmt = calloc(1, sizeof(*stmt));
 	if (!stmt) return NULL;
 	stmt->type = STMT_EMPTY;
+	//stmt->next = NULL; //redundant due to calloc
 	return stmt;
 }
 
-stmt_t *init_var(exp_t *name, exp_t *value) {
+stmt_t *init_var(exp_t *name, exp_t *value, Reader *r) {
 	stmt_t *stmt = init_stmt();
-	if (!stmt) return NULL;
+	if (!stmt) {
+		free_exp(name);
+		free_exp(value);
+		killReader(r);
+		raise_error("failed to initialize stmt", r);
+	}
 	stmt->type = STMT_VAR;
 	stmt->var.name = name;
 	stmt->var.value = value;
 	return stmt;
 }
 
-stmt_t *init_Loop(exp_t *cond, stmt_t *body, stmt_t *next) {
+stmt_t *init_Loop(exp_t *cond, stmt_t *body, Reader *r) {
 	stmt_t *stmt = init_stmt();
-	if (!stmt) return NULL;
+	if (!stmt) {
+		free_exp(cond);
+		free_stmt(r->root, body);
+		killReader(r);
+		raise_error("failed to initialize stmt", r);
+	}
 	stmt->type = STMT_LOOP;
 	stmt->loop.cond = cond;
 	stmt->loop.body = body;
-	stmt->next = next;
 	return stmt;
 }
 
-stmt_t *init_ifStmt(exp_t *cond, stmt_t *thenStmt, stmt_t *elseStmt, stmt_t *next) {
+stmt_t *init_ifStmt(exp_t *cond, stmt_t *thenStmt, stmt_t *elseStmt, Reader *r) {
 	stmt_t *stmt = init_stmt();
-	if (!stmt) return NULL;
+	if (!stmt) {
+		free_exp(cond);
+		free_stmt(r->root, thenStmt);
+		free_stmt(r->root, elseStmt);
+		killReader(r);
+		raise_error("failed to initialize stmt", r);
+	}
 	stmt->type = STMT_IF;
 	stmt->ifStmt.cond = cond;
 	stmt->ifStmt.thenStmt = thenStmt;
 	stmt->ifStmt.elseStmt = elseStmt;
-	stmt->next = next;
 	return stmt;
 }
 
-stmt_t *init_expStmt(exp_t *exp, stmt_t *next) {
+stmt_t *init_expStmt(exp_t *exp, Reader *r) {
 	stmt_t *stmt = init_stmt();
-	if (!stmt) return NULL;
+	if (!stmt) {
+		free_exp(exp);
+		killReader(r);
+		raise_error("failed to initialize stmt", r);
+	}
 	stmt->type = STMT_EXPR;
 	stmt->exp = exp;
-	stmt->next = next;
 	return stmt;
 }
 
@@ -342,14 +433,13 @@ exp_t *parsePrint(Reader *r) {
 	acceptToken(r, VAL_KEYWORD, "print");
     acceptToken(r, VAL_DELIM, "(");
 
-	exp_t *exp = init_call(KW_PRINT, parse_atom(r));
+	exp_t *exp = init_call(KW_PRINT, parse_atom(r), r);
 	if (!exp) {
-		raise_error("failed initialize call", ERR_OOM, r);
+		raise_error("failed initialize call", r);
 		return exp;
 	}
 	
 	acceptToken(r, VAL_DELIM, ")");
-	acceptToken(r, VAL_DELIM, ";");
 	
 	return exp;
 }
@@ -359,21 +449,19 @@ exp_t *parseInput(Reader *r) {
     acceptToken(r, VAL_DELIM, "(");
 	
 	acceptToken(r, VAL_DELIM, ")");
-	acceptToken(r, VAL_DELIM, ";");
 	
-	exp_t *exp = init_call(KW_INPUT, NULL);
+	exp_t *exp = init_call(KW_INPUT, NULL, r);
 	if (!exp)
-		raise_error("failed to initialize call", ERR_OOM, r);
+		raise_error("failed to initialize call", r);
 	return exp;
 }
 
 exp_t *parseBreak(Reader *r) {
 	acceptToken(r, VAL_KEYWORD, "break");
-    acceptToken(r, VAL_DELIM, ";");
 
-	exp_t *exp = init_call(KW_BREAK, NULL);
+	exp_t *exp = init_call(KW_BREAK, NULL, r);
 	if (!exp)
-		raise_error("failed to initialize call", ERR_OOM, r);
+		raise_error("failed to initialize call", r);
     return exp;
 }
 
@@ -390,7 +478,7 @@ exp_t *parse_call(Reader *r) {
 		case KW_BREAK: //BREAK
 			return parseBreak(r);
 		default:
-			raise_error("invalid value", ERR_SYNTAX, r);
+			raise_error("invalid value", r);
 			return NULL;
 	}
 }
@@ -405,31 +493,17 @@ exp_t *parse_suffix(exp_t *left, Reader *r) {
     char *op = stealTokString(tok);
     freeValue(getToken(r));
     
-	exp_t *exp = init_unary(left, op, NULL);
-	if (!exp) {
-		//free(op);
-		free_exp(left);
-		raise_error("failed to initialize suffix", ERR_OOM, r);
-	}
-    return exp;
+	return init_unary(left, op, NULL, r);
 }
 
 exp_t *parse_unary(Reader *r) {
-    value_t*tok = peekToken(r);
-    if (!tok || !(tok->str) || (!isUnaryOp(tok->str)))
-		return NULL;
-    
-    char *op = stealTokString(tok);
+    char *op = stealTokString(peekToken(r));
     freeValue(getToken(r));
+
     exp_t *right = parse_atom(r);
     right = parse_suffix(right, r);
  
-	exp_t *exp = init_unary(NULL, op, right);
-	if (!exp) {
-		//free(op);
-		free_exp(right);
-		raise_error("failed to initialize unary", ERR_OOM, r);
-	}
+	exp_t *exp = init_unary(NULL, op, right, r);
     return exp;
 }
 
@@ -446,14 +520,11 @@ exp_t *parse_initList(Reader *r) {
 	acceptToken(r, VAL_DELIM, "{");
 
 	exp_t *exp = init_exp();
-	if (!exp) {
-		raise_error("failed to initialize exp", ERR_OOM, r);
-		return NULL;
-	}
+	if (!exp)
+		raise_error("failed to initialize exp", r);
+
 	exp->type = EXP_INITLIST;
 	exp->initlist = parse_exp(0, r);
-	if (!exp->initlist)
-		return exp;
 
 	acceptToken(r, VAL_DELIM, "}");
 	return exp;
@@ -461,22 +532,16 @@ exp_t *parse_initList(Reader *r) {
 
 exp_t *parse_index(Reader *r) {
 	acceptToken(r, VAL_DELIM, "[");
+
 	exp_t *exp = parse_exp(0, r);
-	if (!exp)
-		return exp;
+
 	acceptToken(r, VAL_DELIM, "]");
+
 	value_t *tok = peekToken(r);
-	exp_t *temp;
 	if (tok && (tok->type == VAL_DELIM) && (tok->ch == '['))
-		temp = init_index(exp, parse_index(r));
-	else
-		temp = init_index(exp, NULL);
-	if (!temp) {
-		free_exp(exp);
-		raise_error("failed to initialize index", ERR_OOM, r);
-	}
-	exp = temp;
-	return exp;
+		return init_index(exp, parse_index(r), r);
+
+	return init_index(exp, NULL, r);
 }
 
 exp_t *parse_atom(Reader *r) { //TODO: add more sub parse functions
@@ -485,117 +550,57 @@ exp_t *parse_atom(Reader *r) { //TODO: add more sub parse functions
     if (!tok || atSemicolon(r))
 		return NULL;
 
-    exp_t *exp = NULL;
     switch (tok->type) {
         case VAL_OP:
-    	    exp = parse_unary(r);
-			break;
+    	    return parse_unary(r);
     	case VAL_NUM:
-			exp = init_num(tok->num);
-			if (!exp) {
-				raise_error("failed to initialize num", ERR_OOM, r);
-				return exp;
-			}
+			int num = tok->num;
 			freeValue(getToken(r));
-			break;
+			return init_num(num, r);
 		case VAL_NAME:
 			char *name = stealTokString(tok);
 			freeValue(getToken(r));
-			exp = init_str(name); // base name expression
-			if (!exp) {
-				free(name);
-				raise_error("failed to initialize string", ERR_OOM, r);
-				return exp;
-			}
+			exp_t *exp_name = init_str(name, r); // base name expression
+	
 			//check for array indexing
 			value_t *nextTok = peekToken(r);
-			if (nextTok && (nextTok->type == VAL_DELIM) && (nextTok->ch == '[')) {
-				exp_t *temp = init_array(exp, parse_index(r));
-				if (!temp) {
-					free(exp);
-					raise_error("failed to initialize string", ERR_OOM, r);
-					return temp;
-				}
-				exp = temp;
-			}
-			break;
+			if (nextTok && (nextTok->type == VAL_DELIM) && (nextTok->ch == '['))
+				return init_array(exp_name, parse_index(r), r);
+			return exp_name;
 		case VAL_STR:
 			char *str = stealTokString(tok);
 			freeValue(getToken(r));
-			char *comma = strdup(",");
-			exp = init_initList(init_op(init_num(str[0]), comma, NULL));
-			if (!exp) {
-				free(str);
-				free_exp(exp);
-				raise_error("failed to initialize array", ERR_OOM, r);
-				return exp;
-			} else if (!exp->initlist) {
-				free(str);
-				free_exp(exp);
-				raise_error("failed to initialize op", ERR_OOM, r);
-				return exp;
-			} else if (!exp->initlist->op.left) {
-				free(str);
-				free_exp(exp);
-				raise_error("failed to initialize num", ERR_OOM, r);
-				return exp;
-			}
-			exp_t *currExp = exp->initlist;
-			for (size_t i = 1; str[i+1] != '\0'; i++) {
-				comma = strdup(",");
-				if (!comma) {
-					raise_error("failed to initialize string", ERR_OOM, r);
-					return exp;
-				}
-				exp_t *right = init_op(init_num(str[i]), comma, NULL);
-				if (!right) {
-					free_exp(currExp->op.right);
-					currExp->op.right = NULL;
-					raise_error("failed to initialize op", ERR_OOM, r);
-					return exp;
-				} else if (!right->op.left) {
-					free_exp(currExp->op.right->op.left);
-					currExp->op.right = NULL;
-					raise_error("failed to initialize num", ERR_OOM, r);
-					return exp;
-				}
+			exp_t *exp_str = init_initList(init_op(init_num(str[0], r), strdup(",", r), NULL, r), r);
 
+			exp_t *currExp = exp_str->initlist;
+			for (size_t i = 1; str[i+1] != '\0'; i++) {
+				exp_t *right = init_op(init_num(str[i], r), strdup(",", r), NULL, r);
 				currExp->op.right = right;
 				currExp = currExp->op.right;
 			}
-			currExp->op.right = init_num(str[strlen(str) - 1]);
-			if (!currExp->op.right) {
-				free_exp(currExp->op.right);
-				currExp->op.right = NULL;
-				raise_error("failed to initialize num", ERR_OOM, r);
-				return exp;
-			}
+			currExp->op.right = init_num(str[strlen(str) - 1], r);
 			free(str);
-			break;
+			return exp_str;
 		case VAL_DELIM:
 			switch (tok->ch) {
 				case '{':
-					exp = parse_initList(r);
-					break;
+					return parse_initList(r);
 				case '(':
-					exp = parse_parenthesis(r);
-					break;
+					return parse_parenthesis(r);
 				case '[':
-					exp = parse_index(r);
-					break;
+					return parse_index(r);
 				default:
-					raise_error("invalid character in code", ERR_SYNTAX, r);
-					break;
+					raise_error("invalid character in code", r);
 			}
 			break;
 		case VAL_KEYWORD:
-			exp = parse_call(r);
+			return parse_call(r);
 			break;
 		default:
 			return NULL;
 			break;
 	}
-    return exp;
+	return NULL;
 }
 
 exp_t *parse_exp(int minPrio, Reader *r) {
@@ -616,13 +621,7 @@ exp_t *parse_exp(int minPrio, Reader *r) {
 			char *opStr = stealTokString(op);
 			freeValue(getToken(r));
 
-			exp_t *temp = init_op(left, opStr, parse_exp(prio+1, r));
-			if (!temp) {
-				free_exp(temp);
-				raise_error("failed to initialize op", ERR_OOM, r);
-				return NULL;
-			}
-			left = temp;
+			left = init_op(left, opStr, parse_exp(prio+1, r), r);
 		}
 		else
 			break;
@@ -635,12 +634,10 @@ stmt_t *parseVar(Reader *r, bool is_mutable) {
 	acceptToken(r, VAL_KEYWORD, getKeyStr(key));
 
 	exp_t *name = parse_atom(r);
-	if (!name || !isAlive(r)) {
+
+	if ((name->type != EXP_STR) && (name->type != EXP_ARRAY)) {
 		free_exp(name);
-		return NULL;
-	} else if ((name->type != EXP_STR) && (name->type != EXP_ARRAY)) {
-		free_exp(name);
-		raise_error("invalid name", ERR_SYNTAX, r);
+		raise_error("invalid name", r);
 		return NULL;
 	}
 
@@ -648,29 +645,43 @@ stmt_t *parseVar(Reader *r, bool is_mutable) {
 
 	exp_t *value = parse_exp(0, r);
 
-	if (!value || !isAlive(r)) {
+	if ((name->type == EXP_ARRAY) && (value->type != EXP_INITLIST)) {
 		free_exp(name);
 		free_exp(value);
-		return NULL;
-	} else  if ((name->type == EXP_ARRAY) && (value->type != EXP_INITLIST)) {
-		free_exp(name);
-		free_exp(value);
-		raise_error("array's must be initialized to a list, either {0} or a larger array.", ERR_SYNTAX, r);
+		raise_error("array's must be initialized to a list, either {0} or a larger array.", r);
 		return NULL;
 	}
 	
-	stmt_t *stmt = init_var(name, value);
-
-	if (!stmt) {
-		free_exp(name);
-		free_exp(value);
-		raise_error("failed to initialize num", ERR_OOM, r);
-		return NULL;
-	}
+	stmt_t *stmt = init_var(name, value, r);
 
 	if (!is_mutable)
 		stmt->type = STMT_VAL;
 	return stmt;
+}
+
+
+typedef struct { stmt_t *saved_stmt; } ctx_t;
+
+ctx_t enter_nested_context(Reader *r) {
+	ctx_t ctx;
+	ctx.saved_stmt = r->curr_stmt;
+
+	stmt_t *dummy = init_stmt();
+	dummy->next = dummy;
+	r->curr_stmt->next = dummy;
+	r->curr_stmt = dummy;
+	return ctx;
+}
+
+stmt_t *exit_nested_context(Reader *r, ctx_t ctx) {
+	r->curr_stmt = ctx.saved_stmt;
+	stmt_t *dummy = r->curr_stmt->next;
+	stmt_t *head = dummy->next;
+	
+	dummy->next = NULL;
+	free_stmt(dummy, dummy);
+	
+	return head;
 }
 
 stmt_t *parseWhile(Reader *r) {
@@ -678,36 +689,27 @@ stmt_t *parseWhile(Reader *r) {
 	acceptToken(r, VAL_DELIM, "(");
 
 	exp_t *cond = parse_exp(0, r);
-	if ((!cond) || (!isAlive(r))) {
-		free_exp(cond);
-		return NULL;
-	}
 
 	acceptToken(r, VAL_DELIM, ")");
 	acceptToken(r, VAL_DELIM, "{");
 
-	stmt_t *body = parse_stmt(r);
-
-	if ((!body) || (!isAlive(r))) {
-		free_exp(cond);
-		free_stmt(body);
-		return NULL;
-	}
+	ctx_t ctx = enter_nested_context(r);
+	parse_stmt(r);
+	stmt_t *body = exit_nested_context(r, ctx);
 
 	acceptToken(r, VAL_DELIM, "}");
 	
-	stmt_t *stmt = init_Loop(cond, body, parse_stmt(r));
+	stmt_t *stmt = init_Loop(cond, body, r);
 
-	if (!stmt) {
-		free_exp(cond);
-		free_stmt(body);
-		raise_error("failed to initialize loop", ERR_OOM, r);
-		return NULL;
-	}
-	return stmt;
+	set_next_stmt(r, stmt);
+
+	if (hasNextStmt(r))
+		set_next_stmt(r, parse_stmt(r));
+    
+    return stmt;
 }
 
-stmt_t *parseFor(Reader *r) { //TODO
+stmt_t *parseFor(Reader *r) {
 	/* structure of a for loop:
         "for" "("<initialization> ";" <condition> ";" <update> ")" "{" <body> "}" <next>
         
@@ -720,96 +722,44 @@ stmt_t *parseFor(Reader *r) { //TODO
 	acceptToken(r, VAL_KEYWORD, "for");
 	acceptToken(r, VAL_DELIM, "(");
 
-	exp_t *init = parse_exp(0, r);
-	if (!init || !isAlive(r)) {
-		free_exp(init);
-		return NULL;
-	}
+	stmt_t *init_stmt = init_expStmt(parse_exp(0, r), r);
+	set_next_stmt(r, init_stmt);
 	
 	acceptToken(r, VAL_DELIM, ";");
 
 	exp_t *cond = parse_exp(0, r);
-	if (!cond || !isAlive(r)) {
-		free_exp(init);
-		free_exp(cond);
-		return NULL;
-	}
 	
 	acceptToken(r, VAL_DELIM, ";");
 
 	exp_t *update = parse_exp(0, r);
 
-	if (!update || !isAlive(r)) {
-		free_exp(init);
-		free_exp(cond);
-		free_exp(update);
-		return NULL;
-	}
 
 	acceptToken(r, VAL_DELIM, ")");
 	acceptToken(r, VAL_DELIM, "{");
 	
-	stmt_t *body = parse_stmt(r);
-	if (!body || !isAlive(r)) {
-		free_exp(init);
-		free_exp(cond);
-		free_exp(update);
-		free_stmt(body);
-		return NULL;
-	}
-	
-	acceptToken(r, VAL_DELIM, "}");
-	
+	ctx_t ctx = enter_nested_context(r);
+	parse_stmt(r);
+	stmt_t *body = exit_nested_context(r, ctx);
 	stmt_t *curr = body;
+
 	if (curr) {
 		while (curr->next != NULL)
 			curr = curr->next;
-		curr->next = init_expStmt(update, NULL);
-		if (!curr->next) {
-			free_exp(init);
-			free_exp(cond);
-			free_exp(update);
-			free_stmt(body);
-			raise_error("failed to initialize exp", ERR_OOM, r);
-			return NULL;
-		}
+		curr->next = init_expStmt(update, r);
 	} else
-		body = init_expStmt(update, NULL);
+		body = init_expStmt(update, r);
 
-	if (!body) {
-		free_exp(init);
-		free_exp(cond);
-		free_exp(update);
-		free_stmt(body);
-		raise_error("failed to initialize exp", ERR_OOM, r);
-		return NULL;
-	}
-	stmt_t *loop = init_Loop(cond, body, parse_stmt(r));
-	if (!loop) {
-		free_exp(init);
-		free_exp(cond);
-		free_exp(update);
-		free_stmt(body);
-		raise_error("failed to initialize loop", ERR_OOM, r);
-		return NULL;
-	}
+	acceptToken(r, VAL_DELIM, "}");
 
-	stmt_t *stmt = init_expStmt(init, loop);
+	stmt_t *loop = init_Loop(cond, body, r);
 
-	if (!stmt) {
-		free_exp(init);
-		free_exp(cond);
-		free_exp(update);
-		free_stmt(body);
-		free_stmt(loop);
-		raise_error("failed to initialize expStmt", ERR_OOM, r);
-		return NULL;
-	}
+	set_next_stmt(r, loop);
 
-	return stmt;
+	if (hasNextStmt(r))
+		set_next_stmt(r, parse_stmt(r));
+
+	return init_stmt;
 }
-
-extern stmt_t *parseElse(Reader *r);
 
 stmt_t *parseIf(Reader *r) {
 	acceptToken(r, VAL_KEYWORD, "if");
@@ -817,162 +767,98 @@ stmt_t *parseIf(Reader *r) {
 
 	exp_t *cond = parse_exp(0, r);
 
-	if (!cond || !isAlive(r)) {
-		free_exp(cond);
-		return NULL;
-	}
-
 	acceptToken(r, VAL_DELIM, ")");
 	acceptToken(r, VAL_DELIM, "{");
 
-	stmt_t *then = parse_stmt(r);
-
-	if (!then || !isAlive(r)) {
-		free_exp(cond);
-		free_stmt(then);
-		return NULL;
-	}
+	ctx_t ctx = enter_nested_context(r);
+	parse_stmt(r);
+	stmt_t *thenStmt = exit_nested_context(r, ctx);
 
 	acceptToken(r, VAL_DELIM, "}");
 
-	value_t* tok = peekToken(r);
 	stmt_t *elseStmt = NULL;
+	value_t* tok = peekToken(r);
 	if ((tok) && (tok->type == VAL_KEYWORD) && (tok->key == KW_ELSE)) {
-		elseStmt = parseElse(r);
-		if (!elseStmt || !isAlive(r)) {
-			free_exp(cond);
-			free_stmt(then);
-			free_stmt(elseStmt);
-			return NULL;
+		acceptToken(r, VAL_KEYWORD, "else");
+
+		tok = peekToken(r);
+		if (!tok)
+			raise_error("expected statement after else", r);
+
+		if ((tok->type == VAL_KEYWORD) && (tok->key == KW_IF))
+			elseStmt = parseIf(r);
+		else {
+			acceptToken(r, VAL_DELIM, "{");
+
+			ctx_t ctx = enter_nested_context(r);
+			parse_stmt(r);
+			elseStmt = exit_nested_context(r, ctx);
+
+			acceptToken(r, VAL_DELIM, "}");
 		}
 	}
-	stmt_t *next = parse_stmt(r);
-	if (!next || !isAlive(r)) {
-		free_exp(cond);
-		free_stmt(then);
-		free_stmt(elseStmt);
-		free_stmt(next);
-		return NULL;
-	}
-	stmt_t *ifStmt = init_ifStmt(cond, then, elseStmt, next);
 
-	if (!ifStmt || !isAlive(r)) {
-		free_exp(cond);
-		free_stmt(then);
-		free_stmt(elseStmt);
-		free_stmt(next);
-		free_stmt(ifStmt);
-		return NULL;
-	}
+	stmt_t *stmt = init_ifStmt(cond, thenStmt, elseStmt, r);
 
-	return ifStmt;
-}
+	set_next_stmt(r, stmt);
 
-stmt_t *parseElse(Reader *r) {
-	acceptToken(r, VAL_KEYWORD, "else");
+	if (hasNextStmt(r))
+		set_next_stmt(r, parse_stmt(r));
 
-	value_t *tok = peekToken(r);
-	if (!tok)
-		raise_error("expected statement after else", ERR_SYNTAX, r);
-
-
-	if ((tok->type == VAL_KEYWORD) && (tok->key == KW_IF))
-		return parseIf(r);
-	else {
-		acceptToken(r, VAL_DELIM, "{");
-
-		stmt_t *then = parse_stmt(r);
-		if (!then || !isAlive(r)) {
-			free_stmt(then);
-			return NULL;
-		}
-
-		acceptToken(r, VAL_DELIM, "}");
-		return then;
-	}
-}
-
-stmt_t *parse_keyword(Reader *r) {
-	value_t *tok = peekToken(r);
-	if (!tok)
-		return NULL;
-	if (tok->type != VAL_KEYWORD)
-		return NULL;
-	
-	switch (tok->key) {
-		case KW_VAR:
-		case KW_VAL:
-			return parseVar(r, tok->key == KW_VAR);
-		case KW_WHILE:
-			return parseWhile(r);
-		case KW_FOR:
-			return parseFor(r);
-		case KW_IF:
-			return parseIf(r);
-		default:
-			exp_t *expcall = parse_call(r);
-			if (!expcall)
-				raise_error("Invalid Keyword", ERR_SYNTAX, r);
-			stmt_t *next = parse_stmt(r);
-			if (!next || !isAlive(r)) {
-				free_exp(expcall);
-				free_stmt(next);
-				return NULL;
-			}
-			stmt_t *expStmt = init_expStmt(expcall, parse_stmt(r));
-			if (!expStmt || !isAlive(r)) {
-				free_exp(expcall);
-				free_stmt(next);
-				free_stmt(expStmt);
-				return NULL;
-			}
-				
-			return expStmt;
-	}
+	return stmt;
 }
 
 stmt_t *parse_stmt(Reader *r) {
-	if (!isAlive(r)) return NULL;
+	if (!isAlive(r))
+		return NULL;
 	
 	value_t *tok = peekToken(r);
 	if (tok == NULL)
 		return NULL;
 	
-	stmt_t *out = NULL;
+	stmt_t *out;
 	
-	if (tok->type == VAL_KEYWORD)
-		out = parse_keyword(r);
-	else { //anything else can safely be assumed to be an expression
-		exp_t *exp = parse_exp(0, r);
-		if (!exp || !isAlive(r)) {
-			free_exp(exp);
-			return NULL;
+	if (tok->type == VAL_KEYWORD) {
+		switch (tok->key) {
+			case KW_VAR:
+			case KW_VAL:
+				out = parseVar(r, tok->key == KW_VAR);
+				acceptToken(r, VAL_DELIM, ";");
+				break;
+			case KW_WHILE:
+				out = parseWhile(r);
+				break;
+			case KW_FOR:
+				out = parseFor(r);
+				break;
+			case KW_IF:
+				out = parseIf(r);
+				break;
+			default:
+				out = init_expStmt(parse_call(r), r);
+				acceptToken(r, VAL_DELIM, ";");
+				break;
 		}
-			
-		out = init_expStmt(exp, NULL);
-		if (!out) {
-			free_exp(exp);
-			raise_error("failed to initialize expStmt", ERR_OOM, r);
-			return NULL;
-		}
-			
+	} else {
+		out = init_expStmt(parse_exp(0, r), r);
+		acceptToken(r, VAL_DELIM, ";");
 	}
 
-	if (peekToken(r) && atSemicolon(r))
-		acceptToken(r, VAL_DELIM, ";");
+	set_next_stmt(r, out);
 
-	if (!hasNextStmt(r)) //i.e. it's a closing bracket or EOF
-		return out;
-
-	out->next = parse_stmt(r);
+	if (hasNextStmt(r)) //i.e. it's not a closing bracket or EOF
+		set_next_stmt(r, parse_stmt(r));
+	
 	return out;
 }
 
 stmt_t *parse_file(const char *filename) {
     Reader *r = readInFile(filename);
 	if (!r)
-		raise_error("failed to read in file", ERR_FILE, r);
-	stmt_t *out = parse_stmt(r);
+		raise_error("failed to read in file", r);
+
+	parse_stmt(r);
+	stmt_t *out = stealRoot(r);
 	killReader(r);
 	return out;
 }

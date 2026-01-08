@@ -23,13 +23,13 @@ int main(int argc, char *argv[]) {
 		expression = parse_file(argv[i]);
 		
 		print_stmt(expression);
-		free_stmt(expression);
+		free_stmt(NULL, expression);
 		expression = NULL;
     }
     if (argc <= 1) {
 		expression = parse_file("example.txt");
 		print_stmt(expression);
-		free_stmt(expression);
+		free_stmt(NULL, expression);
 		expression = NULL;
     } 
 }
