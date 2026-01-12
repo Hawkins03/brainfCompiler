@@ -30,6 +30,6 @@ void set_var(env_t *env, char *name, exp_t *value);
 var_data_t *get_var(const env_t *env, const char *name);
 bool var_exists(const env_t *env, const char *name);
 
-env_t *check_semantics(env_t *env, stmt_t *stmt);
+env_t *check_semantics(env_t *env, stmt_t *stmt, exp_t *exp);
 
 #endif //SEMANTICS_H

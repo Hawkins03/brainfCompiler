@@ -7,6 +7,7 @@
 #include <string.h>
 #include "interp.h"
 #include "parser.h"
+#include "semantics.h"
 #include "utils.h"
 #include <execinfo.h>
 
@@ -28,8 +29,8 @@ const char *OPS[][12] = {         					// lowest priority to highest priority:
 
 
 // Reader functions
-bool isAlive(Reader *r) { //TODO: update to 
-    return (!r || !r->fp || !feof(r->fp) || r->curr_char == EOF);
+bool readerIsAlive(Reader *r) { //TODO: update to 
+    return (!r || !r->fp || !feof(r->fp) || (r->curr_char == EOF));
 }
 
 Reader *readInFile(const char *filename) {
@@ -52,7 +53,7 @@ Reader *readInFile(const char *filename) {
 	if (!r->root) {
 		fclose(r->fp);
 		free(r);
-		raise_error("failed to init root statement", r);
+		raise_syntax_error("failed to init root statement", r);
 		return NULL;
 	}
 
@@ -60,23 +61,19 @@ Reader *readInFile(const char *filename) {
 	r->curr_stmt = r->root;
 
 	advance(r);
-	skip_spaces(r);
-    r->curr_token = getRawToken(r); //preloading token (aka first crank);
-    return r;
+	getToken(r);
+	return r;
 }
 
 void killReader(Reader *r) {
-    if (!r) {
-		fprintf(stderr, "Error, r already freed");
-		exit(EXIT_FAILURE);
-	}
+    if (!r)
+		raise_error("Error, r already freed");
 
 	free_stmt(r->root, r->root);
 	r->root = NULL;
 
-    if (r->curr_token)
-		freeValue(r->curr_token);
-
+	if (r->curr_token)
+		free_value(r->curr_token);
     r->curr_token = NULL;
 
     fclose(r->fp);
@@ -85,32 +82,23 @@ void killReader(Reader *r) {
 }
 
 int peek(Reader *r) {
-    if (!isAlive(r))
+    if (!readerIsAlive(r))
 		return EOF;
-	else
-    	return r->curr_char;
+    return r->curr_char;
 }
 
 int advance(Reader *r) {
-    if (!isAlive(r))
+    if (!readerIsAlive(r))
 		return EOF;
 
 	int out = r->curr_char;
 	if (r->fp && !feof(r->fp))
 		r->curr_char = fgetc(r->fp);
-
-	/*if (!r->fp) {
-		raise_error("End of file", r);
-	} else if (feof(r->fp)) {
-		raise_error("End of file", r);
-	}*/
 	return out;
 }
 
 void skip_spaces(Reader *r) {
-	if (!isAlive(r))
-		return;
-	while (((peek(r) == '\n') || isspace(peek(r))) && isAlive(r))
+	while ((peek(r) == '\n') || isspace(peek(r)))
 		advance(r);
 }
 
@@ -118,26 +106,18 @@ char* strdup(const char* s, Reader *r) {
     size_t len = strlen(s);
     char* result = calloc(len + 1, sizeof(*result));
     if (result == NULL)
-		raise_error("failed to allocate space for a string", r);
+		raise_syntax_error("failed to allocate space for a string", r);
     strcpy(result, s);
     return result;
 }
 
 
 // Checker Functions
-bool isWordChar(const char ch) {
-    return (isalnum(ch) || (ch == '_'));
+bool isWordChar(const int ch) {
+    return ((ch != EOF) && (isalnum(ch) || (ch == '_')));
 }
 
-bool isOp(const char *op) {
-	for (int y = 0; y < NUM_PRIOS; y++)
-		for (int x = 0; OPS[y][x] != NULL; x++)
-			if (!strcmp(OPS[y][x], op))
-				return true;
-	return false;
-}
-
-int getPrio(const char *op) {
+int get_prio(const char *op) {
 	for (int y = 0; y < NUM_PRIOS; y++)
 		for (int x = 0; OPS[y][x] != NULL; x++)
 			if (!strcmp(OPS[y][x], op))
@@ -145,17 +125,22 @@ int getPrio(const char *op) {
 	return -1;
 }
 
-bool isRightAssoc(int prio) {
-	return ((prio == 0) || (prio == 11));
+bool isOp(const char *op) {
+	return get_prio(op) > -1; 
 }
 
-bool matchesOp(const char op) {
-    return (strchr(OP_START, op) != NULL);
+bool isRightAssoc(const int prio) {
+	//technically unary ops are right assoc, but they shouldn't show up in the normal op check
+	return (prio == SET_OP_PRIO);
+}
+
+bool matchesOp(const int op) { // NOT !strchr(). That causes an error
+    return (op != EOF) && strchr(OP_START, op);
 }
 
 bool isUnaryOp(const char *op) {
-    int prio = getPrio(op);
-    return ((prio == 10) || (prio == 12));
+    int prio = get_prio(op);
+    return ((prio == ADD_OP_PRIO) || (prio == UNARY_OP_PRIO));
 }
 
 bool isSuffixOp(value_t *tok) {
@@ -169,12 +154,16 @@ bool isSuffixOp(value_t *tok) {
     return false;
 }
 
-bool isDelim(const char delim) {
-    return (strchr(DELIMS, delim) != NULL);
+bool isValidKey(key_t key) {
+	return ((key >= KW_VAR) && (key <= KW_FALSE));
+}
+
+bool isDelim(const int delim) {
+    return ((delim != EOF) && (strchr(DELIMS, delim) != NULL));
 }
 
 bool isStrType(value_t *v) {
-    return ((v->type == VAL_NAME) || (v->type == VAL_OP));
+    return v && ((v->type == VAL_NAME) || (v->type == VAL_OP));
 }
 
 bool hasNextStmt(Reader *r) {
@@ -190,16 +179,16 @@ bool atSemicolon(Reader *r) {
 
 // value_t Functions
 value_t *initValue() {
-    value_t *val =  calloc(1, sizeof(*val));
-    if (val == NULL)
-		return NULL;
-    return val;
+    return calloc(1, sizeof(value_t));
 }
 
-void printVal(value_t *tok) {
+void print_value(value_t *tok, Reader *r) {
     if (!tok)
 		printf("NULL()\n");
     switch (tok->type) {
+		case VAL_EMPTY:
+			printf("EMPTY()\n");
+			break;
 		case VAL_KEYWORD:
 			printf("KEYWORD(%s)\n", getKeyStr(tok->key));
 			break;
@@ -218,13 +207,12 @@ void printVal(value_t *tok) {
 		case VAL_NUM:
 			printf("NUM(%d)\n", tok->num);
 			break;
+		default:
+			raise_syntax_error("invalid value type", r);
     }
 }
 
-void freeValue(value_t *val) {
-	if (val == NULL)
-		return;
-	
+void free_value(value_t *val) {
 	if ((isStrType(val)) && (val->str != NULL))
 		free(val->str);
 	free(val);
@@ -239,86 +227,64 @@ char *stealTokString(value_t *tok) {
 }
 
 char getNextDelim(Reader *r) {
-    if (peek(r) == EOF)
-		return '\0';
-    else if (isDelim(peek(r)) && (peek(r) != '\0'))
+	int ch = peek(r);
+	if (!readerIsAlive(r))
+		raise_syntax_error("Got EOF", r);
+    if (isDelim(ch))
 		return (char) advance(r);
-    else
-		return '\0';
+	return 0;
 }
 
-char *getNextOp(Reader *r) { //
-    if (peek(r) == EOF) {
-		raise_error("unexpected: reached end of file while reading in op", r);
-		return NULL;
-	}
+char *getNextOp(Reader *r) {
+	if (!readerIsAlive(r))
+		raise_syntax_error("got EOF", r);
     if (!matchesOp(peek(r)))
-        return NULL;
-    char *out = calloc(MAX_OP_LEN + 1, sizeof(*out));
-	if (!out) {
-		raise_error("failed to allocate space on the heap", r);
-		return NULL;
-	}
-    for (int i = 0; ((i < MAX_OP_LEN) && (peek(r) != EOF)); i++) {
-    	out[i] = (char) peek(r);
-		if (!isOp(out)) {
+        raise_syntax_error("expected next character to be an operator", r);
+    char out[MAX_OP_LEN + 1] = {0};
+
+    for (int i = 0; i < MAX_OP_LEN; i++) {
+		if (!readerIsAlive(r) || !matchesOp(peek(r))) {
 			out[i] = '\0';
 			break;
-		} else {
-			advance(r);
 		}
+		out[i] = advance(r);
     }
-	if (strlen(out) < MAX_OP_LEN) {
-		char *temp = realloc(out, strlen(out) + 1);
-		if (!temp) {
-			free(out);
-			raise_error("failed to reallocate space on the heap", r);
-			return NULL;
-		}
-		out = temp;
-	}
-    return out;
+    return strdup(out, r);
 }
 
 int getNextNum(Reader *r) {
-    if (!isAlive(r)) {
-		raise_error("Error, getting num when Reader died", r);
-		return 0;
-	}
-    int num = 0;
+    if (!readerIsAlive(r))
+		raise_syntax_error("Got EOF", r);
+    long num = 0;
     while (isdigit(peek(r)))
 		num = (num * 10) + (advance(r) - '0');
+	if (num >= INT_MAX)
+		raise_syntax_error("number is greater than the max int size", r);
 
     return num;
 }
 
 char *getNextWord(Reader *r) {
-    if (!isAlive(r)) {
-		raise_error("Error, getting word when Reader died", r);
-		return NULL;
-	}
-
-    if (!isalpha(peek(r))) {
-		raise_error("Invallid first letter in word (first letter must be in the range 'a-zA-Z')", r);
-		return NULL;
-	}
+    if (!isalpha(peek(r)))
+		raise_syntax_error("Invallid word (first letter must be in the range 'a-zA-Z')", r);
     
 	char chars[MAX_WORD_LEN + 1] = {0};
     int len = 0;
 
+
+	//
     for (int i = 0; i < MAX_WORD_LEN; i++) {
-		if ((peek(r) == '\0') || (peek(r) == EOF))
+		if (!readerIsAlive(r) && !isalnum(peek(r)) && (peek(r) != '_'))
 			break;
 		if (isalnum(peek(r)) || (peek(r) == '_'))
 			chars[len++] = (char) advance(r);
-		else
-			break;
     }
 
-    char *word = calloc(len+1, sizeof(*word));
-    strncpy(word, chars, len);
-    word[len] = 0;
-
+    char *word = calloc(len + 1, sizeof(*word));
+	if (!word)
+		raise_syntax_error("failed to allocate space in the heap", r);
+    strncpy(word, chars, len + 1);
+    word[len] = '\0';
     return word;
 }
 
@@ -332,7 +298,7 @@ key_t getKeyType(char *keyword) {
 	return -1;
 }
 
-const char *getKeyStr(key_t key) { //TODO: ensure that key is a valid KeyType
+const char *getKeyStr(key_t key) {
 	if ((key <= KW_BREAK) && (key >= KW_VAR))
 		return KEYWORDS[key];
 	return NULL;
@@ -343,79 +309,68 @@ int getCharacterValue(Reader *r) { //i.e. 'x' it gives the int value_t of whatev
 	if (out == '\'')
 		return 0;
 
-	if (advance(r) != '\'') {
-		raise_error("missing ending single quote", r);
-		return 0;
-	}
+	if (advance(r) != '\'')
+		raise_syntax_error("missing ending single quote", r);
+
 	return out;
 }
 
 char *getStringValue(Reader *r) {
-	if (!isAlive(r) || !peek(r) || (peek(r) == EOF))
+	if (!readerIsAlive(r))
 		return NULL;
 	size_t cap = 16;
 	size_t len = 0;
 	char *buf = calloc(cap, sizeof(*buf));
-	if (!buf) { 
-		raise_error("ran out of memory space on the heap", r);
-		return NULL;
-	}
-	while (true) {
-		int nextCh = peek(r);
+	if (!buf)
+		raise_syntax_error("ran out of memory space on the heap", r);
 
-		if (nextCh == EOF) {
-				free(buf);
-				raise_error("got EOF before end of string", r);
-				return NULL;
-		} else if ( nextCh == '"') {
-			advance(r);
-			break;
-		} else if (nextCh == '\\') {
-			advance(r); // consume '\'
-			nextCh = advance(r);
+	while (readerIsAlive(r) && (peek(r) != '\"')) {
+
+		if (peek(r) == '\\') {
+			advance(r); //consume '\'
 			
-			switch (nextCh) {
+			switch (advance(r)) {
 				case 'n':  
-					nextCh = '\n';
+					buf[len++] = '\n';
 					break;
 				case 't':  
-					nextCh = '\t';
+					buf[len++] = '\t';
 					break;
 				case 'r':  
-					nextCh = '\r';
+					buf[len++] = '\r';
 					break;
 				case '"':  
-					nextCh = '"';
+					buf[len++] = '"';
 					break;
 				case '\\': 
-					nextCh = '\\';
+					buf[len++] = '\\';
 					break;
 				default:
 					free(buf);
-					raise_error("invalid escape in string", r);
-					return NULL;
+					raise_syntax_error("invalid escape character", r);
 			}
 		} else
-			nextCh = advance(r);
+			buf[len++] = advance(r);
 
 		if (len + 1 >= cap) {
 			cap *= 2;
 			char *temp = realloc(buf, cap);
 			if (!temp) {
 				free(buf);
-				raise_error("ran out of memory space on the heap", r);
-				return NULL;
+				raise_syntax_error("ran out of memory space on the heap", r);
 			}
 			buf = temp;
 		}
+	}
 
-		buf[len++] = (char) nextCh;
+	if (advance(r) != '"') {
+		free(buf);
+		raise_syntax_error("Expected ending quote after string", r);
 	}
 	char *temp = realloc(buf, len + 1);
 	if (!temp) {
 		free(buf);
-		raise_error("ran out of memory space on the heap", r);
-		return NULL;
+		raise_syntax_error("ran out of memory space on the heap", r);
 	}
 	buf = temp;
 	buf[len] = '\0';
@@ -433,7 +388,7 @@ int GetTrueFalseValue(key_t key) {
 value_t *getRawToken(Reader *r) {
 	value_t *val = initValue(r);
 	if (!val) {
-		raise_error("failed to initialize value", r);
+		raise_syntax_error("failed to initialize value", r);
 		return NULL;
 	}
     if (peek(r) == EOF)
@@ -442,14 +397,16 @@ value_t *getRawToken(Reader *r) {
     if (isalpha(peek(r))) {
 		char *out = getNextWord(r);
 		key_t key = getKeyType(out);
-		if ((key != -1) && (GetTrueFalseValue(key) != -1)) {
-			val->type = VAL_NUM;
-			val->num = GetTrueFalseValue(key);
-			free(out);
-		} else if (key != -1) {
-			val->type = VAL_KEYWORD;
-			val->key = key;
-			free(out);
+		if (isValidKey(key)) {
+			if (GetTrueFalseValue(key) != -1) {
+				val->type = VAL_NUM;
+				val->num = GetTrueFalseValue(key);
+				free(out);
+			} else {
+				val->type = VAL_KEYWORD;
+				val->key = key;
+				free(out);
+			}
 		} else {
 			val->type = VAL_NAME;
 			val->str = out;
@@ -460,34 +417,36 @@ value_t *getRawToken(Reader *r) {
 		val->str = out;
     } else if (isDelim(peek(r))) {
 		char delim = getNextDelim(r);
-		if (delim == '\'') {
-			val->num = getCharacterValue(r);
-			val->type = VAL_NUM;
-		} else if (delim == '"') {
-			val->str = getStringValue(r);
-			val->type = VAL_STR;
-		} else {
-			val->type = VAL_DELIM;
-			val->ch = delim;
+		switch (delim) {
+			case '\'':
+				val->num = getCharacterValue(r);
+				val->type = VAL_NUM;
+				break;
+			case '"':
+				val->str = getStringValue(r);
+				val->type = VAL_STR;
+				break;
+			default:
+				val->type = VAL_DELIM;
+				val->ch = delim;
+				break;
 		}
     } else if (isdigit(peek(r))) {
 		int out = getNextNum(r);
 		val->type = VAL_NUM;
 		val->num = out;
-	} else if (!isAlive(r)) {
+	} else if (!readerIsAlive(r))
 		free(val);
-		return NULL;
-    } else {
-		printf("val = %c, %d\n", peek(r), matchesOp(peek(r)));
+    else {
 		free(val);
-		raise_error("Error, unexpected character", r);
-		return NULL;
+		raise_syntax_error("Error, unexpected character", r);
     }
     return val;
 }
 
 value_t *getToken(Reader *r) {
-    if (!isAlive(r)) return NULL;
+    if (!readerIsAlive(r))
+		return NULL;
 
     skip_spaces(r);
 
@@ -497,7 +456,7 @@ value_t *getToken(Reader *r) {
 }
 
 value_t *peekToken(Reader *r) {
-    if (!isAlive(r))
+    if (!readerIsAlive(r))
 		return NULL;
     return r->curr_token;
 }
@@ -505,50 +464,50 @@ value_t *peekToken(Reader *r) {
 void acceptToken(Reader *r, value_type_t type, const char *expected) {
 	value_t *tok = getToken(r);
 	if (!tok) {
-		freeValue(tok);
-		if (r->curr_token)
-			freeValue(r->curr_token);
-		raise_error("Invalid Null token value", r);
-		return;
+		free_value(tok);
+		raise_syntax_error("Invalid Null token value", r);
 	} else if (!expected) {
-		freeValue(tok);
-		if (r->curr_token)
-			freeValue(r->curr_token);
-		raise_error("Invalid expected value", r);
-		return;
+		free_value(tok);
+		raise_syntax_error("Invalid expected value", r);
 	} else if (tok->type != type) {
-		freeValue(tok);
-		if (r->curr_token)
-			freeValue(r->curr_token);
-		raise_error("Unexpected token type", r);
-		return;
+		free_value(tok);
+		raise_syntax_error("Unexpected token type", r);
 	}
 	
 	if (tok->type == VAL_KEYWORD) {
 		if (strcmp(getKeyStr(tok->key), expected)) {
-			freeValue(tok);
-			raise_error("Unexpected keyword value", r);
+			free_value(tok);
+			raise_syntax_error("Unexpected keyword value", r);
 		}
     } else if (isStrType(tok)) {
 		if (!tok->str || strcmp(tok->str, expected)) {
-			freeValue(tok);
-			raise_error("Missing token string", r);
+			free_value(tok);
+			raise_syntax_error("Missing token string", r);
 		}
     } else if (tok->type == VAL_DELIM) {
 		if (tok->ch != expected[0]) {
-			freeValue(tok);
-			raise_error("Unexpected token value", r);
-			return;
+			free_value(tok);
+			raise_syntax_error("Unexpected token value", r);
 		}
 	}
-	freeValue(tok);
+	free_value(tok);
 }
 
 
 // Error Handling
-void _raise_error(const char *msg,const char *func, const char *file, int line, Reader *r) {
-	if (r)
-		killReader(r);
+void _raise_error(const char *msg, const char *func, const char *file, int line) {
 	fprintf(stderr, "ERROR in %s at %s:%d - %s\n", func, file, line, msg);
 	exit(EXIT_FAILURE);
+}
+
+void _raise_syntax_error(const char *msg, const char *func, const char *file, int line, Reader *r) {
+	if (r)
+		killReader(r);
+	_raise_error(msg, func, file, line);
+}
+
+void _raise_semantic_error(const char *msg, const char *func, const char *file, int line, env_t *env) {
+	if (env)
+		free_env(env);
+	_raise_error(msg, func, file, line);
 }

@@ -13,14 +13,16 @@
 int test_file(const char *input_file, const char *expected) {
 	stmt_t *stmt = parse_file(input_file);
 
+	if (stmt->next == stmt) {
+		free_stmt(stmt, NULL);
+		raise_error("infinite recursion of statement");
+	}
 	int size = measure_stmt_strlen(stmt) + 1;
 	char *act = calloc(size, sizeof(*act));
 	if (!act) {
-		free_stmt(NULL, stmt);
-		fprintf(stderr, "memory allocation failed");
-		exit(EXIT_FAILURE);
+		free(stmt);
+		raise_error("memory allocation failed");
 	}
-
 	getStmtStr(act, stmt);
 	int status = 0;
 	if (strcmp(act, expected)) {
@@ -49,13 +51,8 @@ size_t measure_exp_strlen(const exp_t *exp) {
 			break;
 		case EXP_ARRAY:
 			size += strlen("ARR(, )");
-			size += measure_exp_strlen(exp->arr.arr_name);
+			size += measure_exp_strlen(exp->arr.name);
 			size += measure_exp_strlen(exp->arr.index);
-			break;
-		case EXP_INDEX:
-			size += strlen("INDEX(, )");
-			size += measure_exp_strlen(exp->index.index);
-			size += measure_exp_strlen(exp->index.next);
 			break;
 		case EXP_INITLIST:
 			size += strlen("INITLIST()");
@@ -63,9 +60,10 @@ size_t measure_exp_strlen(const exp_t *exp) {
 			break;
 		case EXP_NUM:
 			size += strlen("NUM()");
-			char buff1[11] = {0};
-			sprintf(buff1, "%d", exp->num);
-			size += strlen(buff1);
+			char *buf1 = calloc(11, sizeof(*buf1));
+			sprintf(buf1, "%d", exp->num);
+			size += strlen(buf1);
+			free(buf1);
 			break;
 		case EXP_OP:
 			size += measure_exp_strlen(exp->op.left);
@@ -79,9 +77,10 @@ size_t measure_exp_strlen(const exp_t *exp) {
 			break;
 		case EXP_CALL:
 			size += strlen("CALL(, )");	
-			char buff2[11] = {0};
-			sprintf(buff2, "%d", exp->call.key);
-			size += strlen(buff2);
+			char *buf2 = calloc(11, sizeof(*buf2));
+			sprintf(buf2, "%d", exp->call.key);
+			size += strlen(buf2);
+			free(buf2);
 			size += measure_exp_strlen(exp->call.call);
 			break;
 		default:
@@ -97,7 +96,7 @@ size_t measure_stmt_strlen(const stmt_t *stmt) {
 	switch (stmt->type) {
 		case STMT_VAR:
 		case STMT_VAL:
-			size += strlen("VAR( , )");
+			size += strlen("VAR( , );");
 			size += measure_exp_strlen(stmt->var.name);
 			size += measure_exp_strlen(stmt->var.value);
 			break;
@@ -121,7 +120,9 @@ size_t measure_stmt_strlen(const stmt_t *stmt) {
 		default:
 			break;
 	}
-	return size;
+	if (!stmt->next)
+		return size;
+	return size + ' ' + measure_stmt_strlen(stmt->next);
 }
 
 void getExpStr(char *out, const exp_t *exp) {
@@ -136,16 +137,9 @@ void getExpStr(char *out, const exp_t *exp) {
 			break;
 		case EXP_ARRAY:
 			sprintf(out, "ARR(");
-			getExpStr(out + strlen(out), exp->arr.arr_name);
+			getExpStr(out + strlen(out), exp->arr.name);
 			sprintf(out + strlen(out), ", ");
 			getExpStr(out + strlen(out), exp->arr.index);
-			sprintf(out + strlen(out), ")");
-			break;
-		case EXP_INDEX:
-			sprintf(out, "INDEX(");
-			getExpStr(out + strlen(out), exp->index.index);
-			sprintf(out + strlen(out), ", ");
-			getExpStr(out + strlen(out), exp->index.next);
 			sprintf(out + strlen(out), ")");
 			break;
 		case EXP_INITLIST:
@@ -193,7 +187,7 @@ void getStmtStr(char *out, const stmt_t *stmt) {
 			getExpStr(out + strlen(out), stmt->var.name);
 			sprintf(out + strlen(out), ", ");
 			getExpStr(out + strlen(out), stmt->var.value);
-			sprintf(out + strlen(out), ")");
+			sprintf(out + strlen(out), ");");
 			break;
 		case STMT_IF:
 			sprintf(out, "IF(");
@@ -204,17 +198,21 @@ void getStmtStr(char *out, const stmt_t *stmt) {
 				sprintf(out + strlen(out), ", ");
 				getStmtStr(out + strlen(out), stmt->ifStmt.elseStmt);
 			}
-			sprintf(out + strlen(out), "); ");
+			sprintf(out + strlen(out), ");");
 			break;
 		case STMT_LOOP:
 			sprintf(out, "LOOP(");
 			getExpStr(out + strlen(out), stmt->loop.cond);
 			sprintf(out + strlen(out), ", ");
 			getStmtStr(out + strlen(out), stmt->loop.body);
-			sprintf(out + strlen(out), "); ");
+			sprintf(out + strlen(out), ");");
 			break;
 		default:
 			break;
+	}
+	if (stmt->next) {
+		sprintf(out + strlen(out), " ");
+		getStmtStr(out + strlen(out), stmt->next);
 	}
 }
 

@@ -135,16 +135,17 @@ int main(int argc, char **argv) {
 	run_one("tests/parenthesis7.txt", "STR(x)", catch_errors, &total, &passed, &failed, &errors);
 	run_one("tests/parenthesis8.txt", "OP(STR(x), +, OP(STR(y), *, OP(STR(z), +, STR(w))))", catch_errors, &total, &passed, &failed, &errors);
 
-	run_one("tests/stmt_var.txt", "VAR(STR(x), NUM(3))", catch_errors, &total, &passed, &failed, &errors);
-	run_one("tests/stmt_if.txt", "IF(OP(STR(x), >, NUM(0)), OP(STR(x), =, OP(STR(x), -, NUM(1))), OP(STR(x), =, OP(STR(x), +, NUM(1)))); ", catch_errors, &total, &passed, &failed, &errors);
-	run_one("tests/stmt_while.txt", "LOOP(OP(STR(x), <, NUM(10)), OP(STR(x), =, OP(STR(x), +, NUM(1)))); ", catch_errors, &total, &passed, &failed, &errors);
+	run_one("tests/stmt_var.txt", "VAR(STR(x), NUM(3));", catch_errors, &total, &passed, &failed, &errors);
+	run_one("tests/stmt_if.txt", "IF(OP(STR(x), >, NUM(0)), OP(STR(x), =, OP(STR(x), -, NUM(1))), OP(STR(x), =, OP(STR(x), +, NUM(1))));", catch_errors, &total, &passed, &failed, &errors);
+	run_one("tests/stmt_while.txt", "LOOP(OP(STR(x), <, NUM(10)), OP(STR(x), =, OP(STR(x), +, NUM(1))));", catch_errors, &total, &passed, &failed, &errors);
+	run_one("tests/stmt_for.txt", "VAR(STR(i), NUM(0)); LOOP(OP(STR(i), <, NUM(10)), CALL(6, STR(i)););", catch_errors, &total, &passed, &failed, &errors);
 
 	run_one("tests/call_print.txt", "CALL(6, STR(x))", catch_errors, &total, &passed, &failed, &errors);
 	run_one("tests/call_input.txt", "CALL(7, NULL)", catch_errors, &total, &passed, &failed, &errors);
 	run_one("tests/call_break.txt", "CALL(8, NULL)", catch_errors, &total, &passed, &failed, &errors);
 
-	run_one("tests/array1.txt", "ARR(STR(x), INDEX(NUM(3), NULL))", catch_errors, &total, &passed, &failed, &errors);
-	run_one("tests/array2.txt", "ARR(STR(x), INDEX(NUM(1), INDEX(STR(y), NULL)))", catch_errors, &total, &passed, &failed, &errors);
+	run_one("tests/array1.txt", "ARR(STR(x), NUM(3))", catch_errors, &total, &passed, &failed, &errors);
+	run_one("tests/array2.txt", "ARR(ARR(STR(x), STR(y)), NUM(1))", catch_errors, &total, &passed, &failed, &errors);
 	run_one("tests/init1.txt", "INITLIST(STR(x))", catch_errors, &total, &passed, &failed, &errors);
 
 	run_one("tests/string_simple.txt", "INITLIST(OP(NUM(97), ,, OP(NUM(98), ,, NUM(99))))", catch_errors, &total, &passed, &failed, &errors);
