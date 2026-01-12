@@ -54,9 +54,9 @@ size_t measure_exp_strlen(const exp_t *exp) {
 			size += measure_exp_strlen(exp->arr.name);
 			size += measure_exp_strlen(exp->arr.index);
 			break;
-		case EXP_INITLIST:
-			size += strlen("INITLIST()");
-			size += measure_exp_strlen(exp->initlist);
+		case EXP_NESTED:
+			size += strlen("NESTED()");
+			size += measure_exp_strlen(exp->nested);
 			break;
 		case EXP_NUM:
 			size += strlen("NUM()");
@@ -101,7 +101,7 @@ size_t measure_stmt_strlen(const stmt_t *stmt) {
 			size += measure_exp_strlen(stmt->var.value);
 			break;
 		case STMT_EXPR:
-			size += measure_exp_strlen(stmt->exp);
+			size += measure_exp_strlen(stmt->exp) + 1;
 			break;
 		case STMT_IF:
 			size += strlen("IF( , ); ");
@@ -142,9 +142,9 @@ void getExpStr(char *out, const exp_t *exp) {
 			getExpStr(out + strlen(out), exp->arr.index);
 			sprintf(out + strlen(out), ")");
 			break;
-		case EXP_INITLIST:
-			sprintf(out, "INITLIST(");
-			getExpStr(out + strlen(out), exp->initlist);
+		case EXP_NESTED:
+			sprintf(out, "NESTED(");
+			getExpStr(out + strlen(out), exp->nested);
 			sprintf(out + strlen(out), ")");
 			break;
 		case EXP_NUM:
@@ -179,6 +179,7 @@ void getStmtStr(char *out, const stmt_t *stmt) {
 	switch (stmt->type) {
 		case STMT_EXPR:
 			getExpStr(out, stmt->exp);
+			sprintf(out + strlen(out), ";");
 			break;
 		case STMT_VAR:
 		case STMT_VAL:

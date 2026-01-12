@@ -6,14 +6,14 @@
 
 struct MS_Exp;
 
-typedef enum {EXP_EMPTY, EXP_STR, EXP_NUM, EXP_OP, EXP_UNARY, EXP_CALL, EXP_ARRAY, EXP_INITLIST} exp_type_t;
+typedef enum {EXP_EMPTY, EXP_STR, EXP_NUM, EXP_OP, EXP_UNARY, EXP_CALL, EXP_ARRAY, EXP_NESTED} exp_type_t;
 
 typedef struct exp {
     exp_type_t type;
     union {//e.as (e.as.name for example).
 	char *str;
 	int num;
-    struct exp *initlist;
+    struct exp *nested; // in this case it's for arrays.
     struct { struct exp *name, *index;} arr;
 	struct { key_t key; struct exp *call; } call;
 	struct { struct exp *left, *right; char *op; } op;
@@ -60,6 +60,7 @@ stmt_t *init_expStmt(exp_t *exp, Reader *r);
 
 exp_t *parse_atom(Reader *r);
 exp_t *parse_exp(int minPrio, Reader *r);
+void parse_single_stmt(Reader *r);
 void parse_stmt(Reader *r);
 stmt_t *parse_file(const char *filename);
 

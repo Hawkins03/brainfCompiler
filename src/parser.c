@@ -42,9 +42,9 @@ void free_exp(exp_t *exp) {
 			free_exp(exp->arr.index);
 			exp->arr.index = NULL;
 			break;
-		case EXP_INITLIST:
-			free_exp(exp->initlist);
-			exp->initlist = NULL;
+		case EXP_NESTED:
+			free_exp(exp->nested);
+			exp->nested = NULL;
 			break;
     }
     free(exp);
@@ -129,9 +129,9 @@ void print_exp(const exp_t *exp) {
 			print_exp(exp->arr.index);
 			printf(")");
 			break;
-		case EXP_INITLIST:
-			printf("INITLIST(");
-			print_exp(exp->initlist);
+		case EXP_NESTED:
+			printf("NESTED(");
+			print_exp(exp->nested);
 			printf(")");
 			break;
 		case EXP_EMPTY:
@@ -248,10 +248,8 @@ stmt_t *stealRoot(Reader *r) {
 }
 
 bool compare(exp_t *exp1, exp_t *exp2) {
-	if (exp1->type != exp2->type)
+	if (!((exp1 != NULL) ^ (exp2 != NULL)) || (exp1->type != exp2->type))
 		return false;
-
-	//EXP_EMPTY, EXP_STR, EXP_NUM, EXP_OP, EXP_UNARY, EXP_CALL, EXP_ARRAY, EXP_INITLIST
 	switch (exp1->type) {
 		case EXP_EMPTY:
 			return true;
@@ -266,8 +264,8 @@ bool compare(exp_t *exp1, exp_t *exp2) {
 			return ((exp1->call.key == exp2->call.key) && compare(exp1->call.call, exp2->call.call));
 		case EXP_ARRAY:
 			return ((exp1->arr.index == exp2->arr.index) && compare(exp1->arr.name, exp2->arr.name));
-		case EXP_INITLIST:
-			return compare(exp1->initlist, exp2->initlist);
+		case EXP_NESTED:
+			return compare(exp1->nested, exp2->nested);
 		default:
 			return false;
 	}
@@ -378,7 +376,7 @@ exp_t *init_array(exp_t *name, exp_t *index, Reader *r) {
     return exp;
 }
 
-exp_t *init_initlist(exp_t *op, Reader *r) {
+exp_t *init_nested(exp_t *op, Reader *r) {
 	exp_t *exp = init_exp();
 	if (!exp) {
 		free_exp(op);
@@ -386,8 +384,8 @@ exp_t *init_initlist(exp_t *op, Reader *r) {
 		raise_syntax_error("failed to initialize exp", r);
 	}
 
-	exp->type = EXP_INITLIST;
-	exp->initlist = op;
+	exp->type = EXP_NESTED;
+	exp->nested = op;
 	return exp;
 }
 
@@ -500,7 +498,7 @@ exp_t *parseCall(Reader *r) {
 
 exp_t *parseSuffix(exp_t *left, Reader *r) {
 	if (!isSuffixOp(peekToken(r)))
-		return NULL;
+		return left;
     char *op = stealTokString(peekToken(r));
     free_value(getToken(r));
     
@@ -510,13 +508,7 @@ exp_t *parseSuffix(exp_t *left, Reader *r) {
 exp_t *parseUnary(Reader *r) {
     char *op = stealTokString(peekToken(r));
     free_value(getToken(r));
-
-    exp_t *right = parse_atom(r);
-	exp_t *temp = parseSuffix(right, r);
-    if (temp)
-		right = temp;
-
-    return init_unary(NULL, op, right, r);
+    return init_unary(NULL, op, parseSuffix(parse_atom(r), r), r);
 }
 
 exp_t *parseParenthesis(Reader *r) {
@@ -528,10 +520,10 @@ exp_t *parseParenthesis(Reader *r) {
     return exp;
 }
 
-exp_t *parseInitList(Reader *r) {
+exp_t *parseNested(Reader *r) {
 	acceptToken(r, VAL_DELIM, "{");
 
-	exp_t *exp = init_initlist(parse_exp(0, r), r);
+	exp_t *exp = init_nested(parse_exp(0, r), r);
 
 	acceptToken(r, VAL_DELIM, "}");
 	return exp;
@@ -555,9 +547,9 @@ exp_t *parseStr(Reader *r) {
 	char *str = stealTokString(peekToken(r));
 	free_value(getToken(r));
 
-	exp_t *exp_str = init_initlist(init_op(init_num(str[0], r), strdup(",", r), NULL, r), r);
+	exp_t *exp_str = init_nested(init_op(init_num(str[0], r), strdup(",", r), NULL, r), r);
 
-	exp_t *currExp = exp_str->initlist;
+	exp_t *currExp = exp_str->nested;
 	for (size_t i = 1; i < strlen(str) - 1; i++) {
 		currExp->op.right = init_op(init_num(str[i], r), strdup(",", r), NULL, r);;
 		currExp = currExp->op.right;
@@ -585,13 +577,13 @@ exp_t *parse_atom(Reader *r) {
 			char *name = stealTokString(tok);
 			free_value(getToken(r));
 
-			return parseArray(init_str(name, r), r); // base name expression
+			return parseSuffix(parseArray(init_str(name, r), r), r); // base name expression
 		case VAL_STR:
 			return parseStr(r);
 		case VAL_DELIM:
 			switch (tok->ch) {
 				case '{':
-					return parseInitList(r);
+					return parseNested(r);
 				case '(':
 					return parseParenthesis(r);
 				default:
@@ -654,7 +646,7 @@ void parseVar(Reader *r, bool is_mutable) {
 	exp_t *value = parse_exp(0, r);
 	stmt->var.value = value;
 
-	if ((name->type == EXP_ARRAY) && (value->type != EXP_INITLIST))
+	if ((name->type == EXP_ARRAY) && (value->type != EXP_NESTED))
 		raise_syntax_error("array's must be initialized to a list, either {0} or a larger array.", r);
 }
 
@@ -690,21 +682,17 @@ void parseFor(Reader *r) {
 	acceptToken(r, VAL_KEYWORD, "for");
 	acceptToken(r, VAL_DELIM, "(");
 	//TODO: make this get statements. (or for now just allow while loops and not for loops)
-	exp_t *init = parse_exp(0, r);
-	stmt_t *setup = init_expStmt(init, r);
-	set_next_stmt(r, setup);
-	
-	acceptToken(r, VAL_DELIM, ";");
+	parse_single_stmt(r); //init
+
+	stmt_type_t tp = r->curr_stmt->type;
+	if ((tp != STMT_VAR) && (tp != STMT_VAL) && (tp != STMT_EXPR))
+		raise_error("for initialization is of invalid type");
 
 	exp_t *cond = parse_exp(0, r);
-	stmt_t *tmp_stmt = init_expStmt(cond, r);
-	set_next_stmt(r, tmp_stmt);
 	
 	acceptToken(r, VAL_DELIM, ";");
 
 	exp_t *update = parse_exp(0, r);
-	tmp_stmt->next = init_expStmt(update, r);
-	set_next_stmt(r, tmp_stmt->next);
 
 	acceptToken(r, VAL_DELIM, ")");
 	acceptToken(r, VAL_DELIM, "{");
@@ -722,11 +710,6 @@ void parseFor(Reader *r) {
 		body = init_expStmt(update, r);
 
 	acceptToken(r, VAL_DELIM, "}");
-
-	setup->next = NULL;
-	r->curr_stmt = setup;
-
-	free_stmt(r->root, tmp_stmt);
 
 	stmt_t *loop = init_loop(cond, body, r);
 	set_next_stmt(r, loop);
@@ -779,7 +762,7 @@ void parseIf(Reader *r) {
 	}
 }
 
-void parse_stmt(Reader *r) {
+void parse_single_stmt(Reader *r) {
 	if (!readerIsAlive(r) || !hasNextStmt(r)) return;
 	
 	value_t *tok = peekToken(r);
@@ -810,8 +793,12 @@ void parse_stmt(Reader *r) {
 		set_next_stmt(r, init_expStmt(parse_exp(0, r), r));
 		acceptToken(r, VAL_DELIM, ";");
 	}
+}
 
-	parse_stmt(r);
+void parse_stmt(Reader *r) {
+	while (hasNextStmt(r)) {
+		parse_single_stmt(r);
+	}
 }
 
 stmt_t *parse_file(const char *filename) {
