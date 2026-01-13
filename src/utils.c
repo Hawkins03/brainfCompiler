@@ -272,8 +272,6 @@ char *getNextWord(Reader *r) {
 	char chars[MAX_WORD_LEN + 1] = {0};
     int len = 0;
 
-
-	//
     for (int i = 0; i < MAX_WORD_LEN; i++) {
 		if (!readerIsAlive(r) && !isalnum(peek(r)) && (peek(r) != '_'))
 			break;

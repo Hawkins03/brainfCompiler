@@ -247,11 +247,18 @@ bool compare_exps(exp_t *exp1, exp_t *exp2) {
 			return exp1->num == exp2->num;
 		case EXP_UNARY:
 		case EXP_OP:
-			return (compare_exps(exp1->op.left, exp2->op.left) && strcmp(exp1->op.op, exp2->op.op) && compare_exps(exp1->op.right, exp2->op.right));
+            bool lefts_match = compare_exps(exp1->op.left, exp2->op.left);
+            bool ops_match = strcmp(exp1->op.op, exp2->op.op);
+            bool rights_match = compare_exps(exp1->op.right, exp2->op.right);
+            return lefts_match && ops_match && rights_match;
 		case EXP_CALL:
-			return ((exp1->call.key == exp2->call.key) && compare_exps(exp1->call.call, exp2->call.call));
+            bool keys_match = exp1->call.key == exp2->call.key;
+            bool calls_match = compare_exps(exp1->call.call, exp2->call.call);
+            return keys_match && calls_match;
 		case EXP_ARRAY:
-			return ((exp1->arr.index == exp2->arr.index) && compare_exps(exp1->arr.name, exp2->arr.name));
+            bool indexes_match = exp1->arr.index == exp2->arr.index;
+            bool names_match = compare_exps(exp1->arr.name, exp2->arr.name);
+            return indexes_match && names_match;
 		case EXP_NESTED:
 			return compare_exps(exp1->nested, exp2->nested);
 		default:
@@ -265,24 +272,25 @@ char *get_name_from_exp(exp_t *exp) {
 		return NULL;
 	
 	switch (exp->type) {
-		case EXP_ARRAY:
-			return get_name_from_exp(exp->arr.name);
-		case EXP_UNARY:
-			char *left_name = get_name_from_exp(exp->op.left);
-			if (left_name)
-				return left_name;
-			return get_name_from_exp(exp->op.right);
-		case EXP_STR:
-			return exp->str;
-		default:
-			return NULL;
+    case EXP_ARRAY:
+        return get_name_from_exp(exp->arr.name);
+    case EXP_UNARY:
+        char *left_name = get_name_from_exp(exp->op.left);
+        if (left_name)
+            return left_name;
+        else
+            return get_name_from_exp(exp->op.right);
+    case EXP_STR:
+        return exp->str;
+    default:
+        return NULL;
 	}
 }
 
-bool is_array(exp_t *exp) {
+bool exp_is_array(exp_t *exp) {
 	return exp && (exp->type == EXP_ARRAY);
 }
 
-bool is_unary_exp(exp_t *exp) {
-	return (exp && ((exp->type == EXP_ARRAY) || (exp->type == EXP_UNARY) || (exp->type == EXP_STR)));
+bool exp_is_unary(exp_t *exp) {
+	return (exp_is_array(exp) || (exp->type == EXP_UNARY) || (exp->type == EXP_STR));
 }

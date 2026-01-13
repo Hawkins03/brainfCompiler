@@ -31,10 +31,6 @@ int test_file(const char *input_file, const char *expected) {
 		fprintf(stderr, "input: \"%s\" mismatch\nact: \t\t\"%s\"\nexpected:\t\"%s\"\n\n",
 				input_file, act, expected);
 		status = 1;
-	} else {
-		printf("input: %s\n match\nact: \t\t\"%s\"\nexpected:\t\"%s\"\n\n",
-			   input_file, act, expected);
-		status = 0;
 	}
 
 	free(act);

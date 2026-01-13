@@ -36,7 +36,7 @@ void print_exp(const exp_t *exp);
 
 bool compare_exps(exp_t *exp1, exp_t *exp2);
 char *get_name_from_exp(exp_t *exp);
-bool is_array(exp_t *exp);
-bool is_unary_exp(exp_t *exp);
+bool exp_is_array(exp_t *exp);
+bool exp_is_unary(exp_t *exp);
 
 #endif //EXP_H

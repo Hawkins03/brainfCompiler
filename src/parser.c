@@ -38,7 +38,7 @@ stmt_t *stealRoot(Reader *r) {
 	return first;
 }
 
-stmt_t *enter_nested_context(Reader *r) {
+stmt_t *push_context(Reader *r) {
 	stmt_t *saved = r->curr_stmt;
 
 	stmt_t *dummy = init_stmt();
@@ -47,7 +47,7 @@ stmt_t *enter_nested_context(Reader *r) {
 	return saved;
 }
 
-stmt_t *exit_nested_context(Reader *r, stmt_t *saved) {
+stmt_t *pop_context(Reader *r, stmt_t *saved) {
 	r->curr_stmt = saved;
 	stmt_t *dummy = saved->next;
 	saved->next = NULL;
@@ -58,7 +58,6 @@ stmt_t *exit_nested_context(Reader *r, stmt_t *saved) {
 
 	return head;
 }
-
 
 exp_t *parsePrint(Reader *r) {
 	acceptToken(r, VAL_KEYWORD, "print");
@@ -269,9 +268,9 @@ void parseWhile(Reader *r) {
 	acceptToken(r, VAL_DELIM, ")");
 	acceptToken(r, VAL_DELIM, "{");
 
-	stmt_t *prev = enter_nested_context(r);
+	stmt_t *prev = push_context(r);
 	parse_stmt(r);
-	stmt->loop.body = exit_nested_context(r, prev);
+	stmt->loop.body = pop_context(r, prev);
 
 	acceptToken(r, VAL_DELIM, "}");
 }
@@ -304,9 +303,9 @@ void parseFor(Reader *r) {
 	acceptToken(r, VAL_DELIM, ")");
 	acceptToken(r, VAL_DELIM, "{");
 	
-	stmt_t *prev = enter_nested_context(r);
+	stmt_t *prev = push_context(r);
 	parse_stmt(r);
-	stmt_t *body = exit_nested_context(r, prev);
+	stmt_t *body = pop_context(r, prev);
 	stmt_t *curr = body;
 
 	if (curr) {
@@ -331,9 +330,9 @@ void parseIf(Reader *r) {
 	acceptToken(r, VAL_DELIM, ")");
 	acceptToken(r, VAL_DELIM, "{");
 
-	stmt_t *prev = enter_nested_context(r);
+	stmt_t *prev = push_context(r);
 	parse_stmt(r);
-	stmt_t *thenStmt = exit_nested_context(r, prev);
+	stmt_t *thenStmt = pop_context(r, prev);
 
 	acceptToken(r, VAL_DELIM, "}");
 
@@ -360,9 +359,9 @@ void parseIf(Reader *r) {
 		} else {
 			acceptToken(r, VAL_DELIM, "{");
 
-			stmt_t *prev = enter_nested_context(r);
+			stmt_t *prev = push_context(r);
 			parse_stmt(r);
-			stmt->ifStmt.elseStmt = exit_nested_context(r, prev);
+			stmt->ifStmt.elseStmt = pop_context(r, prev);
 
 			acceptToken(r, VAL_DELIM, "}");
 		}

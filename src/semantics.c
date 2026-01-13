@@ -75,7 +75,7 @@ env_t *check_semantics(env_t *env, stmt_t *stmt, exp_t *exp) {
       case STMT_VAL:
         //TODO: if val = NULL, define it as uninitiated
         bool is_mutable = (stmt->type == STMT_VAR);
-        bool is_array_tp = is_array(stmt->var.name);
+        bool is_array_tp = exp_is_array(stmt->var.name);
         if (!(is_array_tp ^ (stmt->var.value->type != EXP_NESTED))) // ^ = xor, so basically means no array and no 
           raise_semantic_error("you can't set an array to an integer", env);
         char *name = get_name_from_exp(stmt->var.name);
@@ -114,7 +114,7 @@ env_t *check_semantics(env_t *env, stmt_t *stmt, exp_t *exp) {
       case EXP_UNARY:
       case EXP_OP:
         if (get_prio(exp->op.op) == SET_OP_PRIO) {
-          if (!is_unary_exp(exp->op.left))
+          if (!exp_is_unary(exp->op.left))
             raise_semantic_error("expected a single variable being set.", env);
           char *name = get_name_from_exp(exp->op.left);
           if (!((exp->op.right->type == EXP_NESTED) ^ ((is_array_var(env, name) && (exp->op.left->type != EXP_ARRAY))))) // if it's an array, set it to an initlist.
