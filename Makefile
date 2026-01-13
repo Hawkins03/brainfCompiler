@@ -9,7 +9,7 @@ INC_DIR := include
 COMPILER = bfCompiler
 TESTER = bfTester
 
-COMMON_SRCS = interp.c parser.c utils.c test.c semantics.c exp.c stmt.c
+COMMON_SRCS = interp.c parser.c utils.c test.c semantics.c exp.c stmt.c value.c reader.c
 COMPILER_SRCS = main.c $(COMMON_SRCS)
 TESTER_SRCS = runTests.c $(COMMON_SRCS)
 
@@ -18,7 +18,7 @@ TESTER_OBJS = $(TESTER_SRCS:%.c=$(BIN_DIR)/%.o)
 
 OBJS = $(COMPILER_OBJS) $(TESTER_OBJS)
 
-DEPS = interp.h parser.h utils.h test.h semantics.h exp.h stmt.h
+DEPS = interp.h parser.h utils.h test.h semantics.h exp.h stmt.h value.h structs.h reader.h
 
 all: $(COMPILER) $(TESTER)
 

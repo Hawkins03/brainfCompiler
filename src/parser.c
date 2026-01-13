@@ -6,11 +6,15 @@
 #include <string.h>
 #include <sys/types.h>
 #include <unistd.h>
-#include "parser.h"
-#include "interp.h"
-#include "utils.h"
-#include "stmt.h"
+
+#include "structs.h"
+#include "value.h"
 #include "exp.h"
+#include "stmt.h"
+#include "reader.h"
+#include "parser.h"
+#include "utils.h"
+
 
 //utility functions
 
@@ -59,6 +63,8 @@ stmt_t *pop_context(Reader *r, stmt_t *saved) {
 	return head;
 }
 
+
+//parsing calls
 exp_t *parsePrint(Reader *r) {
 	acceptToken(r, VAL_KEYWORD, "print");
     acceptToken(r, VAL_DELIM, "(");
@@ -89,19 +95,19 @@ exp_t *parseCall(Reader *r) {
 		return NULL;
 	
 	switch (tok->key) {
-		case KW_PRINT:
-			return parsePrint(r);
-		case KW_INPUT:
-			return parseInput(r);
-		case KW_BREAK:
-			return parseBreak(r);
-		default:
-			raise_syntax_error("invalid value", r);
+	case KW_PRINT:
+		return parsePrint(r);
+	case KW_INPUT:
+		return parseInput(r);
+	case KW_BREAK:
+		return parseBreak(r);
+	default:
+		raise_syntax_error("invalid value", r);
 	}
 	return NULL;
 }
 
-
+//parsing atoms
 exp_t *parseSuffix(exp_t *left, Reader *r) {
 	if (!isSuffixOp(peekToken(r)))
 		return left;
@@ -230,7 +236,9 @@ exp_t *parse_exp(int minPrio, Reader *r) {
     }
     return left;
 }
-   
+
+
+//parsing stmts
 void parseVar(Reader *r, bool is_mutable) {
 	key_t key = is_mutable ? KW_VAR : KW_VAL;
 	acceptToken(r, VAL_KEYWORD, getKeyStr(key));

@@ -3,6 +3,7 @@
 #include <string.h>
 #include "stmt.h"
 #include "exp.h"
+#include "reader.h"
 
 // freeing functions
 void free_stmt(stmt_t *stmt) {

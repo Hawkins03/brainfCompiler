@@ -5,6 +5,7 @@
 #include "utils.h"
 #include "stmt.h"
 #include "exp.h"
+#include "parser.h"
 
 exp_t *parse_atom(Reader *r);
 exp_t *parse_exp(int minPrio, Reader *r);
