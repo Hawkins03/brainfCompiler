@@ -9,6 +9,7 @@
 #include "parser.h"
 #include "semantics.h"
 #include "utils.h"
+#include "stmt.h"
 #include <execinfo.h>
 
 const char *OPS[][12] = {         					// lowest priority to highest priority:
@@ -69,7 +70,7 @@ void killReader(Reader *r) {
     if (!r)
 		raise_error("Error, r already freed");
 
-	free_stmt(r->root, r->root);
+	free_stmt(r->root);
 	r->root = NULL;
 
 	if (r->curr_token)

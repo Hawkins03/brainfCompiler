@@ -6,7 +6,6 @@
 typedef struct env env_t;
 typedef struct stmt stmt_t;
 
-
 #define MAX_WORD_LEN 32
 #define MAX_NUM_LEN 10
 #define MAX_OP_LEN 3
@@ -38,10 +37,10 @@ typedef struct stmt stmt_t;
 extern const char *OPS[][12];
 
 typedef enum {
-		KW_VAR = 0, KW_VAL, KW_WHILE, KW_FOR, 
-		KW_IF, KW_ELSE, KW_PRINT, KW_INPUT, KW_BREAK, 
-        KW_TRUE, KW_FALSE
-   } key_t;
+    KW_VAR = 0, KW_VAL, KW_WHILE, KW_FOR, 
+    KW_IF, KW_ELSE, KW_PRINT, KW_INPUT, KW_BREAK, 
+    KW_TRUE, KW_FALSE
+} key_t;
 
 typedef enum {VAL_EMPTY, VAL_NAME, VAL_STR, VAL_OP, VAL_NUM, VAL_DELIM, VAL_KEYWORD} value_type_t;
 

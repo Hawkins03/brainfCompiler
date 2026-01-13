@@ -4,6 +4,8 @@
 #include <stdbool.h>
 #include "utils.h"
 #include "parser.h"
+#include "stmt.h"
+#include "exp.h"
 
 #define STARTING_ENV_CAP 8
 

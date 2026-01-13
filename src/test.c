@@ -9,18 +9,20 @@
 #include "parser.h"
 #include "utils.h"
 #include "test.h"
+#include "stmt.h"
+#include "exp.h"
 
 int test_file(const char *input_file, const char *expected) {
 	stmt_t *stmt = parse_file(input_file);
 
 	if (stmt->next == stmt) {
-		free_stmt(stmt, NULL);
+		free_stmt(stmt);
 		raise_error("infinite recursion of statement");
 	}
 	int size = measure_stmt_strlen(stmt) + 1;
 	char *act = calloc(size, sizeof(*act));
 	if (!act) {
-		free(stmt);
+		free_stmt(stmt);
 		raise_error("memory allocation failed");
 	}
 	getStmtStr(act, stmt);
@@ -36,7 +38,7 @@ int test_file(const char *input_file, const char *expected) {
 	}
 
 	free(act);
-	free_stmt(NULL, stmt);
+	free_stmt(stmt);
 	return status;
 }
 

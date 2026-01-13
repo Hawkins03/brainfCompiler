@@ -1,5 +1,7 @@
 #include "semantics.h"
 #include "parser.h"
+#include "stmt.h"
+#include "exp.h"
 #include <string.h>
 #include <stdlib.h>
 

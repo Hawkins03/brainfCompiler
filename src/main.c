@@ -6,6 +6,8 @@
 #include "parser.h"
 #include "utils.h"
 #include "test.h"
+#include "stmt.h"
+#include "exp.h"
 
 int main(int argc, char *argv[]) {
 	// uncomment to run interpreter (should be hello world)
@@ -23,7 +25,7 @@ int main(int argc, char *argv[]) {
 		stmt_t *expression = parse_file(argv[i]);
 		
 		print_stmt(expression);
-		free_stmt(NULL, expression);
+		free_stmt(expression);
 		expression = NULL;
     }
 }
