@@ -4,11 +4,13 @@
 #include "structs.h"
 
 struct reader *readInFile(const char *filename);
-void killreader_t(struct reader *r);
+void killReader(struct reader *r);
 
 bool readerIsAlive(struct reader *r);
 bool hasNextStmt(struct reader *r);
 bool atSemicolon(struct reader *r);
+bool parserCanProceed(struct reader *r);
+bool isValidNameChar(const char ch, struct reader *r);
 
 int peek(struct reader *r);
 int advance(struct reader *r);

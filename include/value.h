@@ -33,6 +33,8 @@ bool matchesOp(const int op);
 bool isUnaryOp(const char *op);
 bool isSuffixOp(struct value *tok);
 bool isKeyword(const enum key_type key);
+bool isElseKey(const struct value *val);
+bool isTrueFalseKey(const enum key_type  key);
 bool isDelim(const int delim);
 bool isStrType(struct value *v);
 bool isValidOp(const struct value *op, const int minPrio);
@@ -41,6 +43,5 @@ struct value *getRawValue(struct reader *r);
 struct value *getValue(struct reader *r);
 struct value *peekValue(struct reader *r);
 void acceptValue(struct reader *r, enum value_type type, const char *expected);
-
 
 #endif //VALUE_H

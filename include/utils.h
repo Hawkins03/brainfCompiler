@@ -7,18 +7,20 @@
 #define ALLOC_LIST_START_LEN 8
 
 #define raise_error(msg) \
-    _raise_error((msg), __func__, __FILE__, __LINE__)
+	_raise_error((msg), __func__, __FILE__, __LINE__)
 
 #define raise_syntax_error(msg, r) \
-    _raise_syntax_error((msg), __func__, __FILE__, __LINE__, r)
+	_raise_syntax_error((msg), __func__, __FILE__, __LINE__, r)
 
 #define raise_semantic_error(msg, env) \
-    _raise_semantic_error((msg), __func__, __FILE__, __LINE__, env)
+	_raise_semantic_error((msg), __func__, __FILE__, __LINE__, env)
 
 
 //reader struct:
 
 char *strdup(const char *s, struct reader *r);
+void set_strlen(char **str, const int len, struct reader *r);
+void reset_strlen_if_needed(char **str, const int len, int *cap, struct reader *r);
 
 void _raise_error(const char *msg, const char *func, const char *file, int line);
 void _raise_syntax_error(const char *msg, const char *func, const char *file, int line, struct reader *r);

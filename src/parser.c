@@ -44,6 +44,8 @@ struct stmt *stealRoot(struct reader *r)
 	return first;
 }
 
+
+// tempermental: DO NOT TOUCH WITHOUT REASON
 struct stmt *push_context(struct reader *r)
 {
 	struct stmt *saved = r->curr_stmt;
@@ -72,7 +74,7 @@ struct stmt *pop_context(struct reader *r, struct stmt *saved)
 struct exp  *parsePrint(struct reader *r)
 {
 	acceptValue(r, VAL_KEYWORD, "print");
-    acceptValue(r, VAL_DELIM, "(");
+    	acceptValue(r, VAL_DELIM, "(");
 
 	struct exp  *args = parse_exp(0, r);
 	
@@ -84,7 +86,7 @@ struct exp  *parsePrint(struct reader *r)
 struct exp  *parseInput(struct reader *r)
 {
 	acceptValue(r, VAL_KEYWORD, "input");
-    acceptValue(r, VAL_DELIM, "(");
+    	acceptValue(r, VAL_DELIM, "(");
 	acceptValue(r, VAL_DELIM, ")");
 	
 	return init_call(KW_INPUT, NULL, r);
@@ -93,7 +95,7 @@ struct exp  *parseInput(struct reader *r)
 struct exp  *parseBreak(struct reader *r)
 {
 	acceptValue(r, VAL_KEYWORD, "break");
-    return init_call(KW_BREAK, NULL, r);
+    	return init_call(KW_BREAK, NULL, r);
 }
 
 struct exp  *parseCall(struct reader *r)
@@ -120,17 +122,15 @@ struct exp  *parseSuffix(struct exp  *left, struct reader *r)
 {
 	if (!isSuffixOp(peekValue(r)))
 		return left;
-    char *op = stealTokString(peekValue(r));
-    freeValue(getValue(r));
-    
-	return init_unary(left, op, NULL, r);
+
+	return init_unary(left, stealNextString(r), NULL, r);
 }
 
 struct exp  *parseUnary(struct reader *r)
 {
-    char *op = stealTokString(peekValue(r));
-    freeValue(getValue(r));
-    return init_unary(NULL, op, parseSuffix(parse_atom(r), r), r);
+	//not folding in so that stealNextStr precedes parseSuffix and parse_atom 
+    	char *op = stealNextString(r);
+    	return init_unary(NULL, op, parseSuffix(parse_atom(r), r), r);
 }
 
 struct exp  *parseParenthesis(struct reader *r)
@@ -176,7 +176,7 @@ struct exp  *parseNum(struct reader *r) {
 }
 
 struct exp  *parseStr(struct reader *r)
-{
+{ //TODO: clean up
 	char *str = stealTokString(peekValue(r));
 	freeValue(getValue(r));
 
@@ -238,7 +238,7 @@ struct exp  *parse_exp(int minPrio, struct reader *r)
     if (!left)
 		return NULL;
 
-    while ((readerIsAlive(r) && hasNextStmt(r)) && !atSemicolon(r)) {
+    while (parserCanProceed(r)) {
 		if (isValidOp(peekValue(r), minPrio)) {
 			char *op = stealNextString(r);
 			left = init_op(left, op, parse_exp(getPrio(op)+1, r), r);
@@ -265,7 +265,8 @@ void parseVar(struct reader *r, bool is_mutable) {
 	if ((name->type != EXP_STR) && (name->type != EXP_ARRAY))
 		raise_syntax_error("invalid name", r);
 
-	if (atSemicolon(r)) return;
+	if (atSemicolon(r))
+		return;
 
 	acceptValue(r, VAL_OP, "=");
 
@@ -281,7 +282,6 @@ void parseWhile(struct reader *r) {
 	acceptValue(r, VAL_DELIM, "(");
 
 	struct exp  *cond = parse_exp(0, r);
-
 	struct stmt *stmt = init_loop(cond, NULL, r);
 	set_next_stmt(r, stmt);
 
@@ -359,11 +359,10 @@ void parseIf(struct reader *r) {
 	struct stmt *stmt = init_ifStmt(cond, thenStmt, r);
 	set_next_stmt(r, stmt);
 
-	struct value *tok = peekValue(r);
-	if ((tok) && (tok->type == VAL_KEYWORD) && (tok->key == KW_ELSE)) {
+	if (isElseKey(peekValue(r))) {
 		acceptValue(r, VAL_KEYWORD, "else");
 
-		tok = peekValue(r);
+		struct value *tok = peekValue(r);
 		if (!tok)
 			raise_syntax_error("expected statement after else", r);
 
@@ -411,12 +410,14 @@ void parse_single_stmt(struct reader *r) {
 				parseIf(r);
 				break;
 			default:
-				set_next_stmt(r, init_expStmt(parseCall(r), r));
+				struct stmt *call_stmt = init_expStmt(parseCall(r), r);
+				set_next_stmt(r, call_stmt);
 				acceptValue(r, VAL_DELIM, ";");
 				break;
 		}
 	} else {
-		set_next_stmt(r, init_expStmt(parse_exp(0, r), r));
+		struct stmt *exp_stmt = init_expStmt(parse_exp(0, r), r);
+		set_next_stmt(r, exp_stmt);
 		acceptValue(r, VAL_DELIM, ";");
 	}
 }
@@ -434,6 +435,6 @@ struct stmt *parse_file(const char *filename) {
 
 	parse_stmt(r);
 	struct stmt *out = stealRoot(r);
-	killreader_t(r);
+	killReader(r);
 	return out;
 }

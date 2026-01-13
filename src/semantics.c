@@ -10,55 +10,55 @@
 
 
 struct env *init_env(struct env *parent) {
-  struct env *env = calloc(1, sizeof(*env));
-  if (!env)
-    return NULL;
-  env->parent = parent;
-  return env;
+	struct env *env = calloc(1, sizeof(*env));
+	if (!env)
+		return NULL;
+	env->parent = parent;
+	return env;
 }
 
 void free_env(struct env *env) {
-  if (!env)
-    return;
-  free_env(env->parent);
-  free(env);
+	if (!env)
+		return;
+	free_env(env->parent);
+	free(env);
 }
 
 void define_var(struct env *env, char *name, struct exp  *value, bool is_mutable, bool is_array) {
-  if (var_exists(env, name))
-    raise_semantic_error("variable name already defined", env);
+	if (var_exists(env, name))
+		raise_semantic_error("variable name already defined", env);
 
-  struct var_data *var_loc = env->vars + (env->count)++;
-  var_loc->name = name;
-  var_loc->value = value;
-  var_loc->is_mutable = is_mutable;
-  var_loc->is_array = is_array;
+	struct var_data *var_loc = env->vars + (env->count)++;
+	var_loc->name = name;
+	var_loc->value = value;
+	var_loc->is_mutable = is_mutable;
+	var_loc->is_array = is_array;
 }
 
 void set_var(struct env *env, char *name, struct exp  *value) {
-  struct var_data *var = get_var(env, name);
-  if (!var->is_mutable && var->value != NULL)
-    raise_semantic_error("user is attempting to reassign an immutable variable", env);
-  var->value = value;
+	struct var_data *var = get_var(env, name);
+	if (!var->is_mutable && var->value != NULL)
+		raise_semantic_error("user is attempting to reassign an immutable variable", env);
+	var->value = value;
 }
 struct var_data *get_var(const struct env *env, const char *name) {
-  if (!env)
-    return NULL;
-  for (size_t i = 0; i < env->count; i++) {
-    struct var_data *var = env->vars + i;
-    if ((var) && (!strcmp(var->name, name)))
-      return var;
-  }
-  return get_var(env->parent, name);
+	if (!env)
+		return NULL;
+	for (size_t i = 0; i < env->count; i++) {
+		struct var_data *var = env->vars + i;
+		if ((var) && (!strcmp(var->name, name)))
+			return var;
+		}
+	return get_var(env->parent, name);
 }
 
 bool var_exists(const struct env *env, const char *name) {
-  return (get_var(env, name) != NULL);
+  	return (get_var(env, name) != NULL);
 }
 
 bool is_array_var(const struct env *env, const char *name) {
-  struct var_data *var = get_var(env, name);
-  return ((var != NULL) && var->is_array);
+	struct var_data *var = get_var(env, name);
+	return ((var != NULL) && var->is_array);
 }
 
 
@@ -70,72 +70,74 @@ bool is_array_var(const struct env *env, const char *name) {
   * 3. no referencing variables if they haven't been defined yet (i.e. no x = y; var y = 0;)
   * 5. no combining lists and integers (i.e. x[i] = x is invalid)
   */
-struct env *check_semantics(struct env *env, struct stmt *stmt, struct exp  *exp) {
-  if (stmt) {
-    switch (stmt->type) {
-      case STMT_VAR:
-      case STMT_VAL:
-        //TODO: if val = NULL, define it as uninitiated
-        bool is_mutable = (stmt->type == STMT_VAR);
-        bool is_array_tp = exp_is_array(stmt->var.name);
-        if (!(is_array_tp ^ (stmt->var.value->type != EXP_NESTED))) // ^ = xor, so basically means no array and no 
-          raise_semantic_error("you can't set an array to an integer", env);
-        char *name = get_name_from_exp(stmt->var.name);
-        
-        define_var(env, name, stmt->var.value, is_mutable, is_array_tp);
-        check_semantics(env, NULL, stmt->var.value);
-        check_semantics(env, NULL, stmt->var.name);
-        break;
-      case STMT_EXPR:
-        check_semantics(env, NULL, stmt->exp);
-        break;
-      case STMT_IF:
-        check_semantics(env, NULL, stmt->ifStmt.cond);
-        check_semantics(env, stmt->ifStmt.thenStmt, NULL);
-        check_semantics(env, stmt->ifStmt.elseStmt, NULL);
-        break;
-      case STMT_LOOP:
-        check_semantics(env, NULL, stmt->loop.cond);
-        check_semantics(env, stmt->loop.body, NULL);
-        break;
-      default:
-        raise_semantic_error("invalid statement in semantics", env);
-        break;
-    }
-    check_semantics(env, stmt->next, NULL);
-  } else if (exp) {
-    //EXP_EMPTY, EXP_STR, EXP_NUM, EXP_OP, EXP_UNARY, EXP_CALL, EXP_ARRAY, EXP_INITLIST, EXP_INDEX
-    switch (exp->type) {
-      case EXP_STR:
-        struct var_data *var = get_var(env, exp->str);
-        if (!var)
-          raise_semantic_error("variable has not been defined", env);
-        if (var->is_array)
-          raise_semantic_error("array is being used as an integer", env);
-        break;
-      case EXP_UNARY:
-      case EXP_OP:
-        if (getPrio(exp->op.op) == SET_OP_PRIO) {
-          if (!exp_is_unary(exp->op.left))
-            raise_semantic_error("expected a single variable being set.", env);
-          char *name = get_name_from_exp(exp->op.left);
-          if (!((exp->op.right->type == EXP_NESTED) ^ ((is_array_var(env, name) && (exp->op.left->type != EXP_ARRAY))))) // if it's an array, set it to an initlist.
-            raise_semantic_error("array must be set to an array (i.e. {asdf})", env);
-        }
+void check_stmt_semantics(struct env *env, struct stmt *stmt) {
+	switch (stmt->type) {
+	case STMT_VAR:
+	case STMT_VAL:
+		//TODO: if val = NULL, define it as uninitiated
+		bool is_mutable = (stmt->type == STMT_VAR);
+		bool is_array_tp = exp_is_array(stmt->var.name);
+		if (!(is_array_tp ^ (stmt->var.value->type != EXP_NESTED))) // ^ = xor, so basically means no array and no 
+		raise_semantic_error("you can't set an array to an integer", env);
+		char *name = get_name_from_exp(stmt->var.name);
+		
+		define_var(env, name, stmt->var.value, is_mutable, is_array_tp);
+		check_exp_semantics(env, stmt->var.value);
+		check_exp_semantics(env, stmt->var.name);
+		break;
+	case STMT_EXPR:
+		check_exp_semantics(env, stmt->exp);
+		break;
+	case STMT_IF:
+		check_exp_semantics(env, stmt->ifStmt.cond);
+		check_stmt_semantics(env, stmt->ifStmt.thenStmt);
+		check_stmt_semantics(env, stmt->ifStmt.elseStmt);
+		break;
+	case STMT_LOOP:
+		check_exp_semantics(env, stmt->loop.cond);
+		check_stmt_semantics(env, stmt->loop.body);
+		break;
+	default:
+		raise_semantic_error("invalid statement in semantics", env);
+		break;
+	}
+	check_stmt_semantics(env, stmt->next);
+}
+void check_exp_semantics(struct env *env, struct exp *exp) {
+	if (!env)
+		return;
 
-        check_semantics(env, stmt, exp->op.left);
-        check_semantics(env, stmt, exp->op.left);
-        break;
-      case EXP_ARRAY:
-        check_semantics(env, stmt, exp->arr.name);
-        break;
-      case EXP_NESTED:
-        check_semantics(env, stmt, exp->nested);
-        break;
-      default:
-        raise_semantic_error("invalid exp in semantics", env);
-        break;
-    }
-  }
-  return NULL;
+	switch (exp->type) {
+	case EXP_STR:
+		struct var_data *var = get_var(env, exp->str);
+		if (!var)
+			raise_semantic_error("variable has not been defined", env);
+		if (var->is_array)
+			raise_semantic_error("array is being used as an integer", env);
+		break;
+	case EXP_UNARY:
+	case EXP_OP:
+		//TODO: move to its own checker function
+		if (getPrio(exp->op.op) == SET_OP_PRIO) {
+			if (!exp_is_unary(exp->op.left))
+				raise_semantic_error("expected a single variable being set.", env);
+			char *name = get_name_from_exp(exp->op.left);
+			//TODO: set to its own checker function
+			if (!((exp->op.right->type == EXP_NESTED) ^ ((is_array_var(env, name) && (exp->op.left->type != EXP_ARRAY))))) // if it's an array, set it to an initlist.
+				raise_semantic_error("array must be set to an array (i.e. {asdf})", env);
+		}
+
+		check_exp_semantics(env, exp->op.left);
+		check_exp_semantics(env, exp->op.left);
+		break;
+	case EXP_ARRAY:
+		check_exp_semantics(env, exp->arr.name);
+		break;
+	case EXP_NESTED:
+		check_exp_semantics(env, exp->nested);
+		break;
+	default:
+		raise_semantic_error("invalid exp in semantics", env);
+		break;
+	}
 }

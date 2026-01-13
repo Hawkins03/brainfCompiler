@@ -17,6 +17,7 @@ void set_var(struct env *env, char *name, struct exp  *value);
 struct var_data *get_var(const struct env *env, const char *name);
 bool var_exists(const struct env *env, const char *name);
 
-struct env *check_semantics(struct env *env, struct stmt *stmt, struct exp  *exp);
+void check_stmt_semantics(struct env *env, struct stmt *stmt);
+void check_exp_semantics(struct env *env, struct exp *exp);
 
 #endif //SEMANTICS_H
