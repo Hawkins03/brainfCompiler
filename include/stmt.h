@@ -5,15 +5,15 @@
 #include "utils.h"
 #include <stdbool.h>
 
-stmt_t *init_stmt();
-stmt_t *init_var(exp_t *name, exp_t *value, Reader *r);
-stmt_t *init_loop(exp_t *cond, stmt_t *body, Reader *r);
-stmt_t *init_ifStmt(exp_t *cond, stmt_t *thenStmt, Reader *r);
-stmt_t *init_expStmt(exp_t *exp, Reader *r);
+struct stmt *init_stmt();
+struct stmt *init_var(struct exp  *name, struct exp  *value, struct reader *r);
+struct stmt *init_loop(struct exp  *cond, struct stmt *body, struct reader *r);
+struct stmt *init_ifStmt(struct exp  *cond, struct stmt *thenStmt, struct reader *r);
+struct stmt *init_expStmt(struct exp  *exp, struct reader *r);
 
-void free_stmt(stmt_t *stmt);
-void print_stmt(const stmt_t *stmt);
+void free_stmt(struct stmt *stmt);
+void print_stmt(const struct stmt *stmt);
 
-bool compare_stmts(const stmt_t *stmt1, const stmt_t *stmt2);
+bool stmts_match(const struct stmt *stmt1, const struct stmt *stmt2);
 
 #endif //STMT_H

@@ -1,27 +1,32 @@
 #include "parser.h"
 #include "utils.h"
 #include "exp.h"
+#include "value.h"
 
 #include <stdlib.h>
 #include <stdbool.h>
 
-void free_exp(exp_t *exp) {
+void free_exp(struct exp  *exp)
+{
     if (!exp)
         return;
     exp->free_fn(exp);
 }
 
-void free_empty_exp(exp_t *exp) {
+void free_empty_exp(struct exp  *exp)
+{
     free(exp);
 }
 
-void free_str_exp(exp_t *exp) {
+void free_str_exp(struct exp  *exp)
+{
     free(exp->str);
     exp->str = NULL;
     free(exp);
 }
 
-void free_op_exp(exp_t *exp) {
+void free_op_exp(struct exp  *exp)
+{
     free(exp->op.op);
     exp->op.op = NULL;
     free_exp(exp->op.left);
@@ -31,13 +36,15 @@ void free_op_exp(exp_t *exp) {
     free(exp);
 }
 
-void free_call_exp(exp_t *exp) {
+void free_call_exp(struct exp  *exp)
+{
     free_exp(exp->call.call);
 	exp->call.call = NULL;
     free(exp);
 }
 
-void free_array_exp(exp_t *exp) {
+void free_array_exp(struct exp  *exp)
+{
     free_exp(exp->arr.name);
     exp->arr.name = NULL;
     free_exp(exp->arr.index);
@@ -45,34 +52,40 @@ void free_array_exp(exp_t *exp) {
     free(exp);
 }
 
-void free_nested_exp(exp_t *exp) {
+void free_nested_exp(struct exp  *exp)
+{
     free_exp(exp->nested);
 	exp->nested = NULL;
     free(exp);
 }
 
 
-void print_exp(const exp_t *exp) {
+void print_exp(const struct exp  *exp)
+{
     if (!exp) {
 		printf("NULL");
 		return;
 	}
 }
 
-void print_empty_exp(const exp_t *exp) {
+void print_empty_exp(const struct exp  *exp)
+{
     if (exp->type == EXP_EMPTY)
         printf("EMPTY()");
 }
 
-void print_str_exp(const exp_t *exp) {
+void print_str_exp(const struct exp  *exp)
+{
     printf("NAME(%s)", exp->str);
 }
 
-void print_num_exp(const exp_t *exp) {
+void print_num_exp(const struct exp  *exp)
+{
     printf("NUM(%d)", exp->num);
 }
 
-void print_op_exp(const exp_t *exp) {
+void print_op_exp(const struct exp  *exp)
+{
     printf("OP( ");
     print_exp(exp->op.left);
     printf(", %s, ", exp->op.op);
@@ -80,7 +93,8 @@ void print_op_exp(const exp_t *exp) {
     printf(")");
 }
 
-void print_unary_exp(const exp_t *exp) {
+void print_unary_exp(const struct exp  *exp)
+{
     printf("UNARY(");
     print_exp(exp->op.left);
     printf(", %s, \n", exp->op.op);
@@ -88,13 +102,15 @@ void print_unary_exp(const exp_t *exp) {
     printf(")");
 }
 
-void print_call_exp(const exp_t *exp) {
+void print_call_exp(const struct exp  *exp)
+{
     printf("CALL(%s,", getKeyStr(exp->call.key));
     print_exp(exp->call.call);
     printf(")");
 }
 
-void print_array_exp(const exp_t *exp) {
+void print_array_exp(const struct exp  *exp)
+{
     printf("ARR(");
     print_exp(exp->arr.name);
     printf(", ");
@@ -102,7 +118,8 @@ void print_array_exp(const exp_t *exp) {
     printf(")");
 }
 
-void print_nested_exp(const exp_t *exp) {
+void print_nested_exp(const struct exp  *exp)
+{
     printf("NESTED(");
     print_exp(exp->nested);
     printf(")");
@@ -110,8 +127,9 @@ void print_nested_exp(const exp_t *exp) {
 
 
 // initialization functions
-exp_t *init_exp() {
-    exp_t *exp = calloc(1, sizeof(*exp));
+struct exp  *init_exp()
+{
+    struct exp  *exp = calloc(1, sizeof(*exp));
 	
     if (exp == NULL)
 		return NULL;
@@ -123,8 +141,9 @@ exp_t *init_exp() {
     return exp;
 }
 
-exp_t *init_op(exp_t *left, char *op, exp_t *right, Reader *r) {
-    exp_t *exp = init_exp();
+struct exp  *init_op(struct exp  *left, char *op, struct exp  *right, struct reader *r)
+{
+    struct exp  *exp = init_exp();
 	if (!exp) {
 		free_exp(left);
 		free(op);
@@ -142,8 +161,9 @@ exp_t *init_op(exp_t *left, char *op, exp_t *right, Reader *r) {
     return exp;
 }
 
-exp_t *init_unary(exp_t *left, char *op, exp_t *right, Reader *r) {
-    exp_t *exp = init_op(left, op, right, r);
+struct exp  *init_unary(struct exp  *left, char *op, struct exp  *right, struct reader *r)
+{
+    struct exp  *exp = init_op(left, op, right, r);
 	exp->type = EXP_UNARY;
 
     exp->free_fn = free_op_exp;
@@ -151,8 +171,9 @@ exp_t *init_unary(exp_t *left, char *op, exp_t *right, Reader *r) {
     return exp;
 }
 
-exp_t *init_num(int num, Reader *r) {
-    exp_t *exp = init_exp();
+struct exp  *init_num(int num, struct reader *r)
+{
+    struct exp  *exp = init_exp();
 	if (!exp)
 		raise_syntax_error("failed to initialize exp", r);
 
@@ -164,8 +185,9 @@ exp_t *init_num(int num, Reader *r) {
     return exp;
 }
 
-exp_t *init_str(char *str, Reader *r) {
-	exp_t *exp = init_exp();
+struct exp  *init_str(char *str, struct reader *r)
+{
+	struct exp  *exp = init_exp();
 	if (!exp) {
 		free(str);
 		raise_syntax_error("failed to initialize exp", r);
@@ -179,8 +201,9 @@ exp_t *init_str(char *str, Reader *r) {
     return exp;
 }
 
-exp_t *init_call(key_t key, exp_t *call, Reader *r) {
-	exp_t *exp = init_exp();
+struct exp  *init_call(enum key_type key, struct exp  *call, struct reader *r)
+{
+	struct exp  *exp = init_exp();
 	if (!exp) {
 		free_exp(call);
 		raise_syntax_error("failed to initialize exp", r);
@@ -195,8 +218,9 @@ exp_t *init_call(key_t key, exp_t *call, Reader *r) {
 	return exp;
 }
 
-exp_t *init_array(exp_t *name, exp_t *index, Reader *r) {
-    exp_t *exp = init_exp(); //TODO: ensure index is an int-type, and name is a str-type
+struct exp  *init_array(struct exp  *name, struct exp  *index, struct reader *r)
+{
+    struct exp  *exp = init_exp(); //TODO: ensure index is an int-type, and name is a str-type
 	if (!exp) {
 		free_exp(name);
 		free_exp(index);
@@ -212,11 +236,12 @@ exp_t *init_array(exp_t *name, exp_t *index, Reader *r) {
     return exp;
 }
 
-exp_t *init_nested(exp_t *op, Reader *r) {
-	exp_t *exp = init_exp();
+struct exp  *init_nested(struct exp  *op, struct reader *r)
+{
+	struct exp  *exp = init_exp();
 	if (!exp) {
 		free_exp(op);
-		killReader(r);
+		killreader_t(r);
 		raise_syntax_error("failed to initialize exp", r);
 	}
 
@@ -230,7 +255,8 @@ exp_t *init_nested(exp_t *op, Reader *r) {
 
 
 // utility functions
-bool compare_exps(exp_t *exp1, exp_t *exp2) {
+bool exps_match(struct exp  *exp1, struct exp  *exp2)
+{
     if (!exp1 != !exp2)
         return false;
     else if (exp1 == exp2) //handles the two pointing to the same address and both being null
@@ -238,36 +264,38 @@ bool compare_exps(exp_t *exp1, exp_t *exp2) {
     else if ((exp1->type != exp2->type)) {
         return false;
     }
+
 	switch (exp1->type) {
-		case EXP_EMPTY:
-			return true;
-		case EXP_STR:
-			return !strcmp(exp1->str, exp2->str);
-		case EXP_NUM:
-			return exp1->num == exp2->num;
-		case EXP_UNARY:
-		case EXP_OP:
-            bool lefts_match = compare_exps(exp1->op.left, exp2->op.left);
-            bool ops_match = strcmp(exp1->op.op, exp2->op.op);
-            bool rights_match = compare_exps(exp1->op.right, exp2->op.right);
-            return lefts_match && ops_match && rights_match;
-		case EXP_CALL:
-            bool keys_match = exp1->call.key == exp2->call.key;
-            bool calls_match = compare_exps(exp1->call.call, exp2->call.call);
-            return keys_match && calls_match;
-		case EXP_ARRAY:
-            bool indexes_match = exp1->arr.index == exp2->arr.index;
-            bool names_match = compare_exps(exp1->arr.name, exp2->arr.name);
-            return indexes_match && names_match;
-		case EXP_NESTED:
-			return compare_exps(exp1->nested, exp2->nested);
-		default:
-			raise_error("invalid exp type");
+    case EXP_EMPTY:
+        return true;
+    case EXP_STR:
+        return !strcmp(exp1->str, exp2->str);
+    case EXP_NUM:
+        return exp1->num == exp2->num;
+    case EXP_UNARY:
+    case EXP_OP:
+        bool lefts_match = exps_match(exp1->op.left, exp2->op.left);
+        bool ops_match = strcmp(exp1->op.op, exp2->op.op);
+        bool rights_match = exps_match(exp1->op.right, exp2->op.right);
+        return lefts_match && ops_match && rights_match;
+    case EXP_CALL:
+        bool keys_match = exp1->call.key == exp2->call.key;
+        bool calls_match = exps_match(exp1->call.call, exp2->call.call);
+        return keys_match && calls_match;
+    case EXP_ARRAY:
+        bool indexes_match = exp1->arr.index == exp2->arr.index;
+        bool names_match = exps_match(exp1->arr.name, exp2->arr.name);
+        return indexes_match && names_match;
+    case EXP_NESTED:
+        return exps_match(exp1->nested, exp2->nested);
+    default:
+        raise_error("invalid exp type");
+        return false;
 	}
-    return false;
 }
 
-char *get_name_from_exp(exp_t *exp) {
+char *get_name_from_exp(struct exp  *exp)
+{
 	if (!exp)
 		return NULL;
 	
@@ -287,10 +315,12 @@ char *get_name_from_exp(exp_t *exp) {
 	}
 }
 
-bool exp_is_array(exp_t *exp) {
+bool exp_is_array(struct exp  *exp)
+{
 	return exp && (exp->type == EXP_ARRAY);
 }
 
-bool exp_is_unary(exp_t *exp) {
+bool exp_is_unary(struct exp  *exp)
+{
 	return (exp_is_array(exp) || (exp->type == EXP_UNARY) || (exp->type == EXP_STR));
 }

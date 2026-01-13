@@ -4,9 +4,6 @@
 #include <stdbool.h>
 #include "structs.h"
 
-typedef struct env env_t;
-typedef struct stmt stmt_t;
-
 #define ALLOC_LIST_START_LEN 8
 
 #define raise_error(msg) \
@@ -21,9 +18,9 @@ typedef struct stmt stmt_t;
 
 //reader struct:
 
-char *strdup(const char *s, Reader *r);
+char *strdup(const char *s, struct reader *r);
 
 void _raise_error(const char *msg, const char *func, const char *file, int line);
-void _raise_syntax_error(const char *msg, const char *func, const char *file, int line, Reader *r);
-void _raise_semantic_error(const char *msg, const char *func, const char *file, int line, env_t *env);
+void _raise_syntax_error(const char *msg, const char *func, const char *file, int line, struct reader *r);
+void _raise_semantic_error(const char *msg, const char *func, const char *file, int line, struct env *env);
 #endif //UTILS_H

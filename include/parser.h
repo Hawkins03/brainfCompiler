@@ -7,11 +7,11 @@
 #include "exp.h"
 #include "parser.h"
 
-exp_t *parse_atom(Reader *r);
-exp_t *parse_exp(int minPrio, Reader *r);
-void parse_single_stmt(Reader *r);
-void parse_stmt(Reader *r);
-stmt_t *parse_file(const char *filename);
+struct exp  *parse_atom(struct reader *r);
+struct exp  *parse_exp(int minPrio, struct reader *r);
+void parse_single_stmt(struct reader *r);
+void parse_stmt(struct reader *r);
+struct stmt *parse_file(const char *filename);
 
 
 #endif //PARSER_H

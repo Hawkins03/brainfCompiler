@@ -32,9 +32,11 @@ static int run_one(const char *file, const char *expected, int catch_errors,
 					(*failed)++;
 				} else {
 					(*errors)++;
+					fprintf(stderr, "Runtime error in test: %s\n", file);
 				}
 			} else {
 				(*errors)++;
+				fprintf(stderr, "Runtime error (signal) in test: %s\n", file);
 			}
 		}
 	} else {

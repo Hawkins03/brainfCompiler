@@ -19,10 +19,8 @@ int main(int argc, char *argv[]) {
     for (int i = 1; (i < argc) && (argv[i] != NULL); i++) {
 		if (!argv[i])
 			raise_error("invalid argument");
-	
 
-		//test_file(argv[i], "");
-		stmt_t *expression = parse_file(argv[i]);
+		struct stmt *expression = parse_file(argv[i]);
 		
 		print_stmt(expression);
 		free_stmt(expression);

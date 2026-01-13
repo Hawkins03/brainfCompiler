@@ -7,15 +7,12 @@
 #include "value.h"
 #include "stmt.h"
 
-bool readerIsAlive(Reader *r) {
-    return (!r || !r->fp || !feof(r->fp) || (r->curr_char == EOF));
-}
-
-Reader *readInFile(const char *filename) {
+struct reader *readInFile(const char *filename)
+{
     if (filename == NULL)
 		return NULL;
 
-    Reader *r = calloc(1, sizeof(*r));
+    struct reader *r = calloc(1, sizeof(*r));
     if (!r)
 		return NULL;
     r->fp = fopen(filename, "r");
@@ -29,8 +26,7 @@ Reader *readInFile(const char *filename) {
 	
 	r->root = init_stmt();
 	if (!r->root) {
-		fclose(r->fp);
-		free(r);
+		killreader_t(r);
 		raise_syntax_error("failed to init root statement", r);
 		return NULL;
 	}
@@ -38,20 +34,30 @@ Reader *readInFile(const char *filename) {
 	r->root->next = r->root; // self loop to mark as sentinal
 	r->curr_stmt = r->root;
 
+    r->filename = strdup(filename, r);
+    r->curr_token = initValue(r);
+    if (!r->curr_token) {
+        raise_syntax_error("failed to allocate initial value", r);
+    }
 	advance(r);
-	getToken(r);
+	freeValue(getValue(r));
 	return r;
 }
 
-void killReader(Reader *r) {
+void killreader_t(struct reader *r) 
+{
     if (!r)
-		raise_error("Error, r already freed");
+		raise_error("r already freed");
+
+    if (r->filename) {
+        free(r->filename);
+        r->filename = NULL;
+    }
 
 	free_stmt(r->root);
 	r->root = NULL;
 
-	if (r->curr_token)
-		free_value(r->curr_token);
+	freeValue(r->curr_token);
     r->curr_token = NULL;
 
     fclose(r->fp);
@@ -59,13 +65,36 @@ void killReader(Reader *r) {
     free(r);
 }
 
-int peek(Reader *r) {
+
+// Checker Functions
+bool readerIsAlive(struct reader *r)
+{
+    return (!r || (r->curr_token != NULL));
+}
+
+bool hasNextStmt(struct reader *r)
+{
+	struct value *tok = peekValue(r);
+	return (tok != NULL) && !((tok->type == VAL_DELIM) && (tok->ch == '}'));
+}
+
+bool atSemicolon(struct reader *r)
+{
+	struct value *tok = peekValue(r);
+	return (tok != NULL) && ((tok->type == VAL_DELIM) && (tok->ch == ';'));
+}
+
+
+// getting single characters
+int peek(struct reader *r)
+{
     if (!readerIsAlive(r))
 		return EOF;
     return r->curr_char;
 }
 
-int advance(Reader *r) {
+int advance(struct reader *r)
+{
     if (!readerIsAlive(r))
 		return EOF;
 
@@ -75,31 +104,34 @@ int advance(Reader *r) {
 	return out;
 }
 
-void skip_spaces(Reader *r) {
+void skip_spaces(struct reader *r)
+{
 	while ((peek(r) == '\n') || isspace(peek(r)))
 		advance(r);
 }
 
-
-// Checker Functions
-bool hasNextStmt(Reader *r) {
-	value_t *tok = peekToken(r);
-	return (tok != NULL) && !((tok->type == VAL_DELIM) && (tok->ch == '}'));
-}
-
-bool atSemicolon(Reader *r) {
-	value_t *tok = peekToken(r);
-	return (tok != NULL) && ((tok->type == VAL_DELIM) && (tok->ch == ';'));
-}
-
 // Tokenization Functions
-char *stealTokString(value_t *tok) {
+char *stealTokString(struct value *tok)
+{
+    if (!tok)
+        return NULL;
+
     char *s = tok->str;
     tok->str = NULL;
     return s;
 }
 
-char getNextDelim(Reader *r) {
+char *stealNextString(struct reader *r)
+{
+    char *out = stealTokString(peekValue(r));
+    if (!out)
+        raise_syntax_error("failed to get token string", r);
+    freeValue(getValue(r));
+    return out;
+}
+
+char getNextDelim(struct reader *r)
+{
 	int ch = peek(r);
 	if (!readerIsAlive(r))
 		raise_syntax_error("Got EOF", r);
@@ -108,24 +140,26 @@ char getNextDelim(Reader *r) {
 	return 0;
 }
 
-char *getNextOp(Reader *r) {
+char *getNextOp(struct reader *r)
+{
 	if (!readerIsAlive(r))
 		raise_syntax_error("got EOF", r);
     if (!matchesOp(peek(r)))
         raise_syntax_error("expected next character to be an operator", r);
-    char out[MAX_OP_LEN + 1] = {0};
+    char tmp[MAX_OP_LEN + 1] = {0};
 
     for (int i = 0; i < MAX_OP_LEN; i++) {
 		if (!readerIsAlive(r) || !matchesOp(peek(r))) {
-			out[i] = '\0';
+			tmp[i] = '\0';
 			break;
 		}
-		out[i] = advance(r);
+		tmp[i] = advance(r);
     }
-    return strdup(out, r);
+    return strdup(tmp, r);
 }
 
-int getNextNum(Reader *r) {
+int getNextNum(struct reader *r)
+{
     if (!readerIsAlive(r))
 		raise_syntax_error("Got EOF", r);
     long num = 0;
@@ -137,7 +171,8 @@ int getNextNum(Reader *r) {
     return num;
 }
 
-char *getNextWord(Reader *r) {
+char *getNextWord(struct reader *r)
+{
     if (!isalpha(peek(r)))
 		raise_syntax_error("Invallid word (first letter must be in the range 'a-zA-Z')", r);
     
@@ -159,23 +194,26 @@ char *getNextWord(Reader *r) {
     return word;
 }
 
-key_t getKeyType(char *keyword) {
+enum key_type getKeyType(char *keyword)
+{
 	if (!keyword)
 		return -1;
 	for (int i = 0; KEYWORDS[i] != NULL; i++)
 		if (!strcmp(KEYWORDS[i], keyword))
-			return (key_t) i;
+			return (enum key_type) i;
 	
 	return -1;
 }
 
-const char *getKeyStr(key_t key) {
+const char *getKeyStr(enum key_type key)
+{
 	if ((key <= KW_BREAK) && (key >= KW_VAR))
 		return KEYWORDS[key];
 	return NULL;
 }
 
-int getCharacterValue(Reader *r) { //i.e. 'x' it gives the int value_t of whatever x is
+int getCharacterValue(struct reader *r)
+{ //i.e. 'x' it gives the int struct value of whatever x is
 	int out = advance(r);
 	if (out == '\'')
 		return 0;
@@ -186,9 +224,11 @@ int getCharacterValue(Reader *r) { //i.e. 'x' it gives the int value_t of whatev
 	return out;
 }
 
-char *getStringValue(Reader *r) {
+char *getNextString(struct reader *r)
+{
 	if (!readerIsAlive(r))
 		return NULL;
+
 	size_t cap = 16;
 	size_t len = 0;
 	char *buf = calloc(cap, sizeof(*buf));
@@ -246,120 +286,4 @@ char *getStringValue(Reader *r) {
 	buf = temp;
 	buf[len] = '\0';
 	return buf;
-}
-
-int GetTrueFalseValue(key_t key) {
-	if (key == KW_TRUE)
-		return 1;
-	else if (key == KW_FALSE)
-		return 0;
-	return -1; //to silence compiler warning
-}
-
-value_t *getRawToken(Reader *r) {
-	value_t *val = initValue(r);
-	if (!val) {
-		raise_syntax_error("failed to initialize value", r);
-		return NULL;
-	}
-    if (peek(r) == EOF)
-		return NULL;
-
-    if (isalpha(peek(r))) {
-		char *out = getNextWord(r);
-		key_t key = getKeyType(out);
-		if (isValidKey(key)) {
-			if (GetTrueFalseValue(key) != -1) {
-				val->type = VAL_NUM;
-				val->num = GetTrueFalseValue(key);
-				free(out);
-			} else {
-				val->type = VAL_KEYWORD;
-				val->key = key;
-				free(out);
-			}
-		} else {
-			val->type = VAL_NAME;
-			val->str = out;
-		}
-    } else if (matchesOp(peek(r))) {
-		char *out = getNextOp(r);
-		val->type = VAL_OP;
-		val->str = out;
-    } else if (isDelim(peek(r))) {
-		char delim = getNextDelim(r);
-		switch (delim) {
-			case '\'':
-				val->num = getCharacterValue(r);
-				val->type = VAL_NUM;
-				break;
-			case '"':
-				val->str = getStringValue(r);
-				val->type = VAL_STR;
-				break;
-			default:
-				val->type = VAL_DELIM;
-				val->ch = delim;
-				break;
-		}
-    } else if (isdigit(peek(r))) {
-		int out = getNextNum(r);
-		val->type = VAL_NUM;
-		val->num = out;
-	} else if (!readerIsAlive(r))
-		free(val);
-    else {
-		free(val);
-		raise_syntax_error("Error, unexpected character", r);
-    }
-    return val;
-}
-
-value_t *getToken(Reader *r) {
-    if (!readerIsAlive(r))
-		return NULL;
-
-    skip_spaces(r);
-
-    value_t *out = r->curr_token;
-    r->curr_token = getRawToken(r);
-    return out;
-}
-
-value_t *peekToken(Reader *r) {
-    if (!readerIsAlive(r))
-		return NULL;
-    return r->curr_token;
-}
-
-void acceptToken(Reader *r, value_type_t type, const char *expected) {
-	value_t *tok = getToken(r);
-	if (!tok) {
-		free_value(tok);
-		raise_syntax_error("Invalid Null token value", r);
-	} else if (!expected) {
-		free_value(tok);
-		raise_syntax_error("Invalid expected value", r);
-	} else if (tok->type != type) {
-		free_value(tok);
-		raise_syntax_error("Unexpected token type", r);
-	}
-	
-	if (tok->type == VAL_KEYWORD) {
-		if (strcmp(getKeyStr(tok->key), expected)) {
-			free_value(tok);
-			raise_syntax_error("Unexpected keyword value", r);
-		}
-    } else if (isStrType(tok)) {
-		if (!tok->str || strcmp(tok->str, expected)) {
-			free_value(tok);
-			raise_syntax_error("Missing token string", r);
-		}
-    } else if (tok->type == VAL_DELIM) {
-		if (tok->ch != expected[0]) {
-			free_value(tok);
-			raise_syntax_error("Unexpected token value", r);
-		}
-	}
-	free_value(tok);
 }

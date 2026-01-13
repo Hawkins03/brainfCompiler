@@ -13,7 +13,7 @@
 #include "exp.h"
 
 int test_file(const char *input_file, const char *expected) {
-	stmt_t *stmt = parse_file(input_file);
+	struct stmt *stmt = parse_file(input_file);
 
 	if (stmt->next == stmt) {
 		free_stmt(stmt);
@@ -38,7 +38,7 @@ int test_file(const char *input_file, const char *expected) {
 	return status;
 }
 
-size_t measure_exp_strlen(const exp_t *exp) {
+size_t measure_exp_strlen(const struct exp  *exp) {
     if (!exp || (exp->type == EXP_EMPTY))
 		return strlen("NULL");
     int size = 0;
@@ -87,7 +87,7 @@ size_t measure_exp_strlen(const exp_t *exp) {
     return size;
 }
 
-size_t measure_stmt_strlen(const stmt_t *stmt) {
+size_t measure_stmt_strlen(const struct stmt *stmt) {
 	if (!stmt)
 		return strlen("NULL");
 	int size = 0;
@@ -123,7 +123,7 @@ size_t measure_stmt_strlen(const stmt_t *stmt) {
 	return size + ' ' + measure_stmt_strlen(stmt->next);
 }
 
-void getExpStr(char *out, const exp_t *exp) {
+void getExpStr(char *out, const struct exp  *exp) {
     if (!exp || !out) {
 		sprintf(out, "NULL");
 		return;
@@ -172,7 +172,7 @@ void getExpStr(char *out, const exp_t *exp) {
     }
 }
 
-void getStmtStr(char *out, const stmt_t *stmt) {
+void getStmtStr(char *out, const struct stmt *stmt) {
 	if (!stmt || !out) return;
 	switch (stmt->type) {
 		case STMT_EXPR:

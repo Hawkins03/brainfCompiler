@@ -9,55 +9,55 @@
 
 
 
-env_t *init_env(env_t *parent) {
-  env_t *env = calloc(1, sizeof(*env));
+struct env *init_env(struct env *parent) {
+  struct env *env = calloc(1, sizeof(*env));
   if (!env)
     return NULL;
   env->parent = parent;
   return env;
 }
 
-void free_env(env_t *env) {
+void free_env(struct env *env) {
   if (!env)
     return;
   free_env(env->parent);
   free(env);
 }
 
-void define_var(env_t *env, char *name, exp_t *value, bool is_mutable, bool is_array) {
+void define_var(struct env *env, char *name, struct exp  *value, bool is_mutable, bool is_array) {
   if (var_exists(env, name))
     raise_semantic_error("variable name already defined", env);
 
-  var_data_t *var_loc = env->vars + (env->count)++;
+  struct var_data *var_loc = env->vars + (env->count)++;
   var_loc->name = name;
   var_loc->value = value;
   var_loc->is_mutable = is_mutable;
   var_loc->is_array = is_array;
 }
 
-void set_var(env_t *env, char *name, exp_t *value) {
-  var_data_t *var = get_var(env, name);
+void set_var(struct env *env, char *name, struct exp  *value) {
+  struct var_data *var = get_var(env, name);
   if (!var->is_mutable && var->value != NULL)
     raise_semantic_error("user is attempting to reassign an immutable variable", env);
   var->value = value;
 }
-var_data_t *get_var(const env_t *env, const char *name) {
+struct var_data *get_var(const struct env *env, const char *name) {
   if (!env)
     return NULL;
   for (size_t i = 0; i < env->count; i++) {
-    var_data_t *var = env->vars + i;
+    struct var_data *var = env->vars + i;
     if ((var) && (!strcmp(var->name, name)))
       return var;
   }
   return get_var(env->parent, name);
 }
 
-bool var_exists(const env_t *env, const char *name) {
+bool var_exists(const struct env *env, const char *name) {
   return (get_var(env, name) != NULL);
 }
 
-bool is_array_var(const env_t *env, const char *name) {
-  var_data_t *var = get_var(env, name);
+bool is_array_var(const struct env *env, const char *name) {
+  struct var_data *var = get_var(env, name);
   return ((var != NULL) && var->is_array);
 }
 
@@ -70,7 +70,7 @@ bool is_array_var(const env_t *env, const char *name) {
   * 3. no referencing variables if they haven't been defined yet (i.e. no x = y; var y = 0;)
   * 5. no combining lists and integers (i.e. x[i] = x is invalid)
   */
-env_t *check_semantics(env_t *env, stmt_t *stmt, exp_t *exp) {
+struct env *check_semantics(struct env *env, struct stmt *stmt, struct exp  *exp) {
   if (stmt) {
     switch (stmt->type) {
       case STMT_VAR:
@@ -107,7 +107,7 @@ env_t *check_semantics(env_t *env, stmt_t *stmt, exp_t *exp) {
     //EXP_EMPTY, EXP_STR, EXP_NUM, EXP_OP, EXP_UNARY, EXP_CALL, EXP_ARRAY, EXP_INITLIST, EXP_INDEX
     switch (exp->type) {
       case EXP_STR:
-        var_data_t *var = get_var(env, exp->str);
+        struct var_data *var = get_var(env, exp->str);
         if (!var)
           raise_semantic_error("variable has not been defined", env);
         if (var->is_array)
@@ -115,7 +115,7 @@ env_t *check_semantics(env_t *env, stmt_t *stmt, exp_t *exp) {
         break;
       case EXP_UNARY:
       case EXP_OP:
-        if (get_prio(exp->op.op) == SET_OP_PRIO) {
+        if (getPrio(exp->op.op) == SET_OP_PRIO) {
           if (!exp_is_unary(exp->op.left))
             raise_semantic_error("expected a single variable being set.", env);
           char *name = get_name_from_exp(exp->op.left);

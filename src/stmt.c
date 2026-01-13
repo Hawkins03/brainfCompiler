@@ -6,7 +6,8 @@
 #include "reader.h"
 
 // freeing functions
-void free_stmt(stmt_t *stmt) {
+void free_stmt(struct stmt *stmt)
+{
     if (!stmt)
         return;
 	else if (stmt->next == stmt)
@@ -15,15 +16,17 @@ void free_stmt(stmt_t *stmt) {
     free_stmt(stmt->next);
 }
 
-void free_empty_stmt(stmt_t *stmt) {
+void free_empty_stmt(struct stmt *stmt)
+{
     free_stmt(stmt->next);
     stmt->next = NULL;
     free(stmt);
 }
 
-void free_var_stmt(stmt_t *stmt) {
+void free_var_stmt(struct stmt *stmt)
+{
     if (stmt->type != STMT_VAR)
-        raise_error("failed polymorphism");
+        return;
     free_exp(stmt->var.name);
     stmt->var.name = NULL;
     free_exp(stmt->var.value);
@@ -31,18 +34,20 @@ void free_var_stmt(stmt_t *stmt) {
     free_empty_stmt(stmt);
 }
 
-void free_loop_stmt(stmt_t *stmt) {
+void free_loop_stmt(struct stmt *stmt)
+{
     if (stmt->type != STMT_LOOP)
-        raise_error("failed polymorphism");
+        return;
     free_exp(stmt->loop.cond);
     stmt->loop.cond = NULL;
     free_stmt(stmt->loop.body);
     free_empty_stmt(stmt);
 }
 
-void free_if_stmt(stmt_t *stmt) {
+void free_if_stmt(struct stmt *stmt)
+{
     if (stmt->type != STMT_IF)
-        raise_error("failed polymorphism");
+        return;
     free_exp(stmt->ifStmt.cond);
     stmt->ifStmt.cond = NULL;
     free_stmt(stmt->ifStmt.thenStmt);
@@ -52,15 +57,17 @@ void free_if_stmt(stmt_t *stmt) {
     free_empty_stmt(stmt);
 }
 
-void free_exp_stmt(stmt_t *stmt) {
+void free_exp_stmt(struct stmt *stmt)
+{
     if (stmt->type != STMT_EXPR)
-        raise_error("failed polymorphism");
+        return;
     free_exp(stmt->exp);
     free_empty_stmt(stmt);
 }
 
 //print functions
-void print_stmt(const stmt_t *stmt) {
+void print_stmt(const struct stmt *stmt)
+{
     if ((!stmt) || (stmt == stmt->next)) {
         printf("NULL;");
         return;
@@ -69,13 +76,15 @@ void print_stmt(const stmt_t *stmt) {
 	print_stmt(stmt->next);	
 }
 
-void print_empty_stmt(const stmt_t *stmt) {
+void print_empty_stmt(const struct stmt *stmt)
+{
     if (stmt->type != STMT_EMPTY)
         raise_error("failed polymorphism");
     printf("EMPTY();\n");
 }
 
-void print_var_stmt(const stmt_t *stmt) {
+void print_var_stmt(const struct stmt *stmt)
+{
     if (stmt->type != STMT_VAR)
         raise_error("failed polymorphism");
     char *name = (stmt->var.is_mutable) ? "VAR" : "VAL";
@@ -86,7 +95,8 @@ void print_var_stmt(const stmt_t *stmt) {
     printf(");\n");
 }
 
-void print_loop_stmt(const stmt_t *stmt) {
+void print_loop_stmt(const struct stmt *stmt)
+{
     if (stmt->type != STMT_LOOP)
         raise_error("failed polymorphism");
     printf("LOOP(");
@@ -96,7 +106,8 @@ void print_loop_stmt(const stmt_t *stmt) {
     printf("}");
 }
 
-void print_if_stmt(const stmt_t *stmt) {
+void print_if_stmt(const struct stmt *stmt)
+{
     if (stmt->type != STMT_IF)
         raise_error("failed polymorphism");
     printf("IF(");
@@ -108,7 +119,8 @@ void print_if_stmt(const stmt_t *stmt) {
     printf("}\n");
 }
 
-void print_exp_stmt(const stmt_t *stmt) {
+void print_exp_stmt(const struct stmt *stmt)
+{
     if (stmt->type != STMT_EXPR)
         raise_error("failed polymorphism");
     printf("EXP_");
@@ -118,8 +130,9 @@ void print_exp_stmt(const stmt_t *stmt) {
 
 
 // initialization functions
-stmt_t *init_stmt() {
-	stmt_t *stmt = calloc(1, sizeof(*stmt));
+struct stmt *init_stmt()
+{
+	struct stmt *stmt = calloc(1, sizeof(*stmt));
 	if (!stmt) return NULL;
 	stmt->type = STMT_EMPTY;
 
@@ -128,8 +141,9 @@ stmt_t *init_stmt() {
     return stmt;
 }
 
-stmt_t *init_var(exp_t *name, exp_t *value, Reader *r) {
-	stmt_t *stmt = init_stmt();
+struct stmt *init_var(struct exp  *name, struct exp  *value, struct reader *r)
+{
+	struct stmt *stmt = init_stmt();
 	if (!stmt) {
 		free_exp(name);
 		free_exp(value);
@@ -145,8 +159,9 @@ stmt_t *init_var(exp_t *name, exp_t *value, Reader *r) {
 	return stmt;
 }
 
-stmt_t *init_loop(exp_t *cond, stmt_t *body, Reader *r) {
-	stmt_t *stmt = init_stmt();
+struct stmt *init_loop(struct exp  *cond, struct stmt *body, struct reader *r)
+{
+	struct stmt *stmt = init_stmt();
 	if (!stmt) {
 		free_exp(cond);
 		free_stmt(body);
@@ -162,8 +177,9 @@ stmt_t *init_loop(exp_t *cond, stmt_t *body, Reader *r) {
 	return stmt;
 }
 
-stmt_t *init_ifStmt(exp_t *cond, stmt_t *thenStmt, Reader *r) {
-	stmt_t *stmt = init_stmt();
+struct stmt *init_ifStmt(struct exp  *cond, struct stmt *thenStmt, struct reader *r)
+{
+	struct stmt *stmt = init_stmt();
 	if (!stmt) {
 		free_exp(cond);
 		free_stmt(thenStmt);
@@ -179,8 +195,9 @@ stmt_t *init_ifStmt(exp_t *cond, stmt_t *thenStmt, Reader *r) {
 	return stmt;
 }
 
-stmt_t *init_expStmt(exp_t *exp, Reader *r) {
-	stmt_t *stmt = init_stmt();
+struct stmt *init_expStmt(struct exp  *exp, struct reader *r)
+{
+	struct stmt *stmt = init_stmt();
 	if (!stmt) {
 		free_exp(exp);
 		raise_syntax_error("failed to initialize stmt", r);
@@ -194,30 +211,31 @@ stmt_t *init_expStmt(exp_t *exp, Reader *r) {
 	return stmt;
 }
 
-bool compare_stmts(const stmt_t *stmt1, const stmt_t *stmt2) {
+bool stmts_match(const struct stmt *stmt1, const struct stmt *stmt2)
+{
     if (!stmt1 != !stmt2)
         return false;
     else if (stmt1 == stmt2) //handles the two pointing to the same address and both being null
         return true;
-    else if ((stmt1->type != stmt2->type) || !compare_stmts(stmt1->next, stmt2->next))
+    else if ((stmt1->type != stmt2->type) || !stmts_match(stmt1->next, stmt2->next))
         return false;
 
     switch (stmt1->type) {
         case STMT_EMPTY:
             return true;
         case STMT_VAR:
-            bool names_match = compare_exps(stmt1->var.name, stmt2->var.name);
-            bool vals_match = compare_exps(stmt1->var.value, stmt2->var.value);
+            bool names_match = exps_match(stmt1->var.name, stmt2->var.name);
+            bool vals_match = exps_match(stmt1->var.value, stmt2->var.value);
             bool muts_match = stmt1->var.is_mutable == stmt2->var.is_mutable;
             return names_match && vals_match && muts_match;
         case STMT_LOOP:
-            bool conds_match = compare_exps(stmt1->loop.cond, stmt2->loop.cond);
-            bool bodys_match = compare_stmts(stmt1->loop.body, stmt2->loop.body);
+            bool conds_match = exps_match(stmt1->loop.cond, stmt2->loop.cond);
+            bool bodys_match = stmts_match(stmt1->loop.body, stmt2->loop.body);
             return conds_match && bodys_match;
         case STMT_IF:
-            bool if_conds_match = compare_exps(stmt1->ifStmt.cond, stmt2->ifStmt.cond);
-            bool thens_match = compare_stmts(stmt1->ifStmt.thenStmt, stmt2->ifStmt.thenStmt);
-            bool elses_match = compare_stmts(stmt1->ifStmt.elseStmt, stmt2->ifStmt.elseStmt);
+            bool if_conds_match = exps_match(stmt1->ifStmt.cond, stmt2->ifStmt.cond);
+            bool thens_match = stmts_match(stmt1->ifStmt.thenStmt, stmt2->ifStmt.thenStmt);
+            bool elses_match = stmts_match(stmt1->ifStmt.elseStmt, stmt2->ifStmt.elseStmt);
             return if_conds_match && thens_match && elses_match;
         default:
             raise_error("invalid stmt type");
