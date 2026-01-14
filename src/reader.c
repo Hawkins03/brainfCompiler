@@ -157,13 +157,13 @@ char *getNextOp(struct reader *r)
 	if (!matchesOp(peek(r)))
 		raise_syntax_error("expected next character to be an operator", r);
 	char tmp[MAX_OP_LEN + 1] = {0};
-
 	for (int i = 0; i < MAX_OP_LEN; i++) {
+		tmp[i] = peek(r);
 		if (!readerIsAlive(r) || !isOp(tmp)) {
 			tmp[i] = '\0';
 			break;
 		}
-		tmp[i] = advance(r);
+		advance(r);
 	}
 	return strdup(tmp, r);
 }

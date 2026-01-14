@@ -153,6 +153,7 @@ void getExpStr(char *out, const struct exp  *exp) {
 			sprintf(out + strlen(out), ", ");
 		}
 		getExpStr(out + strlen(out), exp->right_array.array + exp->right_array.size - 1);
+		sprintf(out + strlen(out), ")");
 		break;
 	case EXP_NUM:
 		sprintf(out, "NUM(%d)", exp->num);

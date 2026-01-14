@@ -86,7 +86,7 @@ void parseRightArray(struct reader *r, struct exp *in)
 	//TODO: make default cap variable
 	init_rightarray(NULL, 8, r, in);
 
-	while (parserCanProceed(r) && !isEndingBracket(peekValue(r))) {
+	while (parserCanProceed(r) && !isDelimChar(peekValue(r), '}')) {
 		parse_exp(0, r, in->right_array.array + len++);
 		acceptValue(r, VAL_DELIM, ",");
 
@@ -123,28 +123,34 @@ void parseStr(struct reader *r, struct exp *in) {
 	}
 
 	init_rightarray(NULL, (int) len, r, in);
-	for (size_t i = 1; i < len; i++)
+	for (size_t i = 0; i < len; i++)
 		init_num(str[i], in->right_array.array + i);
 
 	free(str);
 }
 
-void parseName(struct reader *r, struct exp *in)
-{
-	init_name(stealNextString(r), in);
+void parseArray(struct reader *r, struct exp *in) {
 	struct value *tok = peekValue(r);
 	if (!tok || (tok->type != VAL_DELIM) || (tok->ch != '['))
 		return;
 
-	struct exp *arr_name = init_exp_or_free(r, NULL);
-	struct exp *to_free_on_fail[] = {arr_name, NULL};
-	struct exp *index = init_exp_or_free(r, to_free_on_fail);
-	reinit_exp(in, arr_name, r);
-	init_array(arr_name, index, in);
-
+	struct exp *index = init_exp_or_free(r, NULL);
 	acceptValue(r, VAL_DELIM, "[");
 	parse_exp(0, r, index);
 	acceptValue(r, VAL_DELIM, "]");
+
+	parseArray(r, in);
+	
+	struct exp *to_free[] = {index, NULL};
+	struct exp *arr_name = init_exp_or_free(r, to_free);
+	reinit_exp(in, arr_name, r);
+	init_array(arr_name, index, in);
+}
+
+void parseName(struct reader *r, struct exp *in)
+{
+	init_name(stealNextString(r), in);
+	parseArray(r, in);
 }
 
 //ensure at the end of parse_atom it checks for a unary suffix
@@ -170,17 +176,8 @@ void parse_atom(struct reader *r, struct exp *in) {
 		parseStr(r, in);
 		break;
 	case VAL_DELIM:
-		switch (peekValue(r)->ch) {
-		case '{':
-			parseRightArray(r, in);
-			break;
-		case '(':
+		if (peekValue(r)->ch == '(')
 			parseParenthesis(r, in);
-			break;
-		default:
-			raise_syntax_error("invalid character in code", r);
-			break;
-		}
 		break;
 	case VAL_KEYWORD:
 		parseCall(r, in);
@@ -235,9 +232,12 @@ void parseVar(struct reader *r, bool is_mutable, struct stmt *in) {
 	acceptValue(r, VAL_OP, "=");
 
 	in->var.value = init_exp_or_free(r, NULL);
-	parse_exp(0, r, in->var.value);
+	if (isDelimChar(peekValue(r), '{'))
+		parseRightArray(r, in->var.value);
+	else
+		parse_exp(0, r, in->var.value);
 
-	if (exps_are_compatable(in->var.name, in->var.value))
+	if (!exps_are_compatable(in->var.name, in->var.value))
 		raise_syntax_error("array's must be initialized to a list, either {0} or a larger array.", r);
 }
 
@@ -300,8 +300,8 @@ void parseFor(struct reader *r, struct stmt *in) {
 	if (curr) {
 		while (curr->next != NULL)
 			curr = curr->next;
-		struct stmt *update_stmt = init_stmt_or_free(r, exps, NULL);
-		init_expStmt(update, update_stmt);
+		curr->next = init_stmt_or_free(r, exps, NULL);
+		init_expStmt(update, curr->next);
 	} else
 		init_expStmt(update, loop->loop.body);
 
@@ -381,10 +381,11 @@ void parse_single_stmt(struct reader *r, struct stmt *in) {
 
 void parse_stmt(struct reader *r, struct stmt *in) {
 	struct stmt *curr = in;
-	while (hasNextStmt(r)) {
-		parse_single_stmt(r, curr);
+	parse_single_stmt(r, curr);
+	while (parserCanProceed(r)) {
 		curr->next = init_stmt_or_free(r, NULL, NULL);
 		curr = curr->next;
+		parse_single_stmt(r, curr);
 	}
 }
 

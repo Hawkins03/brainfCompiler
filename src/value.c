@@ -135,8 +135,8 @@ bool isDelimType(const struct value *v) {
 	return v && (v->type == VAL_DELIM);
 }
 
-bool isEndingBracket(const struct value *v) {
-	return isDelimType(v) && (v->ch == '}');
+bool isDelimChar(const struct value *v, char match) {
+	return isDelimType(v) && (v->ch == match);
 }
 
 bool isStrType(struct value *v) {

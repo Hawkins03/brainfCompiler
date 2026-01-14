@@ -6,13 +6,10 @@
 #include <stdlib.h>
 #include <stdbool.h>
 
-//EXP_EMPTY, EXP_NAME, EXP_ARRAY, EXP_NUM, EXP_ASSIGN_OP, EXP_BINARY_OP, EXP_UNARY, EXP_CALL, EXP_RIGHTARRAY, EXP_NESTED
-void free_exp(struct exp *exp) {
-    	if (exp == NULL)
+void free_exp_contents(struct exp *exp) {
+	if (!exp)
 		return;
-    	switch (exp->type) {
-		case EXP_EMPTY:
-		break;
+	switch (exp->type) {
 	case EXP_NAME:
 		free(exp->name);
 		exp->name = NULL;
@@ -22,8 +19,6 @@ void free_exp(struct exp *exp) {
 		exp->array.name = NULL;
 		free_exp(exp->array.index);
 		exp->array.index = NULL;
-		break;
-	case EXP_NUM:
 		break;
 	case EXP_ASSIGN_OP:
 	case EXP_BINARY_OP:
@@ -41,7 +36,13 @@ void free_exp(struct exp *exp) {
 		break;
 	case EXP_RIGHTARRAY:
 		free_rightArray(exp->right_array.array, exp->right_array.size);
-    }
+		exp->right_array.array = NULL;
+	}
+}
+
+//EXP_EMPTY, EXP_NAME, EXP_ARRAY, EXP_NUM, EXP_ASSIGN_OP, EXP_BINARY_OP, EXP_UNARY, EXP_CALL, EXP_RIGHTARRAY, EXP_NESTED
+void free_exp(struct exp *exp) {
+    	free_exp_contents(exp);
     	free(exp);
 }
 
@@ -49,7 +50,8 @@ void free_rightArray(struct exp *array, int size) {
 	if (!array)
 		return;
 	for (int i = 0; i < size; i++)
-		free_exp(array + i);
+		free_exp_contents(array);
+	free(array);
 }
 
 void print_exp(const struct exp *exp)

@@ -14,7 +14,7 @@
 #define KEYWORDS (const char*[]) {"var", "val", "while", "for", "if", "else", "print", "input", "break", "true", "false", NULL}
 #define KEYWORDS_COUNT 11
 
-#define PREFIX_OPS (const char *[]) {"!", "~", "++", "--", NULL}
+#define PREFIX_OPS (const char *[]) {"!", "~", "++", "--", "-", NULL}
 #define SUFFIX_OPS (const char *[]) {"++", "--", NULL}
 #define ASSIGN_OPS (const char *[]) {"=", "+=", "-=", "*=", "/=", "%=", "<<=", ">>=", "&=", "^=", "|=", NULL}
 #define NUM_PRIOS 10
@@ -40,7 +40,7 @@ bool isElseKey(const struct value *val);
 bool isTrueFalseKey(const enum key_type  key);
 bool isDelim(const int delim);
 bool isDelimType(const struct value *v);
-bool isEndingBracket(const struct value *v);
+bool isDelimChar(const struct value *v, char match);
 bool isStrType(struct value *v);
 
 bool isValidOp(struct value *v, const int minPrio);
