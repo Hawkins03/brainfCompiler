@@ -8,74 +8,105 @@
 #include "structs.h"
 #include "utils.h"
 
-const char *OPS[][12] = {         			// lowest priority to highest priority:
-	{"=", "+=", "-=", "*=", "/=", "%=",
-		"<<=", ">>=", "&=", "^=", "|=", NULL},  // 0: assignment
-	{",", NULL},					// 1: commas
-	{"||", NULL},                       		// 2: logical or
-	{"&&", NULL},                       		// 3: logical and
-	{"|", NULL},                        		// 4: bitwiase or
-	{"^", NULL},                        		// 5: bitwise xor
-	{"&", NULL},                        		// 6: bitwise and
-	{"==", "!=", NULL},                 		// 7: equivalence operators
-	{"<", ">", "<=", ">=", NULL},       		// 8: relational operators
-	{"<<", ">>"},                       		// 9: bitwise shifts
-	{"+", "-", NULL},                   		// 10: addition / subtraction
-	{"*", "/", "%", NULL},              		// 11: multiplication, division, modulo
-	{"!", "~", "++", "--", NULL}			// 12: unary
+static const char *BINARY_OPS[][5] = {  // lowest priority to highest priority:
+	{"||", NULL},                   // 0: logical or
+	{"&&", NULL},                   // 1: logical and
+	{"|", NULL},                    // 2: bitwiase or
+	{"^", NULL},                    // 3: bitwise xor
+	{"&", NULL},                    // 4: bitwise and
+	{"==", "!=", NULL},             // 5: equivalence operators
+	{"<", ">", "<=", ">=", NULL},   // 6: relational operators
+	{"<<", ">>", NULL},		// 7: bitwise shifts
+	{"+", "-", NULL},               // 8: addition / subtraction
+	{"*", "/", "%", NULL}           // 9: multiplication, division, modulo
 };
 
+// op checker functions:
 
-//checker functions
-bool isWordChar(const int ch)
-{
-    return ((ch != EOF) && (isalnum(ch) || (ch == '_')));
-}
-
-int getPrio(const char *op)
-{
-	for (int y = 0; y < NUM_PRIOS; y++) {
-		for (int x = 0; OPS[y][x] != NULL; x++) {
-			if (!strcmp(OPS[y][x], op))
+int getPrio(const char *op) {
+	if (!op)
+		return -1;
+	for (int y = 0; y < NUM_PRIOS; y++)
+		for (int x = 0; BINARY_OPS[y][x] != NULL; x++)
+			if (!strcmp(BINARY_OPS[y][x], op))
 				return y;
-		}
-    	}
 	return -1;
 }
 
-bool isOp(const char *op)
-{
-	return getPrio(op) > -1; 
+bool isAssignOp(const char *op) {
+	for (int i = 0; ASSIGN_OPS[i] != NULL; i++)
+		if (!strcmp(ASSIGN_OPS[i], op))
+			return true;
+	return false;
 }
 
-bool isRightAssoc(const int prio)
+bool isBinaryOp(const char *op)
 {
-	//technically unary ops are right assoc, but they shouldn't show up in the normal op check
-	return (prio == SET_OP_PRIO);
+	return getPrio(op) >= 0;
 }
 
-bool matchesOp(const int op)
-{
+bool matchesOp(const int op) {
 	return (op != EOF) && strchr(OP_START, op);
 }
 
-bool isUnaryOp(const char *op)
-{
-	int prio = getPrio(op);
-	return ((prio == ADD_OP_PRIO) || (prio == UNARY_OP_PRIO));
+bool isOpType(const struct value *v) {
+	return v && (v->type == VAL_OP) && v->str;
 }
 
-bool isSuffixOp(struct value *tok)
-{
-    	if (!tok || (tok->type != VAL_OP) || !(tok->str))
+bool is_suffix_unary(const char *op) {
+    	if (!op)
 		return false;
 
-	for (int i = 0; i < SUFFIX_OPS_LEN; i++) {
-		if (!strcmp(SUFFIX_OPS[i], tok->str))
+	for (int i = 0; (SUFFIX_OPS[i] != NULL); i++) {
+		if (!strcmp(SUFFIX_OPS[i], op))
 			return true;
 	}
 
     	return false;
+}
+bool isSuffixVal(const struct value *v) {
+	return isOpType(v) && is_suffix_unary(v->str);
+}
+
+bool is_prefix_unary(const char *op) {
+	if (!op)
+		return false;
+
+	for (int i = 0; (PREFIX_OPS[i] != NULL); i++) {
+		if (!strcmp(PREFIX_OPS[i], op))
+			return true;
+	}
+
+    	return false;
+}
+
+bool isOp(const char *op) {
+	return is_prefix_unary(op) || is_suffix_unary(op) || isAssignOp(op) || isBinaryOp(op); 
+}
+
+bool isPrefixVal(struct value *v) {
+	return isOpType(v) && is_prefix_unary(v->str);
+}
+
+bool isBinaryOpVal(struct value *v) {
+	return isOpType(v) && isBinaryOp(v->str);
+}
+
+bool isAssignOpVal(struct value *v) {
+	return isOpType(v) && isAssignOp(v->str);
+}
+
+bool isValidOp(struct value *v, const int minPrio) {
+	if (isAssignOpVal(v))
+		return true;
+	if (!isBinaryOpVal(v))
+		return false;
+	return getPrio(v->str) >= minPrio;
+}
+
+//checker functions
+bool isWordChar(const int ch) {
+    	return ((ch != EOF) && (isalnum(ch) || (ch == '_')));
 }
 
 bool isKeyword(const enum key_type  key)
@@ -100,20 +131,20 @@ bool isDelim(const int delim)
    	return ((delim != EOF) && (strchr(DELIMS, delim) != NULL));
 }
 
-bool isStrType(struct value *v)
-{
+bool isDelimType(const struct value *v) {
+	return v && (v->type == VAL_DELIM);
+}
+
+bool isEndingBracket(const struct value *v) {
+	return isDelimType(v) && (v->ch == '}');
+}
+
+bool isStrType(struct value *v) {
     	return v && ((v->type == VAL_NAME) || (v->type == VAL_OP));
 }
 
-bool isValidOp(const struct value *op, const int minPrio)
-{
-	if ((op == NULL) || (op->type != VAL_OP) || !op->str)
-		return false;
 
-	int prio = getPrio(op->str);
-	return (((minPrio >= 0) && (prio >= minPrio) && (prio != UNARY_OP_PRIO)) || (prio == SET_OP_PRIO));
-}
-
+// init functions
 struct value *initValue()
 {
     	return calloc(1, sizeof(struct value));

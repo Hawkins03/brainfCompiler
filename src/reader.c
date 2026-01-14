@@ -159,7 +159,7 @@ char *getNextOp(struct reader *r)
 	char tmp[MAX_OP_LEN + 1] = {0};
 
 	for (int i = 0; i < MAX_OP_LEN; i++) {
-		if (!readerIsAlive(r) || !matchesOp(peek(r))) {
+		if (!readerIsAlive(r) || !isOp(tmp)) {
 			tmp[i] = '\0';
 			break;
 		}

@@ -1,24 +1,47 @@
 // the names following are the values held in each datatype
 
-<Stmt> 	::= <Exp> ";"
-		::= "var"||"val" <name> "=" <Exp> ";" <Stmt> //technically just "var"||"val" <Exp>; <Stmt> ()
-		::= "if (" <Exp> ") {" <Stmt> "}"  ( "else {" <Stmt> "}" )* <Stmt>  //cond, thenStmt, elseStmt, Next
-		::= "while (" <Exp> ") {" <Stmt> "}" <Stmt> //cond, body, next
-		::= "for (" <Exp> ";" <Exp> ";" <Exp> ") {" <Stmt>  "}" <Stmt> //initializaiton, cond, itteration, body, next
-		::= "" //Endpoint for recursion purposes
+<Stmt>	= <Exp> ";"
+		| ( "var" | "val" ) <Target> [ "=" <Exp> ] ";" [<Stmt>]  // name, value, next
+		| "if (" <Exp> ") {" <Stmt> "}"  [ "else"  { "{" <Stmt> "}" | "else if ("<Exp> ") {" <Stmt> "}" } ] + [<Stmt>]  //cond, thenStmt, elseStmt, next
+		| "while (" <Exp> ") {" <Stmt> "}" [<Stmt>] //cond, body, next
+		| "for (" <Exp> ";" <Exp> ";" <Exp> ") {" <Stmt>  "}" [<Stmt>] //initializaiton, cond, itteration, body, next
 
-<name> 	::= [a-zA-Z][a-zA-Z0-9_]+
+<name> 	= ( a-zA-Z )(a-zA-Z0-9_)+
 
-<Atom>	::= <name>
-		::= [0-9]+
-		::= <Unary><Atom>
-		::= <Atom><Un_suffix>
-		::= "(" <Exp> ")"
-		::= "'" <char> "'"
-		::= "break" || "end" || "input()" || "print(" <atom> ")"
-//possible <Unary> values = {"!", "~", "++", "--", NULL}
-//possible <Un_suffix> values = {"++", "--"}
-// <char> is just a single char stored as an int
-<Exp>	::= <Atom>
-		::= <Exp> <Op> <Exp>
+<Target>
+		= <name>
+		| <Target> "[" <Exp> "]"
+
+<Atom>	= <Target>
+		| "{" <Exp> "}"
+		| [0-9]+ | "'" <char> "'"
+		| <Unary Prefix> <Atom>
+		| <Atom> <Unary Suffix>
+		| "(" <Exp> ")"
+		| { "break" | "input()" | "print(" <atom> ")" }
+
+
+<Exp>	= <Atom>
+		| <Assignable> <AssignOp> <Exp> //assign op
+		| <Exp> <BinaryOp> <Exp> 		//binary op
 // <op> is defined at the start of utils.c
+// <char> is just a single char stored as an int
+
+binary ops: {         			// lowest priority to highest priority:
+	{"=", "+=", "-=", "*=", "/=", "%=",
+		"<<=", ">>=", "&=", "^=", "|=", NULL},  // 0: assignment
+	{",", NULL},					// 1: commas
+	{"||", NULL},                       		// 2: logical or
+	{"&&", NULL},                       		// 3: logical and
+	{"|", NULL},                        		// 4: bitwiase or
+	{"^", NULL},                        		// 5: bitwise xor
+	{"&", NULL},                        		// 6: bitwise and
+	{"==", "!=", NULL},                 		// 7: equivalence operators
+	{"<", ">", "<=", ">=", NULL},       		// 8: relational operators
+	{"<<", ">>"},                       		// 9: bitwise shifts
+	{"+", "-", NULL},                   		// 10: addition / subtraction
+	{"*", "/", "%", NULL},              		// 11: multiplication, division, modulo
+};
+
+unary prefixes: {"-", "!", "~", "++", "--", NULL}
+unary suffixes: {"++", "--", NULL}

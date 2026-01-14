@@ -48,8 +48,7 @@ void free_stmt(struct stmt *stmt) {
 }
 
 //print functions
-void print_stmt(const struct stmt *stmt)
-{
+void print_stmt(const struct stmt *stmt) {
 	if (!stmt) {
 		printf("NULL\n");
 		return;
@@ -99,9 +98,25 @@ void print_stmt(const struct stmt *stmt)
 		print_stmt(stmt->next);
 }
 
+struct stmt *init_stmt_or_free(struct reader *r, struct exp **exps, struct stmt **stmts) {
+	struct stmt *s = init_stmt();
+	if (s)
+        	return s;
+
+	if (exps)
+		for (size_t i = 0; exps[i] != NULL; ++i)
+			free_exp(exps[i]);
+
+	if (stmts)
+		for (size_t i = 0; stmts[i] != NULL; ++i)
+			free_stmt(stmts[i]);
+
+	raise_syntax_error("failed to allocate exp", r);
+	return NULL;
+}
+
 // initialization functions
-struct stmt *init_stmt()
-{
+struct stmt *init_stmt() {
 	struct stmt *stmt = calloc(1, sizeof(*stmt));
 	if (!stmt)
 		return NULL;
@@ -109,62 +124,27 @@ struct stmt *init_stmt()
 	return stmt;
 }
 
-struct stmt *init_var(struct exp  *name, struct exp  *value, struct reader *r)
-{
-	struct stmt *stmt = init_stmt();
-	if (!stmt) {
-		free_exp(name);
-		free_exp(value);
-		raise_syntax_error("failed to initialize stmt", r);
-	}
-
-	stmt->type = STMT_VAR;
-	stmt->var.name = name;
-	stmt->var.value = value;
-	return stmt;
+void init_var(struct exp  *name, struct exp  *value, struct stmt *in) {
+	in->type = STMT_VAR;
+	in->var.name = name;
+	in->var.value = value;
 }
 
-struct stmt *init_loop(struct exp  *cond, struct stmt *body, struct reader *r)
-{
-	struct stmt *stmt = init_stmt();
-	if (!stmt) {
-		free_exp(cond);
-		free_stmt(body);
-		raise_syntax_error("failed to initialize stmt", r);
-	}
-
-	stmt->type = STMT_LOOP;
-	stmt->loop.cond = cond;
-	stmt->loop.body = body;
-	return stmt;
+void init_loop(struct exp  *cond, struct stmt *body, struct stmt *in) {
+	in->type = STMT_LOOP;
+	in->loop.cond = cond;
+	in->loop.body = body;
 }
 
-struct stmt *init_ifStmt(struct exp  *cond, struct stmt *thenStmt, struct reader *r)
-{
-	struct stmt *stmt = init_stmt();
-	if (!stmt) {
-		free_exp(cond);
-		free_stmt(thenStmt);
-		raise_syntax_error("failed to initialize stmt", r);
-	}
-
-	stmt->type = STMT_IF;
-	stmt->ifStmt.cond = cond;
-	stmt->ifStmt.thenStmt = thenStmt;
-	return stmt;
+void init_ifStmt(struct exp  *cond, struct stmt *thenStmt, struct stmt *in) {
+	in->type = STMT_IF;
+	in->ifStmt.cond = cond;
+	in->ifStmt.thenStmt = thenStmt;
 }
 
-struct stmt *init_expStmt(struct exp  *exp, struct reader *r)
-{
-	struct stmt *stmt = init_stmt();
-	if (!stmt) {
-		free_exp(exp);
-		raise_syntax_error("failed to initialize stmt", r);
-	}
-
-	stmt->type = STMT_EXPR;
-	stmt->exp = exp;
-	return stmt;
+void init_expStmt(struct exp  *exp, struct stmt *in) {
+	in->type = STMT_EXPR;
+	in->exp = exp;
 }
 
 bool stmts_match(const struct stmt *stmt1, const struct stmt *stmt2)
@@ -199,5 +179,8 @@ bool stmts_match(const struct stmt *stmt1, const struct stmt *stmt2)
 	return false;
 }
 
-
-
+bool isValidInitStmt(const struct stmt *stmt) {
+	return 	(stmt->type == STMT_VAR) ||
+		(stmt->type == STMT_VAL) ||
+		((stmt->type == STMT_EXPR) && is_atomic(stmt->exp) && parses_to_int(stmt->exp));
+}

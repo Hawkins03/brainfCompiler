@@ -2,6 +2,7 @@
 #define SEMANTICS_H
 
 #include <stdbool.h>
+#include "structs.h"
 #include "utils.h"
 #include "parser.h"
 #include "stmt.h"
@@ -12,8 +13,8 @@
 
 struct env *init_env(struct env *parent);
 void free_env(struct env *env);
-void define_var(struct env *env, char *name, struct exp  *value, bool is_mutable, bool is_array);
-void set_var(struct env *env, char *name, struct exp  *value);
+void declare_var(struct env *env, char *name, bool is_defined, bool is_mutable, int array_depth);
+void define_var(struct env *env, char *name);
 struct var_data *get_var(const struct env *env, const char *name);
 bool var_exists(const struct env *env, const char *name);
 

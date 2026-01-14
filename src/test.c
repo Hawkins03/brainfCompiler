@@ -43,18 +43,23 @@ size_t measure_exp_strlen(const struct exp  *exp) {
 		return strlen("NULL");
     int size = 0;
     switch (exp->type) {
-	case EXP_STR:
+	case EXP_NAME:
 		size += strlen("STR()");
-		size += strlen(exp->str);
+		size += strlen(exp->name);
 		break;
 	case EXP_ARRAY:
 		size += strlen("ARR(, )");
-		size += measure_exp_strlen(exp->arr.name);
-		size += measure_exp_strlen(exp->arr.index);
+		size += measure_exp_strlen(exp->array.name);
+		size += measure_exp_strlen(exp->array.index);
 		break;
-	case EXP_NESTED:
-		size += strlen("NESTED()");
-		size += measure_exp_strlen(exp->nested);
+	case EXP_RIGHTARRAY:
+		size += strlen("Nested()");
+		for (int i = 0; i < exp->right_array.size - 1; i++) {
+			size += measure_exp_strlen(exp->right_array.array + i);
+			size += strlen(", ");
+		}
+		size += measure_exp_strlen(exp->right_array.array) + exp->right_array.size - 1;
+		
 		break;
 	case EXP_NUM:
 		size += strlen("NUM()");
@@ -63,7 +68,8 @@ size_t measure_exp_strlen(const struct exp  *exp) {
 		size += strlen(buf1);
 		free(buf1);
 		break;
-	case EXP_OP:
+	case EXP_BINARY_OP:
+	case EXP_ASSIGN_OP:
 		size += measure_exp_strlen(exp->op.left);
 		size += strlen("OP(, <<=, )");
 		size += measure_exp_strlen(exp->op.right);
@@ -130,25 +136,29 @@ void getExpStr(char *out, const struct exp  *exp) {
 	}
 
     	switch (exp->type) {
-	case EXP_STR:
-		sprintf(out, "STR(%s)", exp->str);
+	case EXP_NAME:
+		sprintf(out, "STR(%s)", exp->name);
 		break;
 	case EXP_ARRAY:
 		sprintf(out, "ARR(");
-		getExpStr(out + strlen(out), exp->arr.name);
+		getExpStr(out + strlen(out), exp->array.name);
 		sprintf(out + strlen(out), ", ");
-		getExpStr(out + strlen(out), exp->arr.index);
+		getExpStr(out + strlen(out), exp->array.index);
 		sprintf(out + strlen(out), ")");
 		break;
-	case EXP_NESTED:
+	case EXP_RIGHTARRAY:
 		sprintf(out, "NESTED(");
-		getExpStr(out + strlen(out), exp->nested);
-		sprintf(out + strlen(out), ")");
+		for (int i = 0; i < exp->right_array.size - 1; i++) {
+			getExpStr(out + strlen(out), exp->right_array.array + i);
+			sprintf(out + strlen(out), ", ");
+		}
+		getExpStr(out + strlen(out), exp->right_array.array + exp->right_array.size - 1);
 		break;
 	case EXP_NUM:
 		sprintf(out, "NUM(%d)", exp->num);
 		break;
-	case EXP_OP:
+	case EXP_BINARY_OP:
+	case EXP_ASSIGN_OP:
 		sprintf(out, "OP(");
 		getExpStr(out + strlen(out), exp->op.left);
 		sprintf(out + strlen(out), ", %s, ", exp->op.op);

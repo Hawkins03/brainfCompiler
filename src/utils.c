@@ -61,7 +61,10 @@ void _raise_syntax_error(const char *msg, const char *func, const char *file, in
 
 void _raise_semantic_error(const char *msg, const char *func, const char *file, int line, struct env *env)
 {
-	if (env)
+	if (env) {
+		if (env->root)
+			free_stmt(env->root);
 		free_env(env);
+	}
 	_raise_error(msg, func, file, line);
 }
