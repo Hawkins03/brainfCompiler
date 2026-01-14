@@ -5,152 +5,94 @@
 
 #include <stdlib.h>
 #include <stdbool.h>
-
-void free_exp(struct exp  *exp)
-{
-	if (!exp)
+void free_exp(struct exp *exp) {
+    	if (exp == NULL)
 		return;
-	exp->free_fn(exp);
+    	switch (exp->type) {
+	case EXP_STR:
+		free(exp->str);
+		exp->str = NULL;
+		break;
+	case EXP_NUM:
+		break;
+	case EXP_UNARY:
+	case EXP_OP:
+		free(exp->op.op);
+		exp->op.op = NULL;
+		free_exp(exp->op.left);
+		exp->op.left = NULL;
+		free_exp(exp->op.right);
+		exp->op.right = NULL;
+		break;
+	case EXP_EMPTY:
+		break;
+	case EXP_CALL:
+		free_exp(exp->call.call);
+		exp->call.call = NULL;
+		break;
+	case EXP_ARRAY:
+		free_exp(exp->arr.name);
+		exp->arr.name = NULL;
+		free_exp(exp->arr.index);
+		exp->arr.index = NULL;
+		break;
+	case EXP_NESTED:
+		free_exp(exp->nested);
+		exp->nested = NULL;
+		break;
+    	}
+    	free(exp);
 }
 
-void free_empty_exp(struct exp  *exp)
+void print_exp(const struct exp *exp)
 {
-	free(exp);
-}
-
-void free_str_exp(struct exp  *exp)
-{
-	if (exp->type != EXP_STR)
-		return;
-	free(exp->str);
-	exp->str = NULL;
-	free(exp);
-}
-
-void free_op_exp(struct exp  *exp)
-{
-	if ((exp->type != EXP_OP) || (exp->type != EXP_UNARY))
-		return;
-	free(exp->op.op);
-	exp->op.op = NULL;
-	free_exp(exp->op.left);
-	exp->op.left = NULL;
-	free_exp(exp->op.right);
-	exp->op.right = NULL;
-	free(exp);
-}
-
-void free_call_exp(struct exp  *exp)
-{
-	if (exp->type != EXP_CALL)
-		return;
-	free_exp(exp->call.call);
-	exp->call.call = NULL;
-	free(exp);
-}
-
-void free_array_exp(struct exp  *exp)
-{
-	if (exp->type != EXP_ARRAY)
-		return;
-	free_exp(exp->arr.name);
-	exp->arr.name = NULL;
-	free_exp(exp->arr.index);
-	exp->arr.index = NULL;
-	free(exp);
-}
-
-void free_nested_exp(struct exp  *exp)
-{
-	if (exp->type != EXP_NESTED)
-		return;
-	free_exp(exp->nested);
-	exp->nested = NULL;
-	free(exp);
-}
-
-
-void print_exp(const struct exp  *exp)
-{
-	if (!exp) {
+    	if (!exp) {
 		printf("NULL");
 		return;
 	}
-	exp->print_fn(exp);
+	switch (exp->type) {
+	case EXP_STR:
+		printf("NAME(%s)", exp->str);
+		break;
+	case EXP_NUM:
+		printf("NUM(%d)", exp->num);
+		break;
+	case EXP_OP:
+		printf("OP( ");
+		print_exp(exp->op.left);
+		printf(", %s, ", exp->op.op);
+		print_exp(exp->op.right);
+		printf(")");
+		break;
+	case EXP_UNARY:
+		printf("UNARY(");
+		print_exp(exp->op.left);
+		printf(", %s, \n", exp->op.op);
+		print_exp(exp->op.right);
+		printf(")");
+		break;
+	case EXP_CALL:
+		printf("CALL(%s,", getKeyStr(exp->call.key));
+		print_exp(exp->call.call);
+		printf(")");
+		break;
+	case EXP_ARRAY:
+		printf("ARR(");
+		print_exp(exp->arr.name);
+		printf(", ");
+		print_exp(exp->arr.index);
+		printf(")");
+		break;
+	case EXP_NESTED:
+		printf("NESTED(");
+		print_exp(exp->nested);
+		printf(")");
+		break;
+	case EXP_EMPTY:
+		printf("EMPTY()");
+		break;
+    	}   
 }
-
-void print_empty_exp(const struct exp  *exp)
-{
-	if (exp->type != EXP_EMPTY)
-		return;
-	printf("EMPTY()");
-}
-
-void print_str_exp(const struct exp  *exp)
-{
-	if (exp->type != EXP_STR)
-		return;
-	printf("NAME(%s)", exp->str);
-}
-
-void print_num_exp(const struct exp  *exp)
-{
-	if (exp->type != EXP_NUM)
-		return;
-	printf("NUM(%d)", exp->num);
-}
-
-void print_op_exp(const struct exp  *exp)
-{
-	if (exp->type != EXP_OP)
-		return;
-	printf("OP( ");
-	print_exp(exp->op.left);
-	printf(", %s, ", exp->op.op);
-	print_exp(exp->op.right);
-	printf(")");
-}
-
-void print_unary_exp(const struct exp  *exp)
-{
-	if (exp->type != EXP_UNARY)
-		return;
-	printf("UNARY(");
-	print_exp(exp->op.left);
-	printf(", %s, \n", exp->op.op);
-	print_exp(exp->op.right);
-	printf(")");
-}
-
-void print_call_exp(const struct exp  *exp)
-{
-	if (exp->type != EXP_CALL)
-		return;
-	printf("CALL(%s,", getKeyStr(exp->call.key));
-	print_exp(exp->call.call);
-	printf(")");
-}
-
-void print_array_exp(const struct exp  *exp)
-{
-	if (exp->type != EXP_ARRAY)
-		return;
-	printf("ARR(");
-	print_exp(exp->arr.name);
-	printf(", ");
-	print_exp(exp->arr.index);
-	printf(")");
-}
-
-void print_nested_exp(const struct exp  *exp)
-{
-	if (exp->type != EXP_NESTED)
-		return;
-	printf("NESTED(");
-	print_exp(exp->nested);
-	printf(")");
-}
-
 
 // initialization functions
 struct exp  *init_exp()
@@ -161,9 +103,6 @@ struct exp  *init_exp()
 		return NULL;
 
 	exp->type = EXP_EMPTY;
-	
-	exp->free_fn = free_empty_exp;
-	exp->print_fn = print_empty_exp;
 	return exp;
 }
 
@@ -181,9 +120,6 @@ struct exp  *init_op(struct exp  *left, char *op, struct exp  *right, struct rea
 	exp->op.left = left;
 	exp->op.op = op;
 	exp->op.right = right;
-
-	exp->free_fn = free_op_exp;
-	exp->print_fn = print_op_exp;
 	return exp;
 }
 
@@ -191,9 +127,6 @@ struct exp  *init_unary(struct exp  *left, char *op, struct exp  *right, struct 
 {
 	struct exp  *exp = init_op(left, op, right, r);
 	exp->type = EXP_UNARY;
-
-	exp->free_fn = free_op_exp;
-	exp->print_fn = print_unary_exp;
 	return exp;
 }
 
@@ -204,10 +137,7 @@ struct exp  *init_num(int num, struct reader *r)
 		raise_syntax_error("failed to initialize exp", r);
 
 	exp->type = EXP_NUM;
-	exp->num= num;
-
-	exp->free_fn = free_empty_exp;
-	exp->print_fn = print_num_exp;
+	exp->num = num;
 	return exp;
 }
 
@@ -221,9 +151,6 @@ struct exp  *init_str(char *str, struct reader *r)
 
 	exp->type = EXP_STR;
 	exp->str = str;
-
-	exp->free_fn = free_str_exp;
-	exp->print_fn = print_str_exp;
 	return exp;
 }
 
@@ -238,9 +165,6 @@ struct exp  *init_call(enum key_type key, struct exp  *call, struct reader *r)
 	exp->type = EXP_CALL;
 	exp->call.key = key;
 	exp->call.call = call;
-
-	exp->free_fn = free_call_exp;
-	exp->print_fn = print_call_exp;
 	return exp;
 }
 
@@ -256,9 +180,6 @@ struct exp  *init_array(struct exp  *name, struct exp  *index, struct reader *r)
 	exp->type = EXP_ARRAY;
 	exp->arr.name = name;
 	exp->arr.index = index;
-
-	exp->free_fn = free_array_exp;
-	exp->print_fn = print_array_exp;
 	return exp;
 }
 
@@ -273,9 +194,6 @@ struct exp  *init_nested(struct exp  *op, struct reader *r)
 
 	exp->type = EXP_NESTED;
 	exp->nested = op;
-
-	exp->free_fn = free_nested_exp;
-	exp->print_fn = print_nested_exp;
 	return exp;
 }
 

@@ -6,129 +6,98 @@
 #include "reader.h"
 
 // freeing functions
-void free_stmt(struct stmt *stmt)
-{
+void free_stmt(struct stmt *stmt) {
 	if (!stmt)
 		return;
-	else if (stmt->next == stmt)
-		stmt->next = NULL;
-	stmt->free_fn(stmt);
-	free_stmt(stmt->next);
-}
+	switch (stmt->type) {
+	case STMT_EMPTY:
+		break;
+	case STMT_VAR:
+	case STMT_VAL:
+		free_exp(stmt->var.name);
+		stmt->var.name = NULL;
+		free_exp(stmt->var.value);
+		stmt->var.name = NULL;
+		break;
+	case STMT_LOOP:
+		free_exp(stmt->loop.cond);
+		stmt->loop.cond = NULL;
+		free_stmt(stmt->loop.body);
+		stmt->loop.body = NULL;
+		break;
+	case STMT_IF:
+		free_exp(stmt->ifStmt.cond);
+		stmt->ifStmt.cond = NULL;
+		free_stmt(stmt->ifStmt.thenStmt);
+		stmt->ifStmt.thenStmt = NULL;
+		free_stmt(stmt->ifStmt.elseStmt);
+		stmt->ifStmt.elseStmt = NULL;
+		break;
+	case STMT_EXPR:
+		free_exp(stmt->exp);
+		stmt->exp = NULL;
+		break;
+	}
 
-void free_empty_stmt(struct stmt *stmt)
-{
-	free_stmt(stmt->next);
+	if (stmt->next == stmt)
+		return;
+	if (stmt->next != stmt)
+		free_stmt(stmt->next);
 	stmt->next = NULL;
 	free(stmt);
 }
 
-void free_var_stmt(struct stmt *stmt)
-{
-	if (stmt->type != STMT_VAR)
-		return;
-	free_exp(stmt->var.name);
-	stmt->var.name = NULL;
-	free_exp(stmt->var.value);
-	stmt->var.value = NULL;
-	free_empty_stmt(stmt);
-}
-
-void free_loop_stmt(struct stmt *stmt)
-{
-	if (stmt->type != STMT_LOOP)
-		return;
-	free_exp(stmt->loop.cond);
-	stmt->loop.cond = NULL;
-	free_stmt(stmt->loop.body);
-	free_empty_stmt(stmt);
-}
-
-void free_if_stmt(struct stmt *stmt)
-{
-	if (stmt->type != STMT_IF)
-		return;
-	free_exp(stmt->ifStmt.cond);
-	stmt->ifStmt.cond = NULL;
-	free_stmt(stmt->ifStmt.thenStmt);
-	stmt->ifStmt.thenStmt = NULL;
-	free_stmt(stmt->ifStmt.elseStmt);
-	stmt->ifStmt.elseStmt = NULL;
-	free_empty_stmt(stmt);
-}
-
-void free_exp_stmt(struct stmt *stmt)
-{
-	if (stmt->type != STMT_EXPR)
-		return;
-	free_exp(stmt->exp);
-	free_empty_stmt(stmt);
-}
-
 //print functions
-//TODO: inplement tabbing
 void print_stmt(const struct stmt *stmt)
 {
-	if ((!stmt) || (stmt == stmt->next)) {
-		printf("NULL;\n");
+	if (!stmt) {
+		printf("NULL\n");
 		return;
 	}
-	stmt->print_fn(stmt);
-	print_stmt(stmt->next);	
-}
+	switch (stmt->type) {
+	case STMT_EMPTY:
+		printf("EMPTY();\n");
+		break;
+	case STMT_VAR:
+		printf("VAR(");
+		print_exp(stmt->var.name);
+		printf(", ");
+		print_exp(stmt->var.value);
+		printf(");\n");
+		break;
+	case STMT_VAL:
+		printf("VAL(");
+		print_exp(stmt->var.name);
+		printf(", ");
+		print_exp(stmt->var.value);
+		printf(");\n");
+		break;
+	case STMT_LOOP:
+		printf("LOOP(");
+		print_exp(stmt->loop.cond);
+		printf(") {\n");
+		print_stmt(stmt->loop.body);
+		printf("}\n");
+		break;
+	case STMT_IF:
+		printf("IF(");
+		print_exp(stmt->ifStmt.cond);
+		printf(") {\n");
+		print_stmt(stmt->ifStmt.thenStmt);
+		printf("} else {\n");
+		print_stmt(stmt->ifStmt.elseStmt);
+		printf("}\n");
+		break;
+	case STMT_EXPR:
+		printf("EXP_");
+		print_exp(stmt->exp);
+		printf(";\n");
+		break;
+	}
 
-void print_empty_stmt(const struct stmt *stmt)
-{
-	if (stmt->type != STMT_EMPTY)
-		return;
-	printf("EMPTY();\n");
+	if (stmt->next != stmt)
+		print_stmt(stmt->next);
 }
-
-void print_var_stmt(const struct stmt *stmt)
-{
-	if (stmt->type != STMT_VAR)
-		return;
-	char *name = (stmt->var.is_mutable) ? "VAR" : "VAL";
-	printf("%s(", name);
-	print_exp(stmt->var.name);
-	printf(", ");
-	print_exp(stmt->var.value);
-	printf(");\n");
-}
-
-void print_loop_stmt(const struct stmt *stmt)
-{
-	if (stmt->type != STMT_LOOP)
-		return;
-	printf("LOOP(");
-	print_exp(stmt->loop.cond);
-	printf(") {\n");
-	print_stmt(stmt->loop.body);
-	printf("}");
-}
-
-void print_if_stmt(const struct stmt *stmt)
-{
-	if (stmt->type != STMT_IF)
-		return;
-	printf("IF(");
-	print_exp(stmt->ifStmt.cond);
-	printf(") {\n");
-	print_stmt(stmt->ifStmt.thenStmt);
-	printf("} else {\n");
-	print_stmt(stmt->ifStmt.elseStmt);
-	printf("}\n");
-}
-
-void print_exp_stmt(const struct stmt *stmt)
-{
-	if (stmt->type != STMT_EXPR)
-		return;
-	printf("EXP_");
-	print_exp(stmt->exp);
-	printf(";\n");
-}
-
 
 // initialization functions
 struct stmt *init_stmt()
@@ -137,9 +106,6 @@ struct stmt *init_stmt()
 	if (!stmt)
 		return NULL;
 	stmt->type = STMT_EMPTY;
-
-	stmt->free_fn = free_empty_stmt;
-	stmt->print_fn = print_empty_stmt;
 	return stmt;
 }
 
@@ -155,9 +121,6 @@ struct stmt *init_var(struct exp  *name, struct exp  *value, struct reader *r)
 	stmt->type = STMT_VAR;
 	stmt->var.name = name;
 	stmt->var.value = value;
-
-	stmt->free_fn = free_var_stmt;
-	stmt->print_fn = print_var_stmt;
 	return stmt;
 }
 
@@ -173,9 +136,6 @@ struct stmt *init_loop(struct exp  *cond, struct stmt *body, struct reader *r)
 	stmt->type = STMT_LOOP;
 	stmt->loop.cond = cond;
 	stmt->loop.body = body;
-
-	stmt->free_fn = free_loop_stmt;
-	stmt->print_fn = print_loop_stmt;
 	return stmt;
 }
 
@@ -191,9 +151,6 @@ struct stmt *init_ifStmt(struct exp  *cond, struct stmt *thenStmt, struct reader
 	stmt->type = STMT_IF;
 	stmt->ifStmt.cond = cond;
 	stmt->ifStmt.thenStmt = thenStmt;
-
-	stmt->free_fn = free_if_stmt;
-	stmt->print_fn = print_if_stmt;
 	return stmt;
 }
 
@@ -207,9 +164,6 @@ struct stmt *init_expStmt(struct exp  *exp, struct reader *r)
 
 	stmt->type = STMT_EXPR;
 	stmt->exp = exp;
-
-	stmt->free_fn = free_exp_stmt;
-	stmt->print_fn = print_exp_stmt;
 	return stmt;
 }
 

@@ -31,7 +31,6 @@ struct value {
 		enum key_type key;
 		char ch;
 	};
-	void (*print_fn)(const struct value *value);
 };
 
 
@@ -45,8 +44,6 @@ struct exp {
 		struct { enum key_type key; struct exp *call; } call;
 		struct { struct exp *left, *right; char *op; } op;
 	};
-	void (*print_fn)(const struct exp *exp);
-	void (*free_fn)(struct exp *exp);
 };
 
 struct stmt {
@@ -57,8 +54,6 @@ struct stmt {
 		struct { struct exp  *cond; struct stmt *thenStmt; struct stmt *elseStmt;} ifStmt;
 		struct exp * exp;
 	};
-	void (*print_fn)(const struct stmt *stmt);
-	void (*free_fn)(struct stmt *stmt);
 	struct stmt *next;
 };
 
