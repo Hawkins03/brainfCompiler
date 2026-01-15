@@ -98,53 +98,16 @@ void print_stmt(const struct stmt *stmt) {
 		print_stmt(stmt->next);
 }
 
-struct stmt *init_stmt_or_free(struct reader *r, struct exp **exps, struct stmt **stmts) {
-	struct stmt *s = init_stmt();
-	if (s)
+
+struct stmt *initStmtOrKill(struct reader *r) {
+	struct stmt *s = calloc(1, sizeof(*s));
+	if (s) {
+		s->type = STMT_EMPTY;
         	return s;
-
-	if (exps)
-		for (size_t i = 0; exps[i] != NULL; ++i)
-			free_exp(exps[i]);
-
-	if (stmts)
-		for (size_t i = 0; stmts[i] != NULL; ++i)
-			free_stmt(stmts[i]);
+	}
 
 	raise_syntax_error("failed to allocate exp", r);
 	return NULL;
-}
-
-// initialization functions
-struct stmt *init_stmt() {
-	struct stmt *stmt = calloc(1, sizeof(*stmt));
-	if (!stmt)
-		return NULL;
-	stmt->type = STMT_EMPTY;
-	return stmt;
-}
-
-void init_var(struct exp  *name, struct exp  *value, struct stmt *in) {
-	in->type = STMT_VAR;
-	in->var.name = name;
-	in->var.value = value;
-}
-
-void init_loop(struct exp  *cond, struct stmt *body, struct stmt *in) {
-	in->type = STMT_LOOP;
-	in->loop.cond = cond;
-	in->loop.body = body;
-}
-
-void init_ifStmt(struct exp  *cond, struct stmt *thenStmt, struct stmt *in) {
-	in->type = STMT_IF;
-	in->ifStmt.cond = cond;
-	in->ifStmt.thenStmt = thenStmt;
-}
-
-void init_expStmt(struct exp  *exp, struct stmt *in) {
-	in->type = STMT_EXPR;
-	in->exp = exp;
 }
 
 bool stmts_match(const struct stmt *stmt1, const struct stmt *stmt2)

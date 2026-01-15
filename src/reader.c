@@ -23,20 +23,13 @@ struct reader *readInFile(const char *filename)
 		return NULL;
 	}
 	
-	r->root = init_stmt();
-	if (!r->root) {
-		killReader(r);
-		raise_syntax_error("failed to init root statement", r);
-		return NULL;
-	}
-
+	r->root = initStmtOrKill(r);
 	r->root->next = r->root; // self loop to mark as sentinal
 	r->curr_stmt = r->root;
 
-	r->curr_token = initValue(r);
-	if (!r->curr_token) {
-		raise_syntax_error("failed to allocate initial value", r);
-	}
+	r->curr_token = initValue();
+	if (!r->root)
+		raise_syntax_error("failed to allocate value", r);
 
 	r->filename = strdup(filename, r);
 

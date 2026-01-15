@@ -146,7 +146,8 @@ int main(int argc, char **argv) {
 	run_one("tests/call_break.txt", "CALL(8, NULL);", catch_errors, &total, &passed, &failed, &errors);
 
 	run_one("tests/array1.txt", "ARR(STR(x), NUM(3));", catch_errors, &total, &passed, &failed, &errors);
-	run_one("tests/array2.txt", "ARR(ARR(STR(x), STR(y)), NUM(1));", catch_errors, &total, &passed, &failed, &errors);
+	run_one("tests/array2.txt", "ARR(ARR(STR(x), NUM(1)), STR(y));", catch_errors, &total, &passed, &failed, &errors);
+	run_one("tests/array3.txt", "ARR(ARR(ARR(STR(x), NUM(1)), NUM(2)), NUM(3));", catch_errors, &total, &passed, &failed, &errors);
 
 	run_one("tests/string_simple.txt", "NESTED(NUM(97), NUM(98), NUM(99));", catch_errors, &total, &passed, &failed, &errors);
 	run_one("tests/string_newline.txt", "NESTED(NUM(97), NUM(10), NUM(98));", catch_errors, &total, &passed, &failed, &errors);

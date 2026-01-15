@@ -11,17 +11,8 @@ void free_exp(struct exp  *exp);
 void free_rightArray(struct exp *array, int size);
 void print_exp(const struct exp  *exp);
 
-void reinit_exp(struct exp *from, struct exp *to, struct reader *r);
-struct exp *init_exp_or_free(struct reader *r, struct exp **to_free);
-struct exp *init_exp_or_free_str(struct reader *r, struct exp **exps, char *str);
-struct exp *init_exp();
-void init_binop(struct exp  *left, char *op, struct exp  *right, struct exp *in);
-void init_assignop(struct exp  *left, char *op, struct exp  *right, struct exp *in);
-void init_unary(struct exp  *left, char *op, struct exp  *right, struct exp *in);
-void init_num(int num, struct exp *in);
-void init_name(char *name, struct exp *in);
-void init_call(enum key_type key, struct exp  *call, struct exp *in);
-void init_array(struct exp  *name, struct exp  *index, struct exp *in);
+void swap_exps(struct exp *from, struct exp *to);
+struct exp *initExpOrFree(struct reader *r, struct exp **to_free);
 void init_rightarray(struct exp *op, int size, struct reader *r, struct exp *in);
 
 bool exps_match(struct exp  *exp1, struct exp  *exp2);

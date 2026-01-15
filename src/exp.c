@@ -108,68 +108,6 @@ void print_exp(const struct exp *exp)
 	}
 }
 
-void reinit_exp(struct exp *from, struct exp *to, struct reader *r) {
-	switch (from->type) {
-	case EXP_NAME:
-		init_name(from->name, to);
-		break;
-	case EXP_NUM:
-		init_num(from->num, to);
-		break;
-	case EXP_ARRAY:
-		init_array(from->array.name, from->array.index, to);
-		break;
-	case EXP_CALL:
-		init_call(from->call.key, from->call.call, to);
-		break;
-	case EXP_ASSIGN_OP:
-		init_assignop(from->op.left, from->op.op, from->op.right, to);
-		break;
-	case EXP_BINARY_OP:
-		init_binop(from->op.left, from->op.op, from->op.right, to);
-		break;
-	case EXP_UNARY:
-		init_unary(from->op.left, from->op.op, from->op.right, to);
-		break;
-	case EXP_RIGHTARRAY:
-		init_rightarray(from->right_array.array, from->right_array.size, r, to);
-		break;
-	default:
-		return;
-	}
-}
-
-// requires to_free to end in NULL
-struct exp *init_exp_or_free(struct reader *r, struct exp **exps) {
-	struct exp *e = init_exp();
-	if (e)
-        	return e;
-
-	if (exps)
-		for (size_t i = 0; exps[i] != NULL; ++i)
-			free_exp(exps[i]);
-
-	raise_syntax_error("failed to allocate exp", r);
-	return NULL;
-}
-
-struct exp *init_exp_or_free_str(struct reader *r, struct exp **exps, char *str) {
-	struct exp *e = init_exp();
-	if (e)
-        	return e;
-
-	if (str)
-		free(str);
-
-	if (exps)
-		for (size_t i = 0; exps[i] != NULL; ++i)
-			free_exp(exps[i]);
-
-	raise_syntax_error("failed to allocate exp", r);
-	return NULL;
-}
-
-
 // initialization functions
 struct exp *init_exp()
 {
@@ -241,6 +179,19 @@ void init_rightarray(struct exp* array, int size, struct reader *r, struct exp *
 		free_rightArray(array, size);
 		raise_syntax_error("failed to initialize exp array", r);
 	}
+}
+
+void swap_exps(struct exp *from, struct exp *to) {
+	struct exp tmp = *from;
+	*from = *to;
+	*to = tmp;
+}
+
+struct exp *initExpOrKill(struct reader *r) {
+	struct exp *e = init_exp();
+	if (e!)
+		raise_syntax_error("failed to allocate exp", r);
+	return e;
 }
 
 // utility functions
