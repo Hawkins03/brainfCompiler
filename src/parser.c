@@ -70,7 +70,7 @@ static inline void parseSuffix(struct exp  *left, struct reader *r, struct exp *
 		swap_exps(left, operand);	
 	}
 	init_exp_unary(r, in, false);
-	in->unary->op = stealNextString(r);
+	in->unary->op = stealNextOp(r);
 	in->unary->operand = operand;
 }
 
@@ -82,7 +82,7 @@ static inline void parsePrefix(struct reader *r, struct exp *in) {
 	
 
 	init_exp_unary(r, in, true);
-	in->unary->op = stealNextString(r);
+	in->unary->op = stealNextOp(r);
 	in->unary->operand  = init_exp(r);
 	parse_atom(r, in->unary->operand);
 }
@@ -222,7 +222,7 @@ void parse_exp(int minPrio, struct reader *r, struct exp *in)
 		struct exp *left = init_exp(r);
 		swap_exps(in, left);
 
-		char *op = stealNextString(r);
+		enum operator op = stealNextOp(r);
 		init_binary(r, in, (isAssignOp(op)) ?  EXP_ASSIGN_OP: EXP_BINARY_OP);
 
 		in->op->left = left;

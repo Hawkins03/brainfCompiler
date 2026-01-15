@@ -7,6 +7,20 @@
 #include "value.h"
 #include "stmt.h"
 
+
+static enum operator BINARY_OPS[][5] = {  		// lowest priority to highest priority:
+	{OP_LOGICAL_OR, OP_UNKNOWN},     		// 0: logical or
+	{OP_LOGICAL_AND, OP_UNKNOWN},                   // 1: logical and
+	{OP_BITWISE_OR, OP_UNKNOWN},                    // 2: bitwiase or
+	{OP_BITWISE_XOR, OP_UNKNOWN},                   // 3: bitwise xor
+	{OP_BITWISE_AND, OP_UNKNOWN},                   // 4: bitwise and
+	{OP_EQ, OP_NE, OP_UNKNOWN},             	// 5: equivalence operators
+	{OP_LT, OP_GT, OP_LE, OP_GE, OP_UNKNOWN},   	// 6: relational operators
+	{OP_LEFT_SHIFT, OP_RIGHT_SHIFT, OP_UNKNOWN},	// 7: bitwise shifts
+	{OP_PLUS, OP_MINUS, OP_UNKNOWN},               	// 8: addition / subtraction
+	{OP_MULTIPLY, OP_DIVIDE, OP_MODULO, OP_UNKNOWN} // 9: multiplication, division, modulo
+};
+
 struct reader *readInFile(const char *filename)
 {
 	if (filename == NULL)
@@ -133,6 +147,15 @@ char *stealNextString(struct reader *r)
 	return out;
 }
 
+enum operator stealNextOp(struct reader *r) {
+	struct value *v = getValue(r);
+	if (!v || (v->type != VAL_OP) || (v->op == OP_UNKNOWN))
+		raise_syntax_error("failed to get next op", r);
+	enum operator result = v->op;
+	freeValue(v);
+	return result;
+}
+
 char getNextDelim(struct reader *r)
 {
 	int ch = peek(r);
@@ -143,12 +166,81 @@ char getNextDelim(struct reader *r)
 	return 0;
 }
 
-char *getNextOp(struct reader *r)
-{
+static enum operator getOpEnum(const char *op) {
+	for (int i = 0; i < OP_UNKNOWN; i++)
+		if (!strcmp(OP_STRINGS[i], op))
+			return (enum operator) i;
+	return OP_UNKNOWN;
+}
+
+void printOpStr(enum operator op) {
+	if ((op >= 0) && (op < OP_UNKNOWN))
+		printf("%s", OP_STRINGS[op]);
+}
+
+void getOpStr(enum operator op, char *out) {
+	if ((op >= 0) && (op < OP_UNKNOWN) && out)
+		sprintf(out + strlen(out), "%s", OP_STRINGS[op]);
+}
+
+int getPrio(const enum operator op) {
+	if (op == OP_UNKNOWN)
+		return -1;
+	for (int y = 0; y < NUM_PRIOS; y++)
+		for (int x = 0; BINARY_OPS[y][x] != OP_UNKNOWN; x++)
+			if (op == BINARY_OPS[y][x])	
+				return y;
+	return -1;
+}
+
+bool isAssignOp(const enum operator op) {
+	for (int i = 0; ASSIGN_OPS[i] != OP_UNKNOWN; i++)
+		if (op == ASSIGN_OPS[i])
+			return true;
+	return false;
+}
+
+bool isBinaryOp(enum operator op) {
+	return getPrio(op) >= 0;
+}
+
+bool matchesOp(const int op) {
+	return (op != EOF) && strchr(OP_START, op);
+}
+
+bool is_suffix_unary(enum operator op) {
+    	if (!op)
+		return false;
+
+	for (int i = 0; (SUFFIX_OPS[i] != OP_UNKNOWN); i++)
+		if (op == SUFFIX_OPS[i])
+			return true;
+
+    	return false;
+}
+
+bool is_prefix_unary(enum operator op) {
+	if (!op)
+		return false;
+
+	for (int i = 0; (PREFIX_OPS[i] != OP_UNKNOWN); i++) {
+		if (PREFIX_OPS[i] == op)
+			return true;
+	}
+
+    	return false;
+}
+
+static inline bool isOp(char *op) {
+	return getOpEnum(op) != OP_UNKNOWN;
+}
+
+enum operator getNextOp(struct reader *r) {
 	if (!readerIsAlive(r))
 		raise_syntax_error("got EOF", r);
 	if (!matchesOp(peek(r)))
 		raise_syntax_error("expected next character to be an operator", r);
+	
 	char tmp[MAX_OP_LEN + 1] = {0};
 	for (int i = 0; i < MAX_OP_LEN; i++) {
 		tmp[i] = peek(r);
@@ -158,11 +250,11 @@ char *getNextOp(struct reader *r)
 		}
 		advance(r);
 	}
-	return strdup(tmp, r);
+	enum operator op = getOpEnum(tmp);
+	return op;
 }
 
-int getNextNum(struct reader *r)
-{
+int getNextNum(struct reader *r) {
 	if (!readerIsAlive(r))
 		raise_syntax_error("Got EOF", r);
 	long num = 0;
@@ -175,8 +267,7 @@ int getNextNum(struct reader *r)
 	return num;
 }
 
-char *getNextWord(struct reader *r)
-{
+char *getNextWord(struct reader *r) {
 	if (!isalpha(peek(r)))
 		raise_syntax_error("Invallid word (first letter must be in the range 'a-zA-Z')", r);
 	
@@ -196,8 +287,7 @@ char *getNextWord(struct reader *r)
 	return str;
 }
 
-enum key_type getKeyType(char *keyword)
-{
+enum key_type getKeyType(char *keyword) {
 	if (!keyword)
 		return -1;
 	for (int i = 0; KEYWORDS[i] != NULL; i++)
@@ -207,15 +297,13 @@ enum key_type getKeyType(char *keyword)
 	return -1;
 }
 
-const char *getKeyStr(enum key_type key)
-{
+const char *getKeyStr(enum key_type key) {
 	if ((key <= KW_BREAK) && (key >= KW_VAR))
 		return KEYWORDS[key];
 	return NULL;
 }
 
-int getCharacterValue(struct reader *r)
-{ //i.e. 'x' it gives the int struct value of whatever x is
+int getCharacterValue(struct reader *r) {
 	int out = advance(r);
 	if (out == '\'')
 		return 0;

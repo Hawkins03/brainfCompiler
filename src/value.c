@@ -8,99 +8,32 @@
 #include "structs.h"
 #include "utils.h"
 
-static const char *BINARY_OPS[][5] = {  // lowest priority to highest priority:
-	{"||", NULL},                   // 0: logical or
-	{"&&", NULL},                   // 1: logical and
-	{"|", NULL},                    // 2: bitwiase or
-	{"^", NULL},                    // 3: bitwise xor
-	{"&", NULL},                    // 4: bitwise and
-	{"==", "!=", NULL},             // 5: equivalence operators
-	{"<", ">", "<=", ">=", NULL},   // 6: relational operators
-	{"<<", ">>", NULL},		// 7: bitwise shifts
-	{"+", "-", NULL},               // 8: addition / subtraction
-	{"*", "/", "%", NULL}           // 9: multiplication, division, modulo
-};
-
-// op checker functions:
-
-int getPrio(const char *op) {
-	if (!op)
-		return -1;
-	for (int y = 0; y < NUM_PRIOS; y++)
-		for (int x = 0; BINARY_OPS[y][x] != NULL; x++)
-			if (!strcmp(BINARY_OPS[y][x], op))
-				return y;
-	return -1;
-}
-
-bool isAssignOp(const char *op) {
-	for (int i = 0; ASSIGN_OPS[i] != NULL; i++)
-		if (!strcmp(ASSIGN_OPS[i], op))
-			return true;
-	return false;
-}
-
-bool isBinaryOp(const char *op) {
-	return getPrio(op) >= 0;
-}
-
-bool matchesOp(const int op) {
-	return (op != EOF) && strchr(OP_START, op);
-}
-
 bool isOpType(const struct value *v) {
-	return v && (v->type == VAL_OP) && v->str;
+	return v && (v->type == VAL_OP) && v->op != OP_UNKNOWN;
 }
 
-bool is_suffix_unary(const char *op) {
-    	if (!op)
-		return false;
-
-	for (int i = 0; (SUFFIX_OPS[i] != NULL); i++) {
-		if (!strcmp(SUFFIX_OPS[i], op))
-			return true;
-	}
-
-    	return false;
-}
 bool isSuffixVal(const struct value *v) {
-	return isOpType(v) && is_suffix_unary(v->str);
-}
-
-bool is_prefix_unary(const char *op) {
-	if (!op)
-		return false;
-
-	for (int i = 0; (PREFIX_OPS[i] != NULL); i++) {
-		if (!strcmp(PREFIX_OPS[i], op))
-			return true;
-	}
-
-    	return false;
-}
-
-bool isOp(const char *op) {
-	return is_prefix_unary(op) || is_suffix_unary(op) || isAssignOp(op) || isBinaryOp(op); 
+	return isOpType(v) && is_suffix_unary(v->op);
 }
 
 bool isPrefixVal(struct value *v) {
-	return isOpType(v) && is_prefix_unary(v->str);
+	return isOpType(v) && is_prefix_unary(v->op);
 }
 
 bool isBinaryOpVal(struct value *v) {
-	return isOpType(v) && isBinaryOp(v->str);
+	return isOpType(v) && isBinaryOp(v->op);
 }
 
 bool isAssignOpVal(struct value *v) {
-	return isOpType(v) && isAssignOp(v->str);
+	return isOpType(v) && isAssignOp(v->op);
 }
 
-bool isValidOp(struct value *v, const int minPrio) {
-	if (isAssignOpVal(v))
+bool isValidOp(const struct value *v, const int minPrio) {
+	if (isAssignOp(v->op))
 		return true;
-	if (!isBinaryOpVal(v))
+	if (!isBinaryOp(v->op))
 		return false;
-	return getPrio(v->str) >= minPrio;
+	return getPrio(v->op) >= minPrio;
 }
 
 //checker functions
@@ -139,7 +72,7 @@ bool isDelimChar(const struct value *v, char match) {
 }
 
 bool isStrType(struct value *v) {
-    	return v && ((v->type == VAL_NAME) || (v->type == VAL_OP));
+    	return v && (v->type == VAL_NAME);
 }
 
 
@@ -182,14 +115,14 @@ struct value *initNameValue(char *str, struct reader *r)
 	return val;
 }
 
-struct value *initOpValue(char *op, struct reader *r)
+struct value *initOpValue(enum operator op, struct reader *r)
 {
 	struct value *val = initValue();
 	if (!val)
 		raise_syntax_error("failed to initialize value", r);
 
 	val->type = VAL_OP;
-	val->str = op;  
+	val->op = op;  
 	return val;  
 }
 

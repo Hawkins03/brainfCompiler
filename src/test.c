@@ -160,19 +160,24 @@ void getExpStr(char *out, const struct exp  *exp) {
 	case EXP_ASSIGN_OP:
 		sprintf(out, "OP(");
 		getExpStr(out + strlen(out), exp->op->left);
-		sprintf(out + strlen(out), ", %s, ", exp->op->op);
+		sprintf(out + strlen(out), ", ");
+		getOpStr(exp->op->op, out + strlen(out));
+		sprintf(out + strlen(out), ", ");
 		getExpStr(out + strlen(out), exp->op->right);
 		sprintf(out + strlen(out), ")");
 		break;
 	case EXP_UNARY:
 		sprintf(out, "UNARY(");
 		if(exp->unary->is_prefix) {
-			sprintf(out + strlen(out), "%s, ", exp->unary->op);
+			getOpStr(exp->unary->op, out + strlen(out));
+			sprintf(out + strlen(out), ", ");
 			getExpStr(out + strlen(out), exp->unary->operand);
 			sprintf(out + strlen(out), ")");
 		} else {
 			getExpStr(out + strlen(out), exp->unary->operand);
-			sprintf(out + strlen(out), ", %s)", exp->unary->op);
+			sprintf(out + strlen(out), ", ");
+			getOpStr(exp->unary->op, out + strlen(out));
+			sprintf(out + strlen(out), ")");
 		}
 		break;
 	case EXP_CALL:

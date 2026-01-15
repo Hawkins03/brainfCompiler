@@ -41,10 +41,6 @@ void free_exp_contents(struct exp *exp) {
 	case EXP_BINARY_OP:
 		if (!exp->op)
 			return;
-		if (exp->op->op) {
-			free(exp->op->op);
-			exp->op->op = NULL;
-		}
 		free_exp(exp->op->left);
 		exp->op->left = NULL;
 		free_exp(exp->op->right);
@@ -55,10 +51,6 @@ void free_exp_contents(struct exp *exp) {
 	case EXP_UNARY:
 		if (!exp->unary)
 			return;
-		if (exp->unary->op) {
-			free(exp->unary->op);
-			exp->unary->op = NULL;
-		}
 		free_exp(exp->unary->operand);
 		exp->unary->operand = NULL;
 		free(exp->unary);
@@ -109,19 +101,24 @@ void print_exp(const struct exp *exp)
 	case EXP_BINARY_OP:
 		printf("OP( ");
 		print_exp(exp->op->left);
-		printf(", %s, ", exp->op->op);
+		printf(", ");
+		printOpStr(exp->op->op);
+		printf(", ");
 		print_exp(exp->op->right);
 		printf(")");
 		break;
 	case EXP_UNARY:
 		printf("UNARY(");
 		if (exp->unary->is_prefix) {
-			printf("%s, ", exp->unary->op);
+			printOpStr(exp->unary->op);
+			printf(", ");
 			print_exp(exp->unary->operand);
 			printf(")");
 		} else {
 			print_exp(exp->unary->operand);
-			printf(", %s)\n", exp->unary->op);
+			printf(", ");
+			printOpStr(exp->unary->op);
+			printf(")\n");
 		}
 		break;
 	case EXP_CALL:
@@ -216,11 +213,11 @@ void swap_exps(struct exp *from, struct exp *to) {
 }
 
 // utility functions
-static bool _match_op_exps(const struct exp *exp1, const struct exp *exp2) {
+/*static bool _match_op_exps(const struct exp *exp1, const struct exp *exp2) {
     return exps_match(exp1->op->left, exp2->op->left) &&
            !strcmp(exp1->op->op, exp2->op->op) &&
            exps_match(exp1->op->right, exp2->op->right);
-}
+}*/
 
 bool exps_match(struct exp *exp1, struct exp *exp2) {
     if (!exp1 != !exp2)
@@ -238,9 +235,13 @@ bool exps_match(struct exp *exp1, struct exp *exp2) {
     case EXP_NUM:
         return exp1->num == exp2->num;
     case EXP_UNARY:
+	return (exp1->unary->op == exp2->unary->op) && 
+		exps_match(exp1->unary->operand, exp2->unary->operand);
     case EXP_ASSIGN_OP:
     case EXP_BINARY_OP:
-        return _match_op_exps(exp1, exp2);
+        return (exp1->op->op == exp2->op->op) && 
+		exps_match(exp1->op->left, exp2->op->left) &&
+		exps_match(exp1->op->right, exp2->op->right);
     case EXP_CALL:
         return exp1->call->key == exp2->call->key &&
                exps_match(exp1->call->arg, exp2->call->arg);

@@ -13,6 +13,8 @@ int main(int argc, char *argv[]) {
 	// uncomment to run interpreter (should be hello world)
     	// interp(">+++++++++[<++++++++>-]<.>+++++++[<++++>-]<+.+++++++..+++.[-]>++++++++[<++++>-] <.>+++++++++++[<++++++++>-]<-.--------.+++.------.--------.[-]>++++++++[<++++>- ]<+.[-]++++++++++.");
 
+	printf("%d\n", OP_PLUS);
+
 	if (argc <= 1)
 		raise_error("bfCompile requires one or more files to run. Usage: ./bfCompiler <files>");
 

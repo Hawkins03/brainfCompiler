@@ -13,27 +13,15 @@
 
 #define KEYWORDS (const char*[]) {"var", "val", "while", "for", "if", "else", "print", "input", "break", "true", "false", NULL}
 #define KEYWORDS_COUNT 11
-
-#define PREFIX_OPS (const char *[]) {"!", "~", "++", "--", "-", NULL}
-#define SUFFIX_OPS (const char *[]) {"++", "--", NULL}
-#define ASSIGN_OPS (const char *[]) {"=", "+=", "-=", "*=", "/=", "%=", "<<=", ">>=", "&=", "^=", "|=", NULL}
 #define NUM_PRIOS 10
 
 
 struct value *initValue();
 void freeValue(struct value *val);
-
-int getPrio(const char *op);
-bool isAssignOp(const char *op);
-bool isOp(const char *op);
-bool matchesOp(const int op);
 bool isOpType(const struct value *v);
-bool isSuffixVal(const struct value *v);
 bool isPrefixVal(struct value *v);
-bool isBinaryOpVal(struct value *v);
-bool isAssignOpVal(struct value *v);
-bool isValidOp(struct value *v, int minPrio);
-
+bool isSuffixVal(const struct value *v);
+bool isValidOp(const struct value *v, int minPrio);
 bool isWordChar(const int ch);
 bool isKeyword(const enum key_type key);
 bool isElseKey(const struct value *val);
@@ -42,8 +30,6 @@ bool isDelim(const int delim);
 bool isDelimType(const struct value *v);
 bool isDelimChar(const struct value *v, char match);
 bool isStrType(struct value *v);
-
-bool isValidOp(struct value *v, const int minPrio);
 
 struct value *getRawValue(struct reader *r);
 struct value *getValue(struct reader *r);

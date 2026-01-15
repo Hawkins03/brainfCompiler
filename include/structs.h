@@ -27,6 +27,23 @@ enum stmt_type {
 	STMT_EMPTY, STMT_VAR, STMT_LOOP, STMT_IF, STMT_EXPR
 };
 
+
+enum operator {
+    OP_PLUS, OP_MINUS,
+    OP_MULTIPLY, OP_DIVIDE, OP_MODULO, //5
+    OP_BITWISE_NOT, OP_BITWISE_OR, OP_BITWISE_XOR, OP_BITWISE_AND,//9
+    OP_LEFT_SHIFT, OP_RIGHT_SHIFT,//11
+    OP_LT, OP_LE, OP_GT, OP_GE,//15
+    OP_EQ, OP_NE,//17
+    OP_LOGICAL_NOT, OP_LOGICAL_AND,  OP_LOGICAL_OR,//20
+    OP_ASSIGN, OP_PLUS_ASSIGN, OP_MINUS_ASSIGN,//23
+    OP_MULTIPLY_ASSIGN, OP_DIVIDE_ASSIGN, OP_MODULO_ASSIGN,//26
+    OP_LEFT_SHIFT_ASSIGN, OP_RIGHT_SHIFT_ASSIGN,//28
+    OP_BITWISE_AND_ASSIGN, OP_BITWISE_XOR_ASSIGN, OP_BITWISE_OR_ASSIGN,//31
+    OP_INCREMENT, OP_DECREMENT,//33
+    OP_UNKNOWN//34
+};
+
 //TODO: only malloc one value, and pass stuff through it. (i.e. peek only, getValue just changes its contents)
 struct value {
 	enum value_type type;
@@ -34,14 +51,15 @@ struct value {
 		char *str;
 		int num;
 		enum key_type key;
+		enum operator op;
 		char ch;
 	};
 };
 
 //TODO: change op into a enum.
 // exp_binary, exp_unary, exp_array_ref, exp_array_lit, exp_call
-struct exp_binary { struct exp *left; struct exp *right; char *op; };
-struct exp_unary { struct exp *operand; char *op; bool is_prefix; };
+struct exp_binary { struct exp *left; struct exp *right; enum operator op; };
+struct exp_unary { struct exp *operand; enum operator op; bool is_prefix; };
 struct exp_array_ref { struct exp *name, *index; };
 struct exp_array_lit { struct exp *array; int size; };
 struct exp_call { enum key_type key; struct exp *arg; };
