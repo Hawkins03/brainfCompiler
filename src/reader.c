@@ -23,7 +23,7 @@ struct reader *readInFile(const char *filename)
 		return NULL;
 	}
 	
-	r->root = initStmtOrKill(r);
+	r->root = init_stmt(r);
 	r->root->next = r->root; // self loop to mark as sentinal
 	r->curr_stmt = r->root;
 

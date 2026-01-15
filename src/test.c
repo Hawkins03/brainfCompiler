@@ -47,18 +47,18 @@ size_t measure_exp_strlen(const struct exp  *exp) {
 		size += strlen("STR()");
 		size += strlen(exp->name);
 		break;
-	case EXP_ARRAY:
+	case EXP_ARRAY_REF:
 		size += strlen("ARR(, )");
-		size += measure_exp_strlen(exp->array.name);
-		size += measure_exp_strlen(exp->array.index);
+		size += measure_exp_strlen(exp->array_ref->name);
+		size += measure_exp_strlen(exp->array_ref->index);
 		break;
-	case EXP_RIGHTARRAY:
-		size += strlen("Nested()");
-		for (int i = 0; i < exp->right_array.size - 1; i++) {
-			size += measure_exp_strlen(exp->right_array.array + i);
+	case EXP_ARRAY_LIT:
+		size += strlen("ARR_LIT()");
+		for (int i = 0; i < exp->array_lit->size - 1; i++) {
+			size += measure_exp_strlen(exp->array_lit->array + i);
 			size += strlen(", ");
 		}
-		size += measure_exp_strlen(exp->right_array.array) + exp->right_array.size - 1;
+		size += measure_exp_strlen(exp->array_lit->array) + exp->array_lit->size - 1;
 		
 		break;
 	case EXP_NUM:
@@ -70,22 +70,21 @@ size_t measure_exp_strlen(const struct exp  *exp) {
 		break;
 	case EXP_BINARY_OP:
 	case EXP_ASSIGN_OP:
-		size += measure_exp_strlen(exp->op.left);
+		size += measure_exp_strlen(exp->op->left);
 		size += strlen("OP(, <<=, )");
-		size += measure_exp_strlen(exp->op.right);
+		size += measure_exp_strlen(exp->op->right);
 		break;
 	case EXP_UNARY:
-		size += measure_exp_strlen(exp->op.left);
-		size += strlen("UNARY(, ++, )");
-		size += measure_exp_strlen(exp->op.right);
+		size += measure_exp_strlen(exp->unary->operand);
+		size += strlen("UNARY(, ++)");
 		break;
 	case EXP_CALL:
 		size += strlen("CALL(, )");	
 		char *buf2 = calloc(11, sizeof(*buf2));
-		sprintf(buf2, "%d", exp->call.key);
+		sprintf(buf2, "%d", exp->call->key);
 		size += strlen(buf2);
 		free(buf2);
-		size += measure_exp_strlen(exp->call.call);
+		size += measure_exp_strlen(exp->call->arg);
 		break;
 	default:
 		break;
@@ -99,27 +98,26 @@ size_t measure_stmt_strlen(const struct stmt *stmt) {
 	int size = 0;
 	switch (stmt->type) {
 	case STMT_VAR:
-	case STMT_VAL:
 		size += strlen("VAR( , );");
-		size += measure_exp_strlen(stmt->var.name);
-		size += measure_exp_strlen(stmt->var.value);
+		size += measure_exp_strlen(stmt->var->name);
+		size += measure_exp_strlen(stmt->var->value);
 		break;
 	case STMT_EXPR:
 		size += measure_exp_strlen(stmt->exp) + 1;
 		break;
 	case STMT_IF:
 		size += strlen("IF( , ); ");
-		size += measure_exp_strlen(stmt->ifStmt.cond);
-		size += measure_stmt_strlen(stmt->ifStmt.thenStmt);
-		if (stmt->ifStmt.elseStmt) {
+		size += measure_exp_strlen(stmt->ifStmt->cond);
+		size += measure_stmt_strlen(stmt->ifStmt->thenStmt);
+		if (stmt->ifStmt->elseStmt) {
 		size += strlen(", ");
-		size += measure_stmt_strlen(stmt->ifStmt.elseStmt);
+		size += measure_stmt_strlen(stmt->ifStmt->elseStmt);
 		}
 		break;
 	case STMT_LOOP:
 		size += strlen("LOOP( , ); ");
-		size += measure_exp_strlen(stmt->loop.cond);
-		size += measure_stmt_strlen(stmt->loop.body);
+		size += measure_exp_strlen(stmt->loop->cond);
+		size += measure_stmt_strlen(stmt->loop->body);
 		break;
 	default:
 		break;
@@ -139,20 +137,20 @@ void getExpStr(char *out, const struct exp  *exp) {
 	case EXP_NAME:
 		sprintf(out, "STR(%s)", exp->name);
 		break;
-	case EXP_ARRAY:
+	case EXP_ARRAY_REF:
 		sprintf(out, "ARR(");
-		getExpStr(out + strlen(out), exp->array.name);
+		getExpStr(out + strlen(out), exp->array_ref->name);
 		sprintf(out + strlen(out), ", ");
-		getExpStr(out + strlen(out), exp->array.index);
+		getExpStr(out + strlen(out), exp->array_ref->index);
 		sprintf(out + strlen(out), ")");
 		break;
-	case EXP_RIGHTARRAY:
-		sprintf(out, "NESTED(");
-		for (int i = 0; i < exp->right_array.size - 1; i++) {
-			getExpStr(out + strlen(out), exp->right_array.array + i);
+	case EXP_ARRAY_LIT:
+		sprintf(out, "ARR_LIT(");
+		for (int i = 0; i < exp->array_lit->size - 1; i++) {
+			getExpStr(out + strlen(out), exp->array_lit->array + i);
 			sprintf(out + strlen(out), ", ");
 		}
-		getExpStr(out + strlen(out), exp->right_array.array + exp->right_array.size - 1);
+		getExpStr(out + strlen(out), exp->array_lit->array + exp->array_lit->size - 1);
 		sprintf(out + strlen(out), ")");
 		break;
 	case EXP_NUM:
@@ -161,21 +159,25 @@ void getExpStr(char *out, const struct exp  *exp) {
 	case EXP_BINARY_OP:
 	case EXP_ASSIGN_OP:
 		sprintf(out, "OP(");
-		getExpStr(out + strlen(out), exp->op.left);
-		sprintf(out + strlen(out), ", %s, ", exp->op.op);
-		getExpStr(out + strlen(out), exp->op.right);
+		getExpStr(out + strlen(out), exp->op->left);
+		sprintf(out + strlen(out), ", %s, ", exp->op->op);
+		getExpStr(out + strlen(out), exp->op->right);
 		sprintf(out + strlen(out), ")");
 		break;
 	case EXP_UNARY:
 		sprintf(out, "UNARY(");
-		getExpStr(out + strlen(out), exp->op.left);
-		sprintf(out + strlen(out), ", %s, ", exp->op.op);
-		getExpStr(out + strlen(out), exp->op.right);
-		sprintf(out + strlen(out), ")");
+		if(exp->unary->is_prefix) {
+			sprintf(out + strlen(out), "%s, ", exp->unary->op);
+			getExpStr(out + strlen(out), exp->unary->operand);
+			sprintf(out + strlen(out), ")");
+		} else {
+			getExpStr(out + strlen(out), exp->unary->operand);
+			sprintf(out + strlen(out), ", %s)", exp->unary->op);
+		}
 		break;
 	case EXP_CALL:
-		sprintf(out, "CALL(%d, ", exp->call.key);
-		getExpStr(out + strlen(out), exp->call.call);
+		sprintf(out, "CALL(%d, ", exp->call->key);
+		getExpStr(out + strlen(out), exp->call->arg);
 		sprintf(out + strlen(out), ")");
 		break;
 	default: 
@@ -192,30 +194,29 @@ void getStmtStr(char *out, const struct stmt *stmt) {
 		sprintf(out + strlen(out), ";");
 		break;
 	case STMT_VAR:
-	case STMT_VAL:
-		char *name = (stmt->type == STMT_VAR) ? "VAR" : "VAL";
+		char *name = (stmt->var->is_mutable) ? "VAR" : "VAL";
 		sprintf(out, "%s(", name);
-		getExpStr(out + strlen(out), stmt->var.name);
+		getExpStr(out + strlen(out), stmt->var->name);
 		sprintf(out + strlen(out), ", ");
-		getExpStr(out + strlen(out), stmt->var.value);
+		getExpStr(out + strlen(out), stmt->var->value);
 		sprintf(out + strlen(out), ");");
 		break;
 	case STMT_IF:
 		sprintf(out, "IF(");
-		getExpStr(out + strlen(out), stmt->ifStmt.cond);
+		getExpStr(out + strlen(out), stmt->ifStmt->cond);
 		sprintf(out + strlen(out), ", ");
-		getStmtStr(out + strlen(out), stmt->ifStmt.thenStmt);
-		if (stmt->ifStmt.elseStmt) {
+		getStmtStr(out + strlen(out), stmt->ifStmt->thenStmt);
+		if (stmt->ifStmt->elseStmt) {
 			sprintf(out + strlen(out), ", ");
-			getStmtStr(out + strlen(out), stmt->ifStmt.elseStmt);
+			getStmtStr(out + strlen(out), stmt->ifStmt->elseStmt);
 		}
 		sprintf(out + strlen(out), ");");
 		break;
 	case STMT_LOOP:
 		sprintf(out, "LOOP(");
-		getExpStr(out + strlen(out), stmt->loop.cond);
+		getExpStr(out + strlen(out), stmt->loop->cond);
 		sprintf(out + strlen(out), ", ");
-		getStmtStr(out + strlen(out), stmt->loop.body);
+		getStmtStr(out + strlen(out), stmt->loop->body);
 		sprintf(out + strlen(out), ");");
 		break;
 	default:

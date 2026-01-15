@@ -21,7 +21,6 @@ int main(int argc, char *argv[]) {
 			raise_error("invalid argument");
 
 		struct stmt *expression = parse_file(argv[i]);
-		
 		print_stmt(expression);
 		free_stmt(expression);
 		expression = NULL;

@@ -6,8 +6,11 @@
 #include "structs.h"
 #include <stdbool.h>
 
-struct stmt *initStmtOrKill(struct reader *r);
-
+struct stmt *init_stmt(struct reader *r);
+void init_varStmt(struct reader *r, struct stmt *stmt, bool is_maliable);
+void init_ifStmt(struct reader *r, struct stmt *stmt);
+void init_loopStmt(struct reader *r, struct stmt *stmt);
+void init_expStmt(struct stmt *stmt, struct exp *exp);
 
 void free_stmt(struct stmt *stmt);
 void print_stmt(const struct stmt *stmt);

@@ -64,12 +64,12 @@ int main(int argc, char **argv) {
 	run_one("tests/atomic2.txt", "STR(abc);", catch_errors, &total, &passed, &failed, &errors);
 	run_one("tests/atomic3.txt", "STR(x1);", catch_errors, &total, &passed, &failed, &errors);
 	run_one("tests/atomic4.txt", "NUM(123);", catch_errors, &total, &passed, &failed, &errors);
-	run_one("tests/atomic5.txt", "UNARY(NULL, !, STR(x));", catch_errors, &total, &passed, &failed, &errors);
-	run_one("tests/atomic6.txt", "UNARY(NULL, ~, STR(x));", catch_errors, &total, &passed, &failed, &errors);
-	run_one("tests/atomic7.txt", "UNARY(NULL, ++, STR(x));", catch_errors, &total, &passed, &failed, &errors);
-	run_one("tests/atomic8.txt", "UNARY(NULL, --, STR(x));", catch_errors, &total, &passed, &failed, &errors);
-	run_one("tests/atomic9.txt", "UNARY(NULL, -, STR(x));", catch_errors, &total, &passed, &failed, &errors);
-	run_one("tests/atomic10.txt", "UNARY(NULL, -, UNARY(STR(x), ++, NULL));", catch_errors, &total, &passed, &failed, &errors);
+	run_one("tests/atomic5.txt", "UNARY(!, STR(x));", catch_errors, &total, &passed, &failed, &errors);
+	run_one("tests/atomic6.txt", "UNARY(~, STR(x));", catch_errors, &total, &passed, &failed, &errors);
+	run_one("tests/atomic7.txt", "UNARY(++, STR(x));", catch_errors, &total, &passed, &failed, &errors);
+	run_one("tests/atomic8.txt", "UNARY(--, STR(x));", catch_errors, &total, &passed, &failed, &errors);
+	run_one("tests/atomic9.txt", "UNARY(-, STR(x));", catch_errors, &total, &passed, &failed, &errors);
+	run_one("tests/atomic10.txt", "UNARY(-, UNARY(STR(x), ++));", catch_errors, &total, &passed, &failed, &errors);
 	run_one("tests/atomic11.txt", "NUM(97);", catch_errors, &total, &passed, &failed, &errors);
 	run_one("tests/atomic12.txt", "NUM(49);", catch_errors, &total, &passed, &failed, &errors);
 	run_one("tests/atomic13.txt", "NUM(33);", catch_errors, &total, &passed, &failed, &errors);
@@ -139,7 +139,7 @@ int main(int argc, char **argv) {
 	run_one("tests/stmt_var.txt", "VAR(STR(x), NUM(3));", catch_errors, &total, &passed, &failed, &errors);
 	run_one("tests/stmt_if.txt", "IF(OP(STR(x), >, NUM(0)), OP(STR(x), =, OP(STR(x), -, NUM(1)));, OP(STR(x), =, OP(STR(x), +, NUM(1))););", catch_errors, &total, &passed, &failed, &errors);
 	run_one("tests/stmt_while.txt", "LOOP(OP(STR(x), <, NUM(10)), OP(STR(x), =, OP(STR(x), +, NUM(1))););", catch_errors, &total, &passed, &failed, &errors);
-	run_one("tests/stmt_for.txt", "VAR(STR(i), NUM(0)); LOOP(OP(STR(i), <, NUM(10)), CALL(6, STR(i)); UNARY(STR(i), ++, NULL););", catch_errors, &total, &passed, &failed, &errors);
+	run_one("tests/stmt_for.txt", "VAR(STR(i), NUM(0)); LOOP(OP(STR(i), <, NUM(10)), CALL(6, STR(i)); UNARY(STR(i), ++););", catch_errors, &total, &passed, &failed, &errors);
 
 	run_one("tests/call_print.txt", "CALL(6, STR(x));", catch_errors, &total, &passed, &failed, &errors);
 	run_one("tests/call_input.txt", "CALL(7, NULL);", catch_errors, &total, &passed, &failed, &errors);
@@ -149,11 +149,11 @@ int main(int argc, char **argv) {
 	run_one("tests/array2.txt", "ARR(ARR(STR(x), NUM(1)), STR(y));", catch_errors, &total, &passed, &failed, &errors);
 	run_one("tests/array3.txt", "ARR(ARR(ARR(STR(x), NUM(1)), NUM(2)), NUM(3));", catch_errors, &total, &passed, &failed, &errors);
 
-	run_one("tests/string_simple.txt", "NESTED(NUM(97), NUM(98), NUM(99));", catch_errors, &total, &passed, &failed, &errors);
-	run_one("tests/string_newline.txt", "NESTED(NUM(97), NUM(10), NUM(98));", catch_errors, &total, &passed, &failed, &errors);
-	run_one("tests/string_quote.txt", "NESTED(NUM(97), NUM(34), NUM(98));", catch_errors, &total, &passed, &failed, &errors);
-	run_one("tests/string_backslash.txt", "NESTED(NUM(97), NUM(92), NUM(98));", catch_errors, &total, &passed, &failed, &errors);
-	run_one("tests/string_tab.txt", "NESTED(NUM(97), NUM(9), NUM(98));", catch_errors, &total, &passed, &failed, &errors);
+	run_one("tests/string_simple.txt", "ARR_LIT(NUM(97), NUM(98), NUM(99));", catch_errors, &total, &passed, &failed, &errors);
+	run_one("tests/string_newline.txt", "ARR_LIT(NUM(97), NUM(10), NUM(98));", catch_errors, &total, &passed, &failed, &errors);
+	run_one("tests/string_quote.txt", "ARR_LIT(NUM(97), NUM(34), NUM(98));", catch_errors, &total, &passed, &failed, &errors);
+	run_one("tests/string_backslash.txt", "ARR_LIT(NUM(97), NUM(92), NUM(98));", catch_errors, &total, &passed, &failed, &errors);
+	run_one("tests/string_tab.txt", "ARR_LIT(NUM(97), NUM(9), NUM(98));", catch_errors, &total, &passed, &failed, &errors);
 
 	printf("\n===== Test Summary =====\n");
 	printf("Total: %d\n", total);

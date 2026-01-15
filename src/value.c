@@ -40,8 +40,7 @@ bool isAssignOp(const char *op) {
 	return false;
 }
 
-bool isBinaryOp(const char *op)
-{
+bool isBinaryOp(const char *op) {
 	return getPrio(op) >= 0;
 }
 

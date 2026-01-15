@@ -84,33 +84,32 @@ void check_stmt_semantics(struct env *env, struct stmt *stmt) {
 
 	switch (stmt->type) {
 	case STMT_VAR:
-	case STMT_VAL:
-		bool is_defined = (stmt->var.value != NULL);
+		bool is_defined = (stmt->var->value != NULL);
 		bool is_mutable = (stmt->type == STMT_VAR);
-		int array_depth = get_exp_array_depth(stmt->var.name);
+		int array_depth = get_exp_array_depth(stmt->var->name);
 		//TODO: check value so that the array depths match.
-		if (!(array_depth ^ (stmt->var.value->type != EXP_RIGHTARRAY))) // ^ = xor, so basically means no array and no 
+		if (!(array_depth ^ (stmt->var->value->type != EXP_ARRAY_LIT))) // ^ = xor, so basically means no array and no 
 			raise_semantic_error("you can't set an array to an integer", env);
 		
 		//TODO: rework so that each level of array gets its own level, and the minimum level is treated as not an array.
 		//TODO: implement an array depth variable (i.e. x[y][z] has an array depth of 2. x on it's own has an array depth of 0)
-		char *name = get_name_from_exp(stmt->var.name);
+		char *name = get_name_from_exp(stmt->var->name);
 		
 		declare_var(env, name, is_defined, is_mutable, array_depth);
-		check_exp_semantics(env, stmt->var.value);
-		check_exp_semantics(env, stmt->var.name);
+		check_exp_semantics(env, stmt->var->value);
+		check_exp_semantics(env, stmt->var->name);
 		break;
 	case STMT_EXPR:
 		check_exp_semantics(env, stmt->exp);
 		break;
 	case STMT_IF:
-		check_exp_semantics(env, stmt->ifStmt.cond);
-		check_stmt_semantics(env, stmt->ifStmt.thenStmt);
-		check_stmt_semantics(env, stmt->ifStmt.elseStmt);
+		check_exp_semantics(env, stmt->ifStmt->cond);
+		check_stmt_semantics(env, stmt->ifStmt->thenStmt);
+		check_stmt_semantics(env, stmt->ifStmt->elseStmt);
 		break;
 	case STMT_LOOP:
-		check_exp_semantics(env, stmt->loop.cond);
-		check_stmt_semantics(env, stmt->loop.body);
+		check_exp_semantics(env, stmt->loop->cond);
+		check_stmt_semantics(env, stmt->loop->body);
 		break;
 	default:
 		raise_semantic_error("invalid statement in semantics", env);
@@ -151,27 +150,31 @@ void check_exp_semantics(struct env *env, struct exp *exp) {
 		break;
 	
 	case EXP_ASSIGN_OP:
-		if (!exp_is_unary(exp->op.left))
+		if (!exp_is_unary(exp->op->left))
 			raise_semantic_error("expected a single variable being set.", env);
-		char *name = get_name_from_exp(exp->op.left);
+		char *name = get_name_from_exp(exp->op->left);
 		//TODO: set to its own checker function
-		if (!((exp->op.right->type == EXP_RIGHTARRAY) ^ ((is_array_var(env, name) && (exp->op.left->type != EXP_ARRAY))))) // if it's an array, set it to an initlist.
+		if (!((exp->op->right->type == EXP_ARRAY_LIT) ^ ((is_array_var(env, name) && (exp->op->left->type != EXP_ARRAY_REF))))) // if it's an array, set it to an initlist.
 			raise_semantic_error("array must be set to an array (i.e. {asdf})", env);
-		check_exp_semantics(env, exp->op.left);
-		check_exp_semantics(env, exp->op.right);
+		check_exp_semantics(env, exp->op->left);
+		check_exp_semantics(env, exp->op->right);
 		break;
 	case EXP_UNARY:
+		//if (exp->unary->operand->type)
+		//TODO: check if exp->unary->operand is an array
+		check_exp_semantics(env, exp->unary->operand);
+		break;
 	case EXP_BINARY_OP:
-		check_exp_semantics(env, exp->op.left);
-		check_exp_semantics(env, exp->op.right);
+		check_exp_semantics(env, exp->op->left);
+		check_exp_semantics(env, exp->op->right);
 		break;
-	case EXP_ARRAY:
-		check_exp_semantics(env, exp->array.name);
-		check_exp_semantics(env, exp->array.index);
+	case EXP_ARRAY_REF:
+		check_exp_semantics(env, exp->array_ref->name);
+		check_exp_semantics(env, exp->array_ref->index);
 		break;
-	case EXP_RIGHTARRAY:
-		for (int i = 0; i < exp->right_array.size; i++)
-			check_exp_semantics(env, exp->right_array.array + i);
+	case EXP_ARRAY_LIT:
+		for (int i = 0; i < exp->array_lit->size; i++)
+			check_exp_semantics(env, exp->array_lit->array + i);
 		break;
 	default:
 		raise_semantic_error("invalid exp in semantics", env);

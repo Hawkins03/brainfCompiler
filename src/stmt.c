@@ -13,25 +13,36 @@ void free_stmt(struct stmt *stmt) {
 	case STMT_EMPTY:
 		break;
 	case STMT_VAR:
-	case STMT_VAL:
-		free_exp(stmt->var.name);
-		stmt->var.name = NULL;
-		free_exp(stmt->var.value);
-		stmt->var.name = NULL;
+		if (!stmt->var)
+			return;
+		free_exp(stmt->var->name);
+		stmt->var->name = NULL;
+		free_exp(stmt->var->value);
+		stmt->var->value = NULL;
+		free(stmt->var);
+		stmt->var = NULL;
 		break;
 	case STMT_LOOP:
-		free_exp(stmt->loop.cond);
-		stmt->loop.cond = NULL;
-		free_stmt(stmt->loop.body);
-		stmt->loop.body = NULL;
+		if (!stmt->loop)
+			return;
+		free_exp(stmt->loop->cond);
+		stmt->loop->cond = NULL;
+		free_stmt(stmt->loop->body);
+		stmt->loop->body = NULL;
+		free(stmt->loop);
+		stmt->loop = NULL;
 		break;
 	case STMT_IF:
-		free_exp(stmt->ifStmt.cond);
-		stmt->ifStmt.cond = NULL;
-		free_stmt(stmt->ifStmt.thenStmt);
-		stmt->ifStmt.thenStmt = NULL;
-		free_stmt(stmt->ifStmt.elseStmt);
-		stmt->ifStmt.elseStmt = NULL;
+		if (!stmt->loop)
+			return;
+		free_exp(stmt->ifStmt->cond);
+		stmt->ifStmt->cond = NULL;
+		free_stmt(stmt->ifStmt->thenStmt);
+		stmt->ifStmt->thenStmt = NULL;
+		free_stmt(stmt->ifStmt->elseStmt);
+		stmt->ifStmt->elseStmt = NULL;
+		free(stmt->ifStmt);
+		stmt->ifStmt = NULL;
 		break;
 	case STMT_EXPR:
 		free_exp(stmt->exp);
@@ -39,11 +50,10 @@ void free_stmt(struct stmt *stmt) {
 		break;
 	}
 
-	if (stmt->next == stmt)
-		return;
-	if (stmt->next != stmt)
+	if (stmt->next != stmt) {
 		free_stmt(stmt->next);
-	stmt->next = NULL;
+		stmt->next = NULL;
+	}
 	free(stmt);
 }
 
@@ -58,33 +68,28 @@ void print_stmt(const struct stmt *stmt) {
 		printf("EMPTY();\n");
 		break;
 	case STMT_VAR:
-		printf("VAR(");
-		print_exp(stmt->var.name);
+		char *name = (stmt->var->is_mutable) ? "VAR" : "VAL";
+		printf("%s(", name);
+		print_exp(stmt->var->name);
 		printf(", ");
-		print_exp(stmt->var.value);
+		print_exp(stmt->var->value);
 		printf(");\n");
 		break;
-	case STMT_VAL:
-		printf("VAL(");
-		print_exp(stmt->var.name);
-		printf(", ");
-		print_exp(stmt->var.value);
-		printf(");\n");
 		break;
 	case STMT_LOOP:
 		printf("LOOP(");
-		print_exp(stmt->loop.cond);
+		print_exp(stmt->loop->cond);
 		printf(") {\n");
-		print_stmt(stmt->loop.body);
+		print_stmt(stmt->loop->body);
 		printf("}\n");
 		break;
 	case STMT_IF:
 		printf("IF(");
-		print_exp(stmt->ifStmt.cond);
+		print_exp(stmt->ifStmt->cond);
 		printf(") {\n");
-		print_stmt(stmt->ifStmt.thenStmt);
+		print_stmt(stmt->ifStmt->thenStmt);
 		printf("} else {\n");
-		print_stmt(stmt->ifStmt.elseStmt);
+		print_stmt(stmt->ifStmt->elseStmt);
 		printf("}\n");
 		break;
 	case STMT_EXPR:
@@ -99,7 +104,7 @@ void print_stmt(const struct stmt *stmt) {
 }
 
 
-struct stmt *initStmtOrKill(struct reader *r) {
+struct stmt *init_stmt(struct reader *r) {
 	struct stmt *s = calloc(1, sizeof(*s));
 	if (s) {
 		s->type = STMT_EMPTY;
@@ -108,6 +113,36 @@ struct stmt *initStmtOrKill(struct reader *r) {
 
 	raise_syntax_error("failed to allocate exp", r);
 	return NULL;
+}
+
+void init_varStmt(struct reader *r, struct stmt *stmt, bool is_mutable) {
+	stmt->type = STMT_VAR;
+	stmt->var = calloc(1, sizeof(*(stmt->var)));
+	
+	if (!stmt->var)
+		raise_syntax_error("failed to allocate var", r);
+	stmt->var->is_mutable = is_mutable;
+}
+
+void init_ifStmt(struct reader *r, struct stmt *stmt) {
+	stmt->type = STMT_IF;
+	stmt->ifStmt = calloc(1, sizeof(*(stmt->ifStmt)));
+	
+	if (!stmt->ifStmt)
+		raise_syntax_error("failed to allocate ifStmt", r);
+}
+
+void init_loopStmt(struct reader *r, struct stmt *stmt) {
+	stmt->type = STMT_LOOP;
+	stmt->loop = calloc(1, sizeof(*(stmt->loop)));
+	
+	if (!stmt->loop)
+		raise_syntax_error("failed to allocate loop", r);
+}
+
+void init_expStmt(struct stmt *stmt, struct exp *exp) {
+	stmt->type = STMT_EXPR;
+	stmt->exp = exp;
 }
 
 bool stmts_match(const struct stmt *stmt1, const struct stmt *stmt2)
@@ -123,18 +158,18 @@ bool stmts_match(const struct stmt *stmt1, const struct stmt *stmt2)
 	case STMT_EMPTY:
 		return true;
 	case STMT_VAR:
-		bool names_match = exps_match(stmt1->var.name, stmt2->var.name);
-		bool vals_match = exps_match(stmt1->var.value, stmt2->var.value);
-		bool muts_match = stmt1->var.is_mutable == stmt2->var.is_mutable;
+		bool names_match = exps_match(stmt1->var->name, stmt2->var->name);
+		bool vals_match = exps_match(stmt1->var->value, stmt2->var->value);
+		bool muts_match = stmt1->var->is_mutable == stmt2->var->is_mutable;
 		return names_match && vals_match && muts_match;
 	case STMT_LOOP:
-		bool conds_match = exps_match(stmt1->loop.cond, stmt2->loop.cond);
-		bool bodys_match = stmts_match(stmt1->loop.body, stmt2->loop.body);
+		bool conds_match = exps_match(stmt1->loop->cond, stmt2->loop->cond);
+		bool bodys_match = stmts_match(stmt1->loop->body, stmt2->loop->body);
 		return conds_match && bodys_match;
 	case STMT_IF:
-		bool if_conds_match = exps_match(stmt1->ifStmt.cond, stmt2->ifStmt.cond);
-		bool thens_match = stmts_match(stmt1->ifStmt.thenStmt, stmt2->ifStmt.thenStmt);
-		bool elses_match = stmts_match(stmt1->ifStmt.elseStmt, stmt2->ifStmt.elseStmt);
+		bool if_conds_match = exps_match(stmt1->ifStmt->cond, stmt2->ifStmt->cond);
+		bool thens_match = stmts_match(stmt1->ifStmt->thenStmt, stmt2->ifStmt->thenStmt);
+		bool elses_match = stmts_match(stmt1->ifStmt->elseStmt, stmt2->ifStmt->elseStmt);
 		return if_conds_match && thens_match && elses_match;
 	default:
 		raise_error("invalid stmt type");
@@ -144,6 +179,5 @@ bool stmts_match(const struct stmt *stmt1, const struct stmt *stmt2)
 
 bool isValidInitStmt(const struct stmt *stmt) {
 	return 	(stmt->type == STMT_VAR) ||
-		(stmt->type == STMT_VAL) ||
 		((stmt->type == STMT_EXPR) && is_atomic(stmt->exp) && parses_to_int(stmt->exp));
 }
