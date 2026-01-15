@@ -29,7 +29,7 @@ void parseCall(struct reader *r, struct exp *in) {
 
 		in->type = EXP_CALL;
 		in->call.key = KW_PRINT;
-		in->call.call = init_exp_or_free(r, NULL);
+		in->call.call = initExpOrKill(r);
 
 		parse_exp(0, r, in->call.call);
 		acceptValue(r, VAL_DELIM, ")");
@@ -57,7 +57,7 @@ void parseSuffix(struct exp  *left, struct reader *r, struct exp *in) {
 		raise_syntax_error("expected a suffix op", r);
 	struct exp *new_left = left;
 	if (left == in) {
-		new_left = init_exp_or_free(r, NULL);
+		new_left = initExpOrKill(r);
 		swap_exps(left, new_left);	
 	}
 	in->type = EXP_UNARY;
@@ -74,7 +74,7 @@ void parsePrefix(struct reader *r, struct exp *in) {
 
 	in->type = EXP_UNARY;
 	in->op.op = stealNextString(r);
-	in->op.right  = init_exp_or_free(r, NULL);
+	in->op.right  = initExpOrKill(r);
 	parse_atom(r, in->op.right);
 }
 
@@ -144,13 +144,13 @@ void parseArray(struct reader *r, struct exp *in) {
 		return;
 
 	acceptValue(r, VAL_DELIM, "[");
-	struct exp *name = init_exp_or_free(r, NULL);
+	struct exp *name = initExpOrKill(r);
 	swap_exps(in, name);
 	
 	
 	in->type = EXP_ARRAY;
 	in->array.name = name;
-	in->array.index = init_exp_or_free(r, NULL);
+	in->array.index = initExpOrKill(r);
 	parse_exp(0, r, in->array.index);
 
 	acceptValue(r, VAL_DELIM, "]");
@@ -199,7 +199,7 @@ void parse_atom(struct reader *r, struct exp *in) {
 	}
 
 	if (isSuffixVal(peekValue(r))) {
-		struct exp *left = init_exp_or_free(r, NULL);
+		struct exp *left = initExpOrKill(r);
 		swap_exps(in, left);
 		parseSuffix(left, r, in);
 	}
@@ -210,15 +210,15 @@ void parse_exp(int minPrio, struct reader *r, struct exp *in)
     	parse_atom(r, in);
 
     	while ((parserCanProceed(r)) && isValidOp(peekValue(r), minPrio)) {
-		struct exp *left = init_exp_or_free(r, NULL);
+		struct exp *left = initExpOrKill(r);
 		swap_exps(in, left);
 		in->op.left = left;
 		in->op.op = stealNextString(r);
-		in->op.right = init_exp_or_free(r, NULL);
+		in->op.right = initExpOrKill(r);
 
-		parse_exp(getPrio(op)+1, r, in->op.right);
+		parse_exp(getPrio(in->op.op)+1, r, in->op.right);
 
-		if (isAssignOp(op))
+		if (isAssignOp(in->op.op))
 			in->type = EXP_ASSIGN_OP;
 		else
 			in->type = EXP_BINARY_OP;
@@ -232,7 +232,7 @@ void parseVar(struct reader *r, bool is_mutable, struct stmt *in) {
 	acceptValue(r, VAL_KEYWORD, getKeyStr(key));
 
 	in->type = is_mutable ? STMT_VAR : STMT_VAL;
-	in->var.name =  init_exp_or_free(r, NULL);
+	in->var.name =  initExpOrKill(r);
 	parseName(r, in->var.name);
 
 	if (!is_mutable)
@@ -243,7 +243,7 @@ void parseVar(struct reader *r, bool is_mutable, struct stmt *in) {
 
 	acceptValue(r, VAL_OP, "=");
 
-	in->var.value = init_exp_or_free(r, NULL);
+	in->var.value = initExpOrKill(r);
 	parse_exp(0, r, in->var.value);
 
 	if (!exps_are_compatable(in->var.name, in->var.value))
@@ -256,7 +256,7 @@ void parseWhile(struct reader *r, struct stmt *in) {
 
 	in->type = STMT_LOOP;
 
-	in->loop.cond = init_exp_or_free(r, NULL);
+	in->loop.cond = initExpOrKill(r);
 	parse_exp(0, r, in->loop.cond);
 
 	acceptValue(r, VAL_DELIM, ")");
@@ -290,7 +290,7 @@ void parseFor(struct reader *r, struct stmt *in) {
 	in->next = loop;
 	loop->type = STMT_LOOP;
 
-	loop->loop.cond = init_exp_or_free(r, NULL);
+	loop->loop.cond = initExpOrKill(r);
 	parse_exp(0, r, loop->loop.cond);
 	
 	acceptValue(r, VAL_DELIM, ";");
@@ -298,7 +298,7 @@ void parseFor(struct reader *r, struct stmt *in) {
 	// find a way to add it into the structure here
 	loop->next = initStmtOrKill(r);
 	loop->next->type = STMT_EXPR;
-	loop->next->exp = init_exp_or_free(r, NULL);
+	loop->next->exp = initExpOrKill(r);
 	parse_exp(0, r, loop->next->exp);
 
 	acceptValue(r, VAL_DELIM, ")");
@@ -325,7 +325,7 @@ void parseIf(struct reader *r, struct stmt *in) {
 	acceptValue(r, VAL_DELIM, "(");
 
 	in->type = STMT_IF;
-	in->ifStmt.cond = init_exp_or_free(r, NULL);
+	in->ifStmt.cond = initExpOrKill(r);
 	parse_exp(0, r, in->ifStmt.cond);
 
 	acceptValue(r, VAL_DELIM, ")");
@@ -378,14 +378,14 @@ void parse_single_stmt(struct reader *r, struct stmt *in) {
 				break;
 			default:
 				in->type = STMT_EXPR;
-				in->exp = init_exp_or_free(r, NULL);
+				in->exp = initExpOrKill(r);
 				parseCall(r, in->exp);
 				acceptValue(r, VAL_DELIM, ";");
 				break;
 		}
 	} else {
 		in->type = STMT_EXPR;
-		in->exp = init_exp_or_free(r, NULL);
+		in->exp = initExpOrKill(r);
 		parse_exp(0, r, in->exp);
 		acceptValue(r, VAL_DELIM, ";");
 	}
@@ -406,9 +406,9 @@ struct stmt *parse_file(const char *filename) {
 	if (!r)
 		raise_syntax_error("failed to read in file", r);
 
-	r->root = initStmtOrKill(r);
 	parse_stmt(r, r->root);
 	struct stmt *out = r->root;
+
 	r->root = NULL;
 	killReader(r);
 	return out;

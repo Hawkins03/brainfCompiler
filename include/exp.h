@@ -12,7 +12,7 @@ void free_rightArray(struct exp *array, int size);
 void print_exp(const struct exp  *exp);
 
 void swap_exps(struct exp *from, struct exp *to);
-struct exp *initExpOrFree(struct reader *r, struct exp **to_free);
+struct exp *initExpOrKill(struct reader *r);
 void init_rightarray(struct exp *op, int size, struct reader *r, struct exp *in);
 
 bool exps_match(struct exp  *exp1, struct exp  *exp2);

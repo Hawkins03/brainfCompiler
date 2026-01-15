@@ -189,7 +189,7 @@ void swap_exps(struct exp *from, struct exp *to) {
 
 struct exp *initExpOrKill(struct reader *r) {
 	struct exp *e = init_exp();
-	if (e!)
+	if (!e)
 		raise_syntax_error("failed to allocate exp", r);
 	return e;
 }
