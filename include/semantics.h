@@ -21,4 +21,6 @@ bool var_exists(const struct env *env, const char *name);
 void check_stmt_semantics(struct env *env, struct stmt *stmt);
 void check_exp_semantics(struct env *env, struct exp *exp);
 
+void check_file_semantics(char *filename);
+
 #endif //SEMANTICS_H

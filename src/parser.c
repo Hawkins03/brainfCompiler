@@ -15,6 +15,46 @@
 #include "parser.h"
 #include "utils.h"
 
+static bool is_assignable(const struct exp *exp) {
+	return (exp) && ((exp->type == EXP_NAME) || (exp->type == EXP_ARRAY_REF));
+}
+
+static bool is_atomic(const struct exp *exp) {
+	if (!exp)
+		return false;
+	if (is_assignable(exp))
+		return true;
+	
+	switch (exp->type) {
+	case EXP_NAME:
+		return true;
+	case EXP_ARRAY_REF:
+		return true;
+	case EXP_BINARY_OP:
+	case EXP_ASSIGN_OP:
+		return (is_atomic(exp->op->left) || is_atomic(exp->op->right));
+	case EXP_UNARY:
+		return is_atomic(exp->unary->operand);
+	default:
+		return false;
+	}
+}
+
+static bool parses_to_int(struct exp *exp) {
+	if (!exp)
+		return false;
+	switch (exp->type) {
+	case EXP_NAME:
+	case EXP_ARRAY_REF:
+		return true;
+	case EXP_BINARY_OP:
+	case EXP_ASSIGN_OP:
+	case EXP_UNARY:
+		return (parses_to_int(exp->op->left) && parses_to_int(exp->op->right));
+	default:
+		return false;
+	}
+}
 
 static inline bool isOpType(const struct value v) {
 	return (v.type == VAL_OP) && v.num != OP_UNKNOWN;

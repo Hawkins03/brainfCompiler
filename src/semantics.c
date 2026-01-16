@@ -1,28 +1,50 @@
 #include "semantics.h"
 #include "parser.h"
 #include "structs.h"
-#include "reader.h"
-#include "exp.h"
-#include "stmt.h"
 #include <string.h>
 #include <stdlib.h>
 
-
-
-struct env *init_env(struct env *parent) {
-	struct env *env = calloc(1, sizeof(*env));
-	if (!env)
+static char *get_name_from_exp(struct exp *exp) {
+	if (!exp)
 		return NULL;
-	env->parent = parent;
-	return env;
+	
+	switch (exp->type) {
+	case EXP_ARRAY_REF:
+		return get_name_from_exp(exp->array_ref->name);
+	case EXP_BINARY_OP:
+	case EXP_ASSIGN_OP:
+		char *left_name = get_name_from_exp(exp->op->left);
+		if (left_name)
+			return left_name;
+		else
+			return get_name_from_exp(exp->op->right);
+	case EXP_UNARY:
+		return get_name_from_exp(exp->unary->operand);
+	case EXP_NAME:
+		return exp->name;
+	default:
+		return NULL;
+	}
 }
 
-void free_env(struct env *env) {
-	if (!env)
-		return;
-	free_env(env->parent);
-	free(env);
+static inline int get_exp_array_depth(const struct exp *name) {
+	if (name && (name->type == EXP_ARRAY_REF))
+		return get_exp_array_depth(name->array_ref->name) + 1;
+	return 0;
 }
+
+static inline bool exp_is_unary(const struct exp  *exp) {
+	return exp && ((exp->type == EXP_ARRAY_REF) || (exp->type == EXP_UNARY) || (exp->type == EXP_NAME));
+}
+
+static inline bool exp_is_op(const struct exp *exp) {
+	return exp && ((exp->type == EXP_UNARY) || (exp->type == EXP_ASSIGN_OP) || (exp->type == EXP_BINARY_OP));
+}
+
+static inline bool exp_is_arrayLit(const struct exp *exp) {
+	return exp && (exp->type == EXP_ARRAY_LIT) && (exp->array_lit->array != NULL);
+}
+
 
 void declare_var(struct env *env, char *name, bool is_defined, bool is_mutable, int array_depth) {
 	if (var_exists(env, name))
@@ -69,9 +91,12 @@ bool is_array_var(struct env *env, const char *name) {
 	return get_var_depth(env, name) > 0;
 }
 
+bool merge_env(struct env *to, struct env *from) {
+	
+}
 
-
-/** RULES:
+/** check_stmt_semantics:
+ * RULES:
  * 1. All exps must be valid.
  * 2. control flow rules:
  *   2.1: all conds must be int type.
@@ -79,6 +104,9 @@ bool is_array_var(struct env *env, const char *name) {
  * 3. declaration rules: - see exp rules
 */
 void check_stmt_semantics(struct env *env, struct stmt *stmt) {
+	if(!stmt)
+		return;
+
 	if (!env->root && stmt)
 		env->root = stmt;
 
@@ -104,6 +132,7 @@ void check_stmt_semantics(struct env *env, struct stmt *stmt) {
 		break;
 	case STMT_IF:
 		check_exp_semantics(env, stmt->ifStmt->cond);
+
 		check_stmt_semantics(env, stmt->ifStmt->thenStmt);
 		check_stmt_semantics(env, stmt->ifStmt->elseStmt);
 		break;
@@ -118,8 +147,8 @@ void check_stmt_semantics(struct env *env, struct stmt *stmt) {
 	check_stmt_semantics(env, stmt->next);
 }
 
- /*
-  * Checks the semantics of the given exp.
+ /** check_exp_semantics
+  * RULES:
   * 1. symbol and binding rules:
   *   1.1: a variable must be declared before it is used (eg: "x=3; var x;" is invalid)
   *   1.2: no redeclaring variables in the same scope
@@ -180,4 +209,11 @@ void check_exp_semantics(struct env *env, struct exp *exp) {
 		raise_semantic_error("invalid exp in semantics", env);
 		break;
 	}
+}
+
+void check_file_semantics(char *filename) {
+	struct stmt *root = parse_file(filename);
+
+	struct env env;
+	check_stmt_semantics(&env, root);
 }

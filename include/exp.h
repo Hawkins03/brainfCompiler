@@ -21,12 +21,5 @@ void init_exp_call(struct reader *r, struct exp *exp, enum key_type key);
 void swap_exps(struct exp *from, struct exp *to);
 bool exps_match(struct exp  *exp1, struct exp  *exp2);
 bool exps_are_compatable(struct exp *exp1, struct exp *exp2);
-char *get_name_from_exp(struct exp  *exp);
-int get_exp_array_depth(const struct exp *name);
-bool is_assignable(const struct exp *exp);
-bool is_atomic(const struct exp *exp);
-bool parses_to_int(struct exp *exp);
-bool exp_is_unary(const struct exp *exp);
-bool exp_is_arrayLit(const struct exp *exp);
 
 #endif //EXP_H
