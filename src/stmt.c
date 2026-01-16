@@ -145,8 +145,8 @@ void init_expStmt(struct stmt *stmt, struct exp *exp) {
 	stmt->exp = exp;
 }
 
-bool stmts_match(const struct stmt *stmt1, const struct stmt *stmt2)
-{
+// for later error checking
+bool stmts_match(const struct stmt *stmt1, const struct stmt *stmt2) {
 	if (!stmt1 != !stmt2)
 		return false;
 	else if (stmt1 == stmt2) //handles the two pointing to the same address and both being null
@@ -175,9 +175,4 @@ bool stmts_match(const struct stmt *stmt1, const struct stmt *stmt2)
 		raise_error("invalid stmt type");
 	}
 	return false;
-}
-
-bool isValidInitStmt(const struct stmt *stmt) {
-	return 	(stmt->type == STMT_VAR) ||
-		((stmt->type == STMT_EXPR) && is_atomic(stmt->exp) && parses_to_int(stmt->exp));
 }

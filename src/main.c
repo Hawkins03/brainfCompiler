@@ -7,7 +7,6 @@
 #include "utils.h"
 #include "test.h"
 #include "stmt.h"
-#include "exp.h"
 
 int main(int argc, char *argv[]) {
 	// uncomment to run interpreter (should be hello world)

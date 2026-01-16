@@ -95,8 +95,8 @@ struct reader {
 	char *filename;
 
 	// storage for tokens
-	int curr_char;
-	struct value curr_token;
+	int ch;
+	struct value val;
 	struct stmt *root;
 };
 

@@ -8,9 +8,7 @@
 
 #define DEFAULT_CAP_SIZE 8
 
-
 void free_exp(struct exp  *exp);
-void free_array_lit(struct exp *array, int size);
 void print_exp(const struct exp  *exp);
 
 struct exp *init_exp(struct reader *r);

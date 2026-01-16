@@ -9,13 +9,48 @@
 #include <unistd.h>
 
 #include "structs.h"
-#include "value.h"
 #include "exp.h"
 #include "stmt.h"
 #include "reader.h"
 #include "parser.h"
 #include "utils.h"
 
+
+static inline bool isOpType(const struct value v) {
+	return (v.type == VAL_OP) && v.num != OP_UNKNOWN;
+}
+static inline bool isBinaryOpVal(const struct value v) {
+	return isOpType(v) && isBinaryOp(v.num);
+}
+static inline bool isAssignOpVal(const struct value v) {
+	return isOpType(v) && isAssignOp(v.num);
+}
+static inline bool isSuffixVal(const struct value v) {
+	return isOpType(v) && is_suffix_unary(v.num);
+}
+static inline bool isPrefixVal(const struct value v) {
+	return isOpType(v) && is_prefix_unary(v.num);
+}
+static inline bool isValidOp(const struct value v, const int minPrio) {
+	if (!isOpType(v))
+		return false;
+	if (isAssignOpVal(v) || (isPrefixVal(v) && !isBinaryOpVal(v)))
+		return true;
+	return getPrio(v.num) >= minPrio;
+}
+
+static inline bool isElseKey(const struct value v) {
+	return (v.type == VAL_KEYWORD) && (v.num == KW_ELSE);
+}
+
+static inline bool isDelimChar(const struct value v, char match) {
+	return (v.type == VAL_DELIM) && (v.ch == match);
+}
+
+static inline bool isValidInitStmt(const struct stmt *stmt) {
+	return 	(stmt->type == STMT_VAR) ||
+		((stmt->type == STMT_EXPR) && is_atomic(stmt->exp) && parses_to_int(stmt->exp));
+}
 
 //parsing atoms
 static inline void parsePrint(struct reader *r, struct exp *in) {
@@ -42,11 +77,11 @@ static inline void parseBreak(struct reader *r, struct exp *in) {
 }
 
 static void parseCall(struct reader *r, struct exp *in) {
-	struct value *tok = getValue(r);
-	if ((!tok) || (tok->type != VAL_KEYWORD))
+	struct value tok = r->val;
+	if (tok.type != VAL_KEYWORD)
 		return;
 	
-	switch (tok->num) {
+	switch (tok.num) {
 	case KW_PRINT:
 		parsePrint(r, in);
 		break;
@@ -62,7 +97,7 @@ static void parseCall(struct reader *r, struct exp *in) {
 }
 
 static inline void parseSuffix(struct exp  *left, struct reader *r, struct exp *in) {
-	if (!isSuffixVal(getValue(r)))
+	if (!r || !isSuffixVal(r->val))
 		raise_syntax_error("expected a suffix op", r);
 	struct exp *operand = left;
 	if (left == in) {
@@ -75,7 +110,7 @@ static inline void parseSuffix(struct exp  *left, struct reader *r, struct exp *
 }
 
 static inline void parsePrefix(struct reader *r, struct exp *in) {
-	if (!isPrefixVal(getValue(r)))
+	if (!r || !isPrefixVal(r->val))
 		raise_syntax_error("invalid unary prefix", r);
 
 	//not folding in so that stealNextStr precedes parseSuffix and parse_atom 
@@ -101,7 +136,7 @@ static inline void parseArrayLit(struct reader *r, struct exp *in)
 	//TODO: make default cap variable
 	init_exp_array_lit(r, in, DEFAULT_CAP_SIZE);
 
-	while (parserCanProceed(r) && !isDelimChar(getValue(r), '}')) {
+	while (parserCanProceed(r) && !isDelimChar(r->val, '}')) {
 		parse_exp(0, r, in->array_lit->array + len++);
 		acceptValue(r, VAL_DELIM, ",");
 
@@ -119,21 +154,16 @@ static inline void parseArrayLit(struct reader *r, struct exp *in)
 }
 
 static inline void parseNum(struct reader *r, struct exp *in) {
-	struct value *val = getValue(r);
-	if (val->type != VAL_NUM)
+	if (!r || r->val.type != VAL_NUM)
 		raise_syntax_error("expected a num value", r);
 	
 	in->type = EXP_NUM;
-	in->num = val->num;
+	in->num = r->val.num;
 	nextValue(r);
 }
 
 static inline void parseStr(struct reader *r, struct exp *in) {
-	struct value *v = getValue(r);
-	if (v->type != VAL_STR)
-		raise_error("Unexpected value in place of string");
-	char *str = v->str;
-	v->str = NULL;
+	char *str = stealNextString(r);
 	nextValue(r);
 	
 	size_t len = strlen(str);
@@ -154,8 +184,7 @@ static inline void parseStr(struct reader *r, struct exp *in) {
 }
 
 static void parseArrayRef(struct reader *r, struct exp *in) {
-	struct value *tok = getValue(r);
-	if (!tok || (tok->type != VAL_DELIM) || (tok->ch != '['))
+	if (!isDelimChar(r->val, '['))
 		return;
 
 	acceptValue(r, VAL_DELIM, "[");
@@ -176,7 +205,7 @@ static void parseArrayRef(struct reader *r, struct exp *in) {
 static inline void parseName(struct reader *r, struct exp *in)
 {
 	in->type = EXP_NAME;
-	in->name = stealNextString(r);
+	in->name = stealNextName(r);
 	parseArrayRef(r, in);
 }
 
@@ -186,7 +215,7 @@ void parse_atom(struct reader *r, struct exp *in) {
     	if (!parserCanProceed(r))
 		return;
 
-    	switch (getValue(r)->type) {
+    	switch (r->val.type) {
 	case VAL_EMPTY:
 		raise_syntax_error("unexpected empty value", r);
 		break;
@@ -203,9 +232,9 @@ void parse_atom(struct reader *r, struct exp *in) {
 		parseStr(r, in);
 		break;
 	case VAL_DELIM:
-		if (getValue(r)->ch == '(')
+		if (r->val.ch == '(')
 			parseParenthesis(r, in);
-		else if (isDelimChar(getValue(r), '{'))
+		else if (r->val.ch == '{')
 			parseArrayLit(r, in);
 		break;
 	case VAL_KEYWORD:
@@ -213,7 +242,7 @@ void parse_atom(struct reader *r, struct exp *in) {
 		break;
 	}
 
-	if (isSuffixVal(getValue(r))) {
+	if (isSuffixVal(r->val)) {
 		struct exp *left = init_exp(r);
 		swap_exps(in, left);
 		parseSuffix(left, r, in);
@@ -224,7 +253,7 @@ void parse_exp(int minPrio, struct reader *r, struct exp *in)
 {
     	parse_atom(r, in);
 
-    	while ((parserCanProceed(r)) && isValidOp(getValue(r), minPrio)) {
+    	while ((parserCanProceed(r)) && isValidOp(r->val, minPrio)) {
 		struct exp *left = init_exp(r);
 		swap_exps(in, left);
 
@@ -344,15 +373,14 @@ static void parseIf(struct reader *r, struct stmt *in) {
 
 	acceptValue(r, VAL_DELIM, "}");
 
-	if (isElseKey(getValue(r))) {
+	if ((r->val.type == VAL_KEYWORD) && (r->val.num == KW_ELSE)) {
 		acceptValue(r, VAL_KEYWORD, "else");
-		struct value *tok = getValue(r);
-		if (!tok)
+		if (!r)
 			raise_syntax_error("expected statement after else", r);
 
 		in->ifStmt->elseStmt = init_stmt(r);
 		struct stmt *elseStmt = in->ifStmt->elseStmt;
-		if ((tok->type == VAL_KEYWORD) && (tok->num == KW_IF)) {
+		if ((r->val.type == VAL_KEYWORD) && (r->val.num == KW_IF)) {
 			parseIf(r, elseStmt);
 		} else {
 			acceptValue(r, VAL_DELIM, "{");
@@ -363,16 +391,15 @@ static void parseIf(struct reader *r, struct stmt *in) {
 }
 
 void parse_single_stmt(struct reader *r, struct stmt *in) {
-	if (!readerIsAlive(r) || !hasNextStmt(r)) return;
+	if (!r || !hasNextStmt(r)) return;
 	
-	struct value *tok = getValue(r);
-	if (tok == NULL) return;
+	struct value tok = r->val;
 	
-	if (tok->type == VAL_KEYWORD) {
-		switch (tok->num) {
+	if (tok.type == VAL_KEYWORD) {
+		switch (tok.num) {
 			case KW_VAR:
 			case KW_VAL:
-				parseVar(r, tok->num == KW_VAR, in);
+				parseVar(r, tok.num == KW_VAR, in);
 				acceptValue(r, VAL_DELIM, ";");
 				break;
 			case KW_WHILE:

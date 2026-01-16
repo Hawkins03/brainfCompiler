@@ -1,7 +1,19 @@
 #ifndef READER_H
 #define READER_H
 
+#include <stdbool.h>
 #include "structs.h"
+
+#define MAX_WORD_LEN 32
+#define MAX_NUM_LEN 10
+#define MAX_OP_LEN 3
+#define DELIMS ";()[]{}'\","
+#define OP_START "=+-*/%!~<>&^|,"
+#define ASSIGN_OP_PRIO 0
+
+#define KEYWORDS (const char*[]) {"var", "val", "while", "for", "if", "else", "print", "input", "break", "true", "false", NULL}
+#define KEYWORDS_COUNT 11
+#define NUM_PRIOS 10
 
 #define OP_STRINGS (const char *[]) 	{"+", "-", 		\
 					"*", "/", "%",		\
@@ -24,6 +36,7 @@
     				OP_BITWISE_AND_ASSIGN, OP_BITWISE_XOR_ASSIGN, OP_BITWISE_OR_ASSIGN, \
 				OP_UNKNOWN}
 
+// reading from the file object
 struct reader *readInFile(const char *filename);
 void killReader(struct reader *r);
 
@@ -31,32 +44,24 @@ bool readerIsAlive(struct reader *r);
 bool hasNextStmt(struct reader *r);
 bool atSemicolon(struct reader *r);
 bool parserCanProceed(struct reader *r);
-bool isValidNameChar(const char ch, struct reader *r);
 
-int peek(struct reader *r);
-int advance(struct reader *r);
-void skip_spaces(struct reader *r);
+// turning enums back into strings for printing
+const char *getOpStr(enum operator op);
+const char *getKeyStr(enum key_type key);
 
-char *stealNextString(struct reader *r);
-enum operator stealNextOp(struct reader *r);
-char getNextDelim(struct reader *r);
-
-void printOpStr(enum operator op);
-void getOpStr(enum operator op, char *out);
+//checking op values
 int getPrio(const enum operator op);
 bool isAssignOp(const enum operator op);
-bool isBinaryOp(enum operator op);
-bool matchesOp(const int op);
+bool isBinaryOp(const enum operator op);
 bool is_suffix_unary(enum operator op);
 bool is_prefix_unary(enum operator op);
 
+void nextValue(struct reader *r);
+struct value peekValue(struct reader *r);
+void acceptValue(struct reader *r, enum value_type type, const char *expected);
 
-enum operator getNextOp(struct reader *r);
-int getNextNum(struct reader *r);
-char *getNextWord(struct reader *r);
-enum key_type getKeyType(char *keyword);
-const char *getKeyStr(enum key_type key);
-int getCharacterValue(struct reader *r); // i.e. for the input " 'x'; " it returns the ascii value of x.
-char *getNextString(struct reader *r);
+char *stealNextString(struct reader *r);
+char *stealNextName(struct reader *r);
+enum operator stealNextOp(struct reader *r);
 
 #endif //READER_H

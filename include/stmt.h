@@ -16,6 +16,4 @@ void free_stmt(struct stmt *stmt);
 void print_stmt(const struct stmt *stmt);
 
 bool stmts_match(const struct stmt *stmt1, const struct stmt *stmt2);
-bool isValidInitStmt(const struct stmt *stmt);
-
 #endif //STMT_H

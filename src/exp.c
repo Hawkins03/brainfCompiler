@@ -1,12 +1,12 @@
 #include "parser.h"
 #include "utils.h"
 #include "exp.h"
-#include "value.h"
 
 #include <stdlib.h>
 #include <stdbool.h>
 
-void free_exp_contents(struct exp *exp) {
+
+static void free_exp_contents(struct exp *exp) {
 	if (!exp)
 		return;
 	switch (exp->type) {
@@ -32,7 +32,11 @@ void free_exp_contents(struct exp *exp) {
 	case EXP_ARRAY_LIT:
 		if (!exp->array_lit)
 			return;
-		free_array_lit(exp->array_lit->array, exp->array_lit->size);
+		if (!exp->array_lit->array)
+			return;
+		for (int i = 0; i < exp->array_lit->size; i++)
+			free_exp_contents(&exp->array_lit->array[i]);  // Pass address, not iterate
+		free(exp->array_lit->array);
 		exp->array_lit->array = NULL;
 		free(exp->array_lit);
 		exp->array_lit = NULL;
@@ -67,22 +71,12 @@ void free_exp_contents(struct exp *exp) {
 	}
 }
 
-//EXP_EMPTY, EXP_NAME, EXP_ARRAY, EXP_NUM, EXP_ASSIGN_OP, EXP_BINARY_OP, EXP_UNARY, EXP_CALL, EXP_RIGHTARRAY, EXP_NESTED
 void free_exp(struct exp *exp) {
     	free_exp_contents(exp);
     	free(exp);
 }
 
-void free_array_lit(struct exp *array, int size) {
-    if (!array)
-        return;
-    for (int i = 0; i < size; i++)
-        free_exp_contents(&array[i]);  // Pass address, not iterate
-    free(array);
-}
-
-void print_exp(const struct exp *exp)
-{
+void print_exp(const struct exp *exp) {
     	if (!exp) {
 		printf("NULL");
 		return;
@@ -101,24 +95,19 @@ void print_exp(const struct exp *exp)
 	case EXP_BINARY_OP:
 		printf("OP( ");
 		print_exp(exp->op->left);
-		printf(", ");
-		printOpStr(exp->op->op);
-		printf(", ");
+		printf(", %s, ", getOpStr(exp->op->op));
 		print_exp(exp->op->right);
 		printf(")");
 		break;
 	case EXP_UNARY:
 		printf("UNARY(");
 		if (exp->unary->is_prefix) {
-			printOpStr(exp->unary->op);
-			printf(", ");
+			printf("%s, ", getOpStr(exp->op->op));
 			print_exp(exp->unary->operand);
 			printf(")");
 		} else {
 			print_exp(exp->unary->operand);
-			printf(", ");
-			printOpStr(exp->unary->op);
-			printf(")\n");
+			printf(", %s)", getOpStr(exp->unary->op));
 		}
 		break;
 	case EXP_CALL:
@@ -212,13 +201,6 @@ void swap_exps(struct exp *from, struct exp *to) {
 	*to = tmp;
 }
 
-// utility functions
-/*static bool _match_op_exps(const struct exp *exp1, const struct exp *exp2) {
-    return exps_match(exp1->op->left, exp2->op->left) &&
-           !strcmp(exp1->op->op, exp2->op->op) &&
-           exps_match(exp1->op->right, exp2->op->right);
-}*/
-
 bool exps_match(struct exp *exp1, struct exp *exp2) {
     if (!exp1 != !exp2)
         return false;
@@ -278,7 +260,7 @@ bool exps_are_compatable(struct exp *exp1, struct exp *exp2) {
 }
 
 
-char *get_name_from_exp(struct exp  *exp) {
+char *get_name_from_exp(struct exp *exp) {
 	if (!exp)
 		return NULL;
 	
