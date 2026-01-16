@@ -33,7 +33,7 @@ void free_stmt(struct stmt *stmt) {
 		stmt->loop = NULL;
 		break;
 	case STMT_IF:
-		if (!stmt->loop)
+		if (!stmt->ifStmt)
 			return;
 		free_exp(stmt->ifStmt->cond);
 		stmt->ifStmt->cond = NULL;
@@ -171,6 +171,8 @@ bool stmts_match(const struct stmt *stmt1, const struct stmt *stmt2) {
 		bool thens_match = stmts_match(stmt1->ifStmt->thenStmt, stmt2->ifStmt->thenStmt);
 		bool elses_match = stmts_match(stmt1->ifStmt->elseStmt, stmt2->ifStmt->elseStmt);
 		return if_conds_match && thens_match && elses_match;
+	case STMT_EXPR:
+		return exps_match(stmt1->exp, stmt2->exp);
 	default:
 		raise_error("invalid stmt type");
 	}
