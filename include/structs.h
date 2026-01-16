@@ -50,8 +50,6 @@ struct value {
 	union {
 		char *str;
 		int num;
-		enum key_type key;
-		enum operator op;
 		char ch;
 	};
 };
@@ -98,11 +96,8 @@ struct reader {
 
 	// storage for tokens
 	int curr_char;
-	struct value *curr_token;
-
-	// for freeing structs
+	struct value curr_token;
 	struct stmt *root;
-	struct stmt *curr_stmt;
 };
 
 struct env;

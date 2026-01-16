@@ -15,9 +15,6 @@
 #define KEYWORDS_COUNT 11
 #define NUM_PRIOS 10
 
-
-struct value *initValue();
-void freeValue(struct value *val);
 bool isOpType(const struct value *v);
 bool isPrefixVal(struct value *v);
 bool isSuffixVal(const struct value *v);
@@ -31,9 +28,8 @@ bool isDelimType(const struct value *v);
 bool isDelimChar(const struct value *v, char match);
 bool isStrType(struct value *v);
 
-struct value *getRawValue(struct reader *r);
+void nextValue(struct reader *r);
 struct value *getValue(struct reader *r);
-struct value *peekValue(struct reader *r);
 void acceptValue(struct reader *r, enum value_type type, const char *expected);
 
 #endif //VALUE_H

@@ -37,7 +37,6 @@ int peek(struct reader *r);
 int advance(struct reader *r);
 void skip_spaces(struct reader *r);
 
-char *stealTokString(struct value *tok);
 char *stealNextString(struct reader *r);
 enum operator stealNextOp(struct reader *r);
 char getNextDelim(struct reader *r);

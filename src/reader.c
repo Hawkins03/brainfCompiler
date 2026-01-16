@@ -38,17 +38,12 @@ struct reader *readInFile(const char *filename)
 	}
 	
 	r->root = init_stmt(r);
-	r->root->next = r->root; // self loop to mark as sentinal
-	r->curr_stmt = r->root;
-
-	r->curr_token = initValue();
-	if (!r->root)
-		raise_syntax_error("failed to allocate value", r);
+	r->root->next = r->root; // self loop to mark as sentinal 
 
 	r->filename = strdup(filename, r);
 
 	advance(r);
-	freeValue(getValue(r));
+	nextValue(r);
 	return r;
 }
 
@@ -65,9 +60,6 @@ void killReader(struct reader *r)
 	free_stmt(r->root);
 	r->root = NULL;
 
-	freeValue(r->curr_token);
-	r->curr_token = NULL;
-
 	fclose(r->fp);
 	r->fp = NULL;
 	free(r);
@@ -77,18 +69,18 @@ void killReader(struct reader *r)
 // Checker Functions
 bool readerIsAlive(struct reader *r)
 {
-	return (!r || (r->curr_token != NULL));
+	return r != NULL;
 }
 
 bool hasNextStmt(struct reader *r)
 {
-	struct value *tok = peekValue(r);
+	struct value *tok = getValue(r);
 	return (tok != NULL) && !((tok->type == VAL_DELIM) && (tok->ch == '}'));
 }
 
 bool atSemicolon(struct reader *r)
 {
-	struct value *tok = peekValue(r);
+	struct value *tok = getValue(r);
 	return (tok != NULL) && ((tok->type == VAL_DELIM) && (tok->ch == ';'));
 }
 
@@ -103,8 +95,7 @@ bool isValidNameChar(const char ch, struct reader *r) {
 
 
 // getting single characters
-int peek(struct reader *r)
-{
+int peek(struct reader *r) {
 	if (!readerIsAlive(r))
 		return EOF;
 	return r->curr_char;
@@ -127,33 +118,23 @@ void skip_spaces(struct reader *r)
 		advance(r);
 }
 
-// Tokenization Functions
-char *stealTokString(struct value *tok)
-{
-	if (!tok)
+char *stealNextString(struct reader *r) {
+	struct value *v = getValue(r);
+	if (!v || (v->type != VAL_NAME))
 		return NULL;
 
-	char *s = tok->str;
-	tok->str = NULL;
-	return s;
-}
-
-char *stealNextString(struct reader *r)
-{
-	char *out = stealTokString(peekValue(r));
-	if (!out)
-		raise_syntax_error("failed to get token string", r);
-	freeValue(getValue(r));
+	char *out = v->str;
+	nextValue(r);
 	return out;
 }
 
 enum operator stealNextOp(struct reader *r) {
 	struct value *v = getValue(r);
-	if (!v || (v->type != VAL_OP) || (v->op == OP_UNKNOWN))
-		raise_syntax_error("failed to get next op", r);
-	enum operator result = v->op;
-	freeValue(v);
-	return result;
+	if (!v || (v->type != VAL_OP) || (v->num == OP_UNKNOWN))
+		return OP_UNKNOWN;
+	enum operator op = v->num;
+	nextValue(r);
+	return op;
 }
 
 char getNextDelim(struct reader *r)

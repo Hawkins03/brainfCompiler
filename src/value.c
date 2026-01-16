@@ -9,31 +9,33 @@
 #include "utils.h"
 
 bool isOpType(const struct value *v) {
-	return v && (v->type == VAL_OP) && v->op != OP_UNKNOWN;
+	return v && (v->type == VAL_OP) && v->num != OP_UNKNOWN;
 }
 
 bool isSuffixVal(const struct value *v) {
-	return isOpType(v) && is_suffix_unary(v->op);
+	return isOpType(v) && is_suffix_unary(v->num);
 }
 
 bool isPrefixVal(struct value *v) {
-	return isOpType(v) && is_prefix_unary(v->op);
+	return isOpType(v) && is_prefix_unary(v->num);
 }
 
 bool isBinaryOpVal(struct value *v) {
-	return isOpType(v) && isBinaryOp(v->op);
+	return isOpType(v) && isBinaryOp(v->num);
 }
 
 bool isAssignOpVal(struct value *v) {
-	return isOpType(v) && isAssignOp(v->op);
+	return isOpType(v) && isAssignOp(v->num);
 }
 
 bool isValidOp(const struct value *v, const int minPrio) {
-	if (isAssignOp(v->op))
-		return true;
-	if (!isBinaryOp(v->op))
+	if (v->type != VAL_OP)
 		return false;
-	return getPrio(v->op) >= minPrio;
+	if (isAssignOp(v->num))
+		return true;
+	if (!isBinaryOp(v->num))
+		return false;
+	return getPrio(v->num) >= minPrio;
 }
 
 //checker functions
@@ -76,162 +78,98 @@ bool isStrType(struct value *v) {
 }
 
 
-// init functions
-struct value *initValue()
+static inline void initKeywordValue(enum key_type  key, struct reader *r)
 {
-    	return calloc(1, sizeof(struct value));
-}
-
-struct value *initKeywordValue(enum key_type  key, struct reader *r)
-{
-	struct value *val = initValue();
-	if (!val)
-		raise_syntax_error("failed to allocate value", r);
-
 	if (isTrueFalseKey(key)) {
-		val->type = VAL_NUM;
-		val->num = (key == KW_TRUE);
+		r->curr_token.type = VAL_NUM;
+		r->curr_token.num = (key == KW_TRUE);
 	} else {
-		val->type = VAL_KEYWORD;
-		val->key = key;
+		r->curr_token.type = VAL_KEYWORD;
+		r->curr_token.num = key;
 	}
-	return val;
 }
 
-struct value *initNameValue(char *str, struct reader *r)
+static inline void initNameValue(char *str, struct reader *r)
 {
-	enum key_type  key = getKeyType(str);
+	enum key_type key = getKeyType(str);
 	if (isKeyword(key)) {
 		free(str);
-		return initKeywordValue(key, r);
+		initKeywordValue(key, r);
+		return;
 	}
 
-	struct value *val = initValue();
-	if (!val)
-		raise_syntax_error("failed to initialize value", r);
-
-	val->type = VAL_NAME;
-	val->str = str;
-	return val;
+	r->curr_token.type = VAL_NAME;
+	r->curr_token.str = str;
 }
 
-struct value *initOpValue(enum operator op, struct reader *r)
-{
-	struct value *val = initValue();
-	if (!val)
-		raise_syntax_error("failed to initialize value", r);
-
-	val->type = VAL_OP;
-	val->op = op;  
-	return val;  
+static inline void initOpValue(enum operator op, struct reader *r) {
+	r->curr_token.type = VAL_OP;
+	r->curr_token.num = op;   
 }
 
-struct value *initDelimValue(char delim, struct reader *r) {
-	struct value *val = initValue();
-	if (!val)
-		raise_syntax_error("failed to initialize value", r);
-
-
+static inline void initDelimValue(char delim, struct reader *r) {
 	switch (delim) {
 	case '\'':
-		val->num = getCharacterValue(r);
-		val->type = VAL_NUM;
-		return val;
+		r->curr_token.num = getCharacterValue(r);
+		r->curr_token.type = VAL_NUM;
+		break;
 	case '"':
-		val->str = getNextString(r);
-		val->type = VAL_STR;
+		r->curr_token.str = getNextString(r);
+		r->curr_token.type = VAL_STR;
 		break;
 	default:
-		val->type = VAL_DELIM;
-		val->ch = delim;
+		r->curr_token.type = VAL_DELIM;
+		r->curr_token.ch = delim;
 		break;
 	}
-	return val;
 }
 
-struct value *initNumValue(int num, struct reader *r) {
-	struct value *val = initValue();
-	if (!val)
-		raise_syntax_error("failed to initialize value", r);
-
-	val->type = VAL_NUM;
-	val->num = num;
-	return val;
-}
-
-void freeValue(struct value *val)
-{
-	if (!val)
-		return;
-	else if ((isStrType(val)) && (val->str != NULL))
-		free(val->str);
-	free(val);
+static inline void initNumValue(int num, struct reader *r) {
+	r->curr_token.type = VAL_NUM;
+	r->curr_token.num = num;
 }
 
 //fetching functions
-struct value *getRawValue(struct reader *r)
+void nextValue(struct reader *r)
 {
-	char ch = peek(r);
-	if (ch == EOF || !readerIsAlive(r))
-		return NULL;
-
-	if (isalpha(ch))
-		return initNameValue(getNextWord(r), r);
-	else if (matchesOp(ch))
-		return initOpValue(getNextOp(r), r);
-	else if (isDelim(ch))
-		return initDelimValue(getNextDelim(r), r);
-	else if (isdigit(peek(r)))
-		return initNumValue(getNextNum(r), r);
-	else
-		raise_syntax_error("Error, unexpected character", r);
-	return NULL;
-}
-
-struct value *getValue(struct reader *r)
-{
-	if (!readerIsAlive(r))
-		return NULL;
-
 	skip_spaces(r);
 
-	struct value *out = r->curr_token;
-	r->curr_token = getRawValue(r);
-	return out;
+	char ch = peek(r);
+	if (ch == EOF || !readerIsAlive(r))
+		return;
+
+	if (isalpha(ch))
+		initNameValue(getNextWord(r), r);
+	else if (matchesOp(ch))
+		initOpValue(getNextOp(r), r);
+	else if (isDelim(ch))
+		initDelimValue(getNextDelim(r), r);
+	else if (isdigit(peek(r)))
+		initNumValue(getNextNum(r), r);
+	else
+		raise_syntax_error("Error, unexpected character", r);
 }
 
-struct value *peekValue(struct reader *r)
+inline struct value *getValue(struct reader *r)
 {
-	if (!readerIsAlive(r))
-		return NULL;
-	return r->curr_token;
+	return &(r->curr_token);
 }
 
 void acceptValue(struct reader *r, enum value_type type, const char *expected)
 {
 	struct value *tok = getValue(r);
-	if (!tok) {
+	if (!tok)
 		raise_syntax_error("Invalid Null token value", r);
-	} else if (!expected) {
-		freeValue(tok);
+	else if (!expected)
 		raise_syntax_error("Invalid expected value", r);
-	} else if (tok->type != type) {
-		freeValue(tok);
+	else if (tok->type != type)
 		raise_syntax_error("Unexpected token type", r);
-	}
 	
-	if ((tok->type == VAL_KEYWORD) &&
-			strcmp(getKeyStr(tok->key), expected)) {
-		freeValue(tok);
+	if ((tok->type == VAL_KEYWORD) && strcmp(getKeyStr(tok->num), expected))
 		raise_syntax_error("Unexpected keyword value", r);
-    	} else if ((isStrType(tok) &&
-			(!tok->str || strcmp(tok->str, expected)))) {
-		freeValue(tok);
+    	else if ((isStrType(tok) && (!tok->str || strcmp(tok->str, expected))))
 		raise_syntax_error("Missing token string", r);
-    	} else if ((tok->type == VAL_DELIM) &&
-			(tok->ch != expected[0])) {
-		freeValue(tok);
+    	else if ((tok->type == VAL_DELIM) && (tok->ch != expected[0]))
 		raise_syntax_error("Unexpected token value", r);
-	}
-	freeValue(tok);
+	nextValue(r);
 }
