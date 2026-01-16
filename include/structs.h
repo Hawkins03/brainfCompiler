@@ -102,19 +102,19 @@ struct reader {
 
 struct env;
 
-struct var_data { //TODO: make bitarray for the bools
+struct var_data {
 	char *name;
 	bool is_mutable;
 	int array_depth;
-	bool is_defined;
+	//don't need is_defined because variables are default assigned to 0
 };
 
 struct env {
-	struct var_data *vars;
 	struct stmt *root;
-	size_t count;
-	size_t capacity;
 	struct env *parent;
+	struct var_data *vars;
+	size_t len;
+	size_t cap;
 };
 
 

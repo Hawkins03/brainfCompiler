@@ -15,11 +15,11 @@
 #include "parser.h"
 #include "utils.h"
 
-static bool is_assignable(const struct exp *exp) {
+static inline bool is_assignable(const struct exp *exp) {
 	return (exp) && ((exp->type == EXP_NAME) || (exp->type == EXP_ARRAY_REF));
 }
 
-static bool is_atomic(const struct exp *exp) {
+static inline bool is_atomic(const struct exp *exp) {
 	if (!exp)
 		return false;
 	if (is_assignable(exp))
@@ -40,7 +40,7 @@ static bool is_atomic(const struct exp *exp) {
 	}
 }
 
-static bool parses_to_int(struct exp *exp) {
+static inline bool parses_to_int(struct exp *exp) {
 	if (!exp)
 		return false;
 	switch (exp->type) {
@@ -49,11 +49,22 @@ static bool parses_to_int(struct exp *exp) {
 		return true;
 	case EXP_BINARY_OP:
 	case EXP_ASSIGN_OP:
-	case EXP_UNARY:
 		return (parses_to_int(exp->op->left) && parses_to_int(exp->op->right));
+	case EXP_UNARY:
+		return parses_to_int(exp->unary->operand);
 	default:
 		return false;
 	}
+}
+
+static inline bool parses_to_assignable(struct exp *exp) {
+	if (!exp)
+		return false;
+	if ((exp->type == EXP_NAME) || (exp->type == EXP_ARRAY_REF))
+		return true;
+	if (exp->type == EXP_UNARY)
+		return parses_to_assignable(exp->unary->operand);
+	return false;
 }
 
 static inline bool isOpType(const struct value v) {
@@ -298,6 +309,10 @@ void parse_exp(int minPrio, struct reader *r, struct exp *in)
 		swap_exps(in, left);
 
 		enum operator op = stealNextOp(r);
+	
+		if (isAssignOp(op) && !parses_to_assignable(left))
+			raise_syntax_error("left hand side of an assignment operation must be assignable", r);
+
 		init_binary(r, in, (isAssignOp(op)) ?  EXP_ASSIGN_OP: EXP_BINARY_OP);
 
 		in->op->left = left;

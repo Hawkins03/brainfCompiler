@@ -156,7 +156,6 @@ bool is_prefix_unary(enum operator op) {
     	return false;
 }
 
-
 //inline checker functions
 static inline bool matchesOp(const int op) {
 	return (op != EOF) && strchr(OP_START, op);
@@ -191,6 +190,20 @@ static inline enum key_type getKeyType(char *keyword) {
 	return -1;
 }
 
+
+static inline void getSingleLineComment(struct reader *r) {
+	while (r && (advance(r) != '\n'));
+}
+
+static inline void getMultiLineComment(struct reader *r) {
+	char prev = advance(r);
+	char curr = advance(r);
+
+	while (r && (prev != '*') && (curr != '/')) {
+		prev = curr;
+		curr = advance(r);
+	}
+}
 
 //fetching value contents
 static inline enum operator getNextOp(struct reader *r) {
@@ -294,6 +307,21 @@ static inline char *getNextString(struct reader *r) {
 	set_strlen(&buf, len + 1, r);
 	buf[len] = '\0';
 	return buf;
+}
+
+static inline char getNextDelim(struct reader *r) {
+	char ch = advance(r);
+	if (ch == '/') {
+		switch (peek(r)) {
+		case '/':
+			getSingleLineComment(r);
+			return advance(r);
+		case '*':
+			getMultiLineComment(r);
+			return advance(r);
+		}
+	}
+	return ch;
 }
 
 
