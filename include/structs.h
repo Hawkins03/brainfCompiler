@@ -27,21 +27,59 @@ enum stmt_type {
 	STMT_EMPTY, STMT_VAR, STMT_LOOP, STMT_IF, STMT_EXPR
 };
 
+enum err_type {
+	ERR_OK = 0,
+	
+	// File/IO errors
+	ERR_NO_FILE,        // Failed to open file
+	ERR_EOF,            // Unexpected end of file
+	
+	// Memory errors
+	ERR_NO_MEM,         // Memory allocation failed
+	ERR_REFREE,         // Attempted to free already freed memory
+	
+	// Lexer/tokenization errors
+	ERR_UNEXP_CHAR,     // Unexpected character
+	ERR_INV_ESC,        // Invalid escape sequence
+	ERR_UNMATCHED_BRACKET,  // More specific than ERR_MISS_DELIM
+	ERR_UNMATCHED_PAREN,
+	ERR_UNMATCHED_BRACE,
+	ERR_BIG_NUM,        // Number exceeds maximum value
+	ERR_TOO_LONG,       // String exceeds maximum length
+	
+	// Parser errors
+	ERR_INV_TYPE,       // Invalid or unexpected type
+	ERR_INV_VAL,        // Invalid value
+	ERR_INV_OP,         // Invalid operator
+	ERR_INV_EXP,        // Invalid expression
+	ERR_INV_STMT,       // Invalid statement
+	ERR_BAD_ELSE,       // Malformed else clause
+	
+	// Semantic errors
+	ERR_REDEF,          // Variable redefinition
+	ERR_NO_VAR,         // Undefined variable
+	ERR_IMMUT,          // Assignment to immutable variable
+	ERR_INV_ARR,        // Invalid array operation
+	
+	// Internal/logic errors
+	ERR_INF_REC,        // Infinite recursion detected
+	ERR_INTERNAL,       // Internal compiler error
+};
 
 enum operator {
-    OP_PLUS, OP_MINUS,
-    OP_MULTIPLY, OP_DIVIDE, OP_MODULO, //5
-    OP_BITWISE_NOT, OP_BITWISE_OR, OP_BITWISE_XOR, OP_BITWISE_AND,//9
-    OP_LEFT_SHIFT, OP_RIGHT_SHIFT,//11
-    OP_LT, OP_LE, OP_GT, OP_GE,//15
-    OP_EQ, OP_NE,//17
-    OP_LOGICAL_NOT, OP_LOGICAL_AND,  OP_LOGICAL_OR,//20
-    OP_ASSIGN, OP_PLUS_ASSIGN, OP_MINUS_ASSIGN,//23
-    OP_MULTIPLY_ASSIGN, OP_DIVIDE_ASSIGN, OP_MODULO_ASSIGN,//26
-    OP_LEFT_SHIFT_ASSIGN, OP_RIGHT_SHIFT_ASSIGN,//28
-    OP_BITWISE_AND_ASSIGN, OP_BITWISE_XOR_ASSIGN, OP_BITWISE_OR_ASSIGN,//31
-    OP_INCREMENT, OP_DECREMENT,//33
-    OP_UNKNOWN//34
+	OP_PLUS, OP_MINUS,
+	OP_MULTIPLY, OP_DIVIDE, OP_MODULO, //5
+	OP_BITWISE_NOT, OP_BITWISE_OR, OP_BITWISE_XOR, OP_BITWISE_AND,//9
+	OP_LEFT_SHIFT, OP_RIGHT_SHIFT,//11
+	OP_LT, OP_LE, OP_GT, OP_GE,//15
+	OP_EQ, OP_NE,//17
+	OP_LOGICAL_NOT, OP_LOGICAL_AND,  OP_LOGICAL_OR,//20
+	OP_ASSIGN, OP_PLUS_ASSIGN, OP_MINUS_ASSIGN,//23
+	OP_MULTIPLY_ASSIGN, OP_DIVIDE_ASSIGN, OP_MODULO_ASSIGN,//26
+	OP_LEFT_SHIFT_ASSIGN, OP_RIGHT_SHIFT_ASSIGN,//28
+	OP_BITWISE_AND_ASSIGN, OP_BITWISE_XOR_ASSIGN, OP_BITWISE_OR_ASSIGN,//31
+	OP_INCREMENT, OP_DECREMENT,//33
+	OP_UNKNOWN//34
 };
 
 //TODO: only malloc one value, and pass stuff through it. (i.e. peek only, getValue just changes its contents)

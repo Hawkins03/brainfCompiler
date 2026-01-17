@@ -175,6 +175,7 @@ bool stmts_match(const struct stmt *stmt1, const struct stmt *stmt2) {
 		return exps_match(stmt1->exp, stmt2->exp);
 	default:
 		raise_error("invalid stmt type");
+		//ERR_INV_STMT
 	}
 	return false;
 }

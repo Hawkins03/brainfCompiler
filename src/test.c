@@ -184,6 +184,7 @@ int test_file(const char *input_file, const char *expected) {
     if (stmt->next == stmt) {
         free_stmt(stmt);
         raise_error("infinite recursion of statement");
+	//ERR_INF_REC
     }
     
     struct strbuf sb;
