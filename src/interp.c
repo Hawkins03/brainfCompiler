@@ -1,3 +1,15 @@
+/** @file interp.c
+ *  @brief Functions for parsing expression
+ *
+ *  This contains the functions that
+ *  interpret brainf code.
+ * 
+ *  eventually, it'll also be able to interprate the ir into brainf
+ *
+ *  @author Hawkins Peterson (hawkins03)
+ *  @bug No known bugs.
+ */
+
 #include <stdio.h>
 #include <string.h>
 #include "interp.h"

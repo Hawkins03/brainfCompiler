@@ -1,3 +1,15 @@
+/** @file test.h
+ *  @brief the file providing utility
+ * 
+ * basically just string mallocing and error printing.
+ * might rename to errors and add a strings file, but for now it's just this.
+ * might also move reader into it's own file again and remove out values, but I like the current setup
+ * 
+ * @author Hawkins Peterson (Hawkins03)
+ * @bug no bugs
+ */
+
+
 #ifndef UTILS_H
 #define UTILS_H
 #include <stdio.h>

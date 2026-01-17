@@ -1,3 +1,16 @@
+/** @file reader.c
+ *  @brief Functions for reading from a file
+ * 
+ *  This contains the utility functions for
+ *  the reader struct, a number of static inline
+ *  functions for readability's sake, as well
+ *  as some value utility functions
+ *
+ *  @author Hawkins Peterson (hawkins03)
+ *  @bug No known bugs.
+ */
+
+
 #include <stdlib.h>
 #include <ctype.h>
 #include <limits.h>
@@ -122,20 +135,6 @@ void killReader(struct reader *r) {
 	fclose(r->fp);
 	r->fp = NULL;
 	free(r);
-}
-
-bool hasNextStmt(struct reader *r) {
-	struct value tok = r->val;
-	return (tok.type != VAL_DELIM) || (tok.ch != '}');
-}
-
-bool atSemicolon(struct reader *r) {
-	struct value tok = r->val;
-	return (tok.type == VAL_DELIM) && (tok.ch == ';');
-}
-
-bool parserCanProceed(struct reader *r) {
-	return r && hasNextStmt(r) && !atSemicolon(r);
 }
 
 //op checker functions
@@ -448,8 +447,6 @@ void acceptValue(struct reader *r, enum value_type type, const char *expected) {
 		raise_syntax_error(ERR_INV_VAL, r);
 	
 	if ((tok.type == VAL_KEYWORD) && strcmp(getKeyStr(tok.num), expected))
-		raise_syntax_error(ERR_INV_VAL, r);
-    	else if ((tok.type == VAL_NAME) && (!tok.str || strcmp(tok.str, expected)))
 		raise_syntax_error(ERR_INV_VAL, r);
     	else if ((tok.type == VAL_DELIM) && (tok.ch != expected[0]))
 		raise_syntax_error(ERR_INV_VAL, r);

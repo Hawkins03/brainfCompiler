@@ -1,3 +1,15 @@
+/** @file semantics.c
+ *  @brief Functions for checking the semantics of the stmt linked list
+ * 
+ *  This contains the utility functions for
+ *  the env struct and the functions to check the semantics
+ *  as well as a lot of inlined functions for readability.
+ *
+ *  @author Hawkins Peterson (hawkins03)
+ *  @bug No known bugs.
+ */
+
+
 #include "semantics.h"
 #include "parser.h"
 #include "structs.h"
@@ -45,8 +57,8 @@ void free_env(struct env *env) {
 }
 
 //var utility functions
-bool declare_var(struct env *env, char *name, bool is_mutable, int array_depth) {
-	if (!env->vars || var_exists(env, name))
+bool define_var(struct env *env, char *name, bool is_mutable, int array_depth) {
+	if (!env->vars  || (get_var(env, name) != NULL))
 		return false;
 	//ERR_REDEF
 	struct var_data *var_loc = env->vars + (env->len)++;
@@ -66,10 +78,6 @@ struct var_data *get_var(const struct env *env, const char *name) {
 			return var;
 		}
 	return get_var(env->parent, name);
-}
-
-bool var_exists(const struct env *env, const char *name) {
-  	return (get_var(env, name) != NULL);
 }
 
 static int get_var_depth(struct env *env, const char *name) {
@@ -184,17 +192,76 @@ static inline bool is_incrementable(struct env *env, const struct exp *exp) {
 	return vd->is_mutable && (vd->array_depth == 0);
 }
 
-/** check_stmt_semantics:
- * RULES:
- * 1. All exps must be valid.
- * 2. control flow rules:
- *   2.1: all conds must be int type.
- * 3. declaration rules:
- *   3.1 a variable must be declared before it is used (eg: "x=3; var x;" is invalid)
- *   3.2 no redeclaring variables in the same scope
- *   3.3 symbols declared with val are immutable
- *   3.4 see assignment rules
-*/
+// checker functions
+void check_exp_semantics(struct env *env, struct exp *exp) {
+	if (!env)
+		return;
+
+	switch (exp->type) {
+	case EXP_NAME:
+		struct var_data *var = get_var(env, exp->name);
+		if (!var)
+			raise_exp_semantic_error(ERR_NO_VAR, exp, env);
+		break;
+	
+	case EXP_ASSIGN_OP:
+		struct exp *a_left = exp->op->left;
+		struct exp *a_right = exp->op->right;
+		raise_error_if_immutable(env, a_left);
+		if (setting_two_arrays(env, exp)) {
+			raise_error_if_invalid_depth(env, a_right, get_exp_depth(env, a_left));
+			check_exp_semantics(env, a_left);
+			check_exp_semantics(env, a_right);
+			return;
+		}
+		if (is_array(env, a_left) || is_array(env, a_right))
+			raise_exp_semantic_error(ERR_INV_ARR, exp, env);
+		if (!exp_is_unary(a_left))
+			raise_exp_semantic_error(ERR_INV_EXP, exp, env);
+		check_exp_semantics(env, a_left);
+		check_exp_semantics(env, a_right);
+		break;
+	case EXP_UNARY:
+		if (is_array(env, exp->unary->operand))
+			raise_exp_semantic_error(ERR_INV_ARR, exp->unary->operand, env);
+		if (op_must_be_assignable(exp->unary->op) && !is_incrementable(env, exp->unary->operand))
+			raise_exp_semantic_error(ERR_INV_EXP, exp, env);
+		
+		check_exp_semantics(env, exp->unary->operand);
+		break;
+	case EXP_BINARY_OP:
+		struct exp *b_left = exp->op->left;
+		struct exp *b_right = exp->op->right;
+		if (is_array(env, b_left))
+			raise_exp_semantic_error(ERR_INV_ARR, b_left, env);
+		if (is_array(env, b_right))
+			raise_exp_semantic_error(ERR_INV_ARR, b_right, env);
+		check_exp_semantics(env, b_left);
+		check_exp_semantics(env, b_right);
+		break;
+	case EXP_ARRAY_REF:
+		if (!is_array(env, exp->array_ref->name))
+			raise_exp_semantic_error(ERR_INV_ARR, exp, env);
+		check_exp_semantics(env, exp->array_ref->name);
+		check_exp_semantics(env, exp->array_ref->index);
+		break;
+	case EXP_ARRAY_LIT:
+		for (int i = 0; i < exp->array_lit->size; i++)
+			check_exp_semantics(env, exp->array_lit->array + i);
+		break;
+	case EXP_CALL:
+		if (exp->call->key == KW_PRINT)  { 
+			if(is_array(env, exp->call->arg)) //TODO: update ir to overload print to enable this.
+				raise_exp_semantic_error(ERR_INV_ARR, exp, env);
+			check_exp_semantics(env, exp->call->arg);
+		}
+		break;
+	default:
+		raise_exp_semantic_error(ERR_INV_EXP, exp, env);
+		break;
+	}
+}
+
 void check_stmt_semantics(struct env *env, struct stmt *stmt) {
 	if(!stmt)
 		return;
@@ -214,7 +281,7 @@ void check_stmt_semantics(struct env *env, struct stmt *stmt) {
 		if ((lhs_is_array && (!rhs_is_array && !stmt->var->value)) || (!lhs_is_array && rhs_is_array))
 			raise_stmt_semantic_error(ERR_INV_ARR, stmt, env);
 
-		if (!declare_var(env, name, is_mutable, array_depth))
+		if (!define_var(env, name, is_mutable, array_depth))
 			raise_stmt_semantic_error(ERR_REDEF, stmt, env);
 
 		raise_error_if_invalid_depth(env, stmt->var->value, array_depth);
@@ -245,7 +312,6 @@ void check_stmt_semantics(struct env *env, struct stmt *stmt) {
 	case STMT_LOOP:
 		if (is_array(env, stmt->loop->cond))
 			raise_exp_semantic_error(ERR_INV_ARR, stmt->loop->cond, env);
-		//ERR_INV_ARR
 		check_exp_semantics(env, stmt->loop->cond);
 		struct env loop_env;
 		setup_env(&loop_env, env);
@@ -257,92 +323,6 @@ void check_stmt_semantics(struct env *env, struct stmt *stmt) {
 		break;
 	}
 	check_stmt_semantics(env, stmt->next);
-}
-
- /** check_exp_semantics
-  * RULES:
-  * 1. symbol and binding rules:
-  *   1.1: a variable must be declared before it is used (eg: "x=3; var x;" is invalid)
-  *   1.2: no redeclaring variables in the same scope
-  *   1.3: symbols declared with val are immutable
-  *   1.4: to reffer to a name as an array, it must be declared as an array.
-  * 2. assignment rules:
-  *   2.1: left hand side must be assigable and mutable.
-  *   2.2: ints get assigned to ints, arrays get assigned to arrays
-  *   2.3: for name <op>= value, name and value must be ints
-  * 3. unary rules:
-  *   3.1: for ++, --, and - unary operators, they must eventually refer directly to assignable values.
-  * 4. binary op rules:
-  *   4.1: all assignments must be ints.
-  * 6: print and input take and return int values only.
-  */
-void check_exp_semantics(struct env *env, struct exp *exp) {
-	if (!env)
-		return;
-
-	switch (exp->type) {
-	case EXP_NAME:
-		struct var_data *var = get_var(env, exp->name);
-		if (!var)
-			raise_exp_semantic_error(ERR_NO_VAR, exp, env);
-		if (var->array_depth > 0)
-			raise_exp_semantic_error(ERR_INV_ARR, exp, env);
-		break;
-	
-	case EXP_ASSIGN_OP:
-		struct exp *a_left = exp->op->left;
-		struct exp *a_right = exp->op->right;
-		raise_error_if_immutable(env, a_left);
-		if (setting_two_arrays(env, exp)) {
-			raise_error_if_invalid_depth(env, a_right, get_exp_depth(env, a_left));
-			check_exp_semantics(env, a_left);
-			check_exp_semantics(env, a_right);
-			return;
-		}
-		if (is_array(env, a_left) || is_array(env, a_right))
-			raise_exp_semantic_error(ERR_INV_ARR, exp, env);
-		if (!exp_is_unary(a_left))
-			raise_exp_semantic_error(ERR_INV_EXP, exp, env);
-		check_exp_semantics(env, a_left);
-		check_exp_semantics(env, a_right);
-		break;
-	case EXP_UNARY:
-		if (is_array(env, exp->unary->operand))
-			raise_exp_semantic_error(ERR_INV_EXP, exp, env);
-		if (op_must_be_assignable(exp->unary->op) && !is_incrementable(env, exp->unary->operand))
-			raise_exp_semantic_error(ERR_INV_EXP, exp, env);
-		
-		check_exp_semantics(env, exp->unary->operand);
-		break;
-	case EXP_BINARY_OP:
-		struct exp *b_left = exp->op->left;
-		struct exp *b_right = exp->op->right;
-		if (is_array(env, b_left) || is_array(env, b_right))
-			raise_exp_semantic_error(ERR_INV_EXP, exp, env);
-		check_exp_semantics(env, b_left);
-		check_exp_semantics(env, b_right);
-		break;
-	case EXP_ARRAY_REF:
-		if (is_array(env, exp->array_ref->name))
-			raise_exp_semantic_error(ERR_INV_ARR, exp, env);
-		check_exp_semantics(env, exp->array_ref->name);
-		check_exp_semantics(env, exp->array_ref->index);
-		break;
-	case EXP_ARRAY_LIT:
-		for (int i = 0; i < exp->array_lit->size; i++)
-			check_exp_semantics(env, exp->array_lit->array + i);
-		break;
-	case EXP_CALL:
-		if (exp->call->key == KW_PRINT)  { 
-			if(is_array(env, exp->call->arg))
-				raise_exp_semantic_error(ERR_INV_ARR, exp, env);
-			check_exp_semantics(env, exp->call->arg);
-		}
-		break;
-	default:
-		raise_exp_semantic_error(ERR_INV_EXP, exp, env);
-		break;
-	}
 }
 
 void check_file_semantics(char *filename) {

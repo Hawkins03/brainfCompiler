@@ -1,3 +1,14 @@
+/** @file stmt.c
+ *  @brief utility functions for the stmt structure
+ * 
+ *  This contains the utility functions for
+ *  the stmt struct including checking equivalence,
+ *  freeing, printing and initializing
+ *
+ *  @author Hawkins Peterson (hawkins03)
+ *  @bug No known bugs.
+ */
+
 #include <stdlib.h>
 #include <stdbool.h>
 #include <string.h>

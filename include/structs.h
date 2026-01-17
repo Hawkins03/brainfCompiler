@@ -153,7 +153,7 @@ struct reader {
 };
 
 struct env;
-
+// TODO: change name to scope
 struct var_data {
 	char *name;
 	bool is_mutable;

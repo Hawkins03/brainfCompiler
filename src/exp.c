@@ -1,3 +1,15 @@
+/** @file exp.c
+ *  @brief utility functions for the expression struct.
+ * 
+ *  contains freeing, printing, initializing
+ *  and checker functions for exp. Most checker
+ *  functions are in the individual files
+ *  they're called in, but that may change.
+ * 
+ *  @author Hawkins Peterson (hawkins03)
+ *  @bug no known bugs
+ */
+
 #include "parser.h"
 #include "utils.h"
 #include "exp.h"
