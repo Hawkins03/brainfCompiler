@@ -106,13 +106,14 @@ void print_stmt(const struct stmt *stmt) {
 
 struct stmt *init_stmt(struct reader *r) {
 	struct stmt *s = calloc(1, sizeof(*s));
-	if (s) {
-		s->type = STMT_EMPTY;
-        	return s;
-	}
-
-	raise_syntax_error("failed to allocate exp", r);
-	return NULL;
+	if (!s)
+		raise_syntax_error(ERR_NO_MEM, r);
+	
+	s->type = STMT_EMPTY;
+	s->filename = r->filename;
+	s->pos = r->line_start_pos;
+	s->start_col = r->val.start_pos;
+        return s;
 }
 
 void init_varStmt(struct reader *r, struct stmt *stmt, bool is_mutable) {
@@ -120,7 +121,7 @@ void init_varStmt(struct reader *r, struct stmt *stmt, bool is_mutable) {
 	stmt->var = calloc(1, sizeof(*(stmt->var)));
 	
 	if (!stmt->var)
-		raise_syntax_error("failed to allocate var", r);
+		raise_syntax_error(ERR_NO_MEM, r);
 	stmt->var->is_mutable = is_mutable;
 }
 
@@ -129,7 +130,7 @@ void init_ifStmt(struct reader *r, struct stmt *stmt) {
 	stmt->ifStmt = calloc(1, sizeof(*(stmt->ifStmt)));
 	
 	if (!stmt->ifStmt)
-		raise_syntax_error("failed to allocate ifStmt", r);
+		raise_syntax_error(ERR_NO_MEM, r);
 }
 
 void init_loopStmt(struct reader *r, struct stmt *stmt) {
@@ -137,7 +138,7 @@ void init_loopStmt(struct reader *r, struct stmt *stmt) {
 	stmt->loop = calloc(1, sizeof(*(stmt->loop)));
 	
 	if (!stmt->loop)
-		raise_syntax_error("failed to allocate loop", r);
+		raise_syntax_error(ERR_NO_MEM, r);
 }
 
 void init_expStmt(struct stmt *stmt, struct exp *exp) {
@@ -174,7 +175,7 @@ bool stmts_match(const struct stmt *stmt1, const struct stmt *stmt2) {
 	case STMT_EXPR:
 		return exps_match(stmt1->exp, stmt2->exp);
 	default:
-		raise_error("invalid stmt type");
+		raise_error(ERR_INV_STMT);
 		//ERR_INV_STMT
 	}
 	return false;

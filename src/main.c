@@ -15,11 +15,11 @@ int main(int argc, char *argv[]) {
 	printf("%d\n", OP_PLUS);
 
 	if (argc <= 1)
-		raise_error("bfCompile requires one or more files to run. Usage: ./bfCompiler <files>");
+		raise_error(ERR_NO_ARGS);
 
     	for (int i = 1; (i < argc) && (argv[i] != NULL); i++) {
 		if (!argv[i])
-			raise_error("invalid argument");
+			raise_error(ERR_NO_ARGS);
 
 		struct stmt *expression = parse_file(argv[i]);
 		print_stmt(expression);

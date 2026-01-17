@@ -4,6 +4,8 @@
 #include <stdbool.h>
 #include "structs.h"
 
+#define DEFAULT_LINE_CAP 256
+#define MAX_LINE_LEN 4096
 #define MAX_WORD_LEN 32
 #define MAX_NUM_LEN 10
 #define MAX_OP_LEN 3

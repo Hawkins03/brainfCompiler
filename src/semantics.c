@@ -11,8 +11,7 @@ void setup_env(struct env *env, struct env *parent) {
 	env->cap = DEFAULT_CAP_SIZE;
 	env->vars = calloc(env->cap, sizeof(*env->vars));
 	if (!env->vars)
-		raise_semantic_error("failed to allocate space for vars", env);
-	//ERR_NO_MEM
+		raise_error(ERR_NO_MEM);
 }
 
 static inline void increase_env_len(struct env *env) {
@@ -21,9 +20,10 @@ static inline void increase_env_len(struct env *env) {
 	
 	env->cap *= 2;
 	struct var_data *tmp = realloc(env->vars, env->cap);
-	if (!tmp)
-		raise_semantic_error("failed to allocate space for vars", env);
-	//ERR_NO_MEM
+	if (!tmp) {
+		free_env(env);
+		raise_error(ERR_NO_MEM);
+	}
 	env->vars = tmp;
 
 }
@@ -45,15 +45,16 @@ void free_env(struct env *env) {
 }
 
 //var utility functions
-void declare_var(struct env *env, char *name, bool is_mutable, int array_depth) {
+bool declare_var(struct env *env, char *name, bool is_mutable, int array_depth) {
 	if (!env->vars || var_exists(env, name))
-		raise_semantic_error("variable name already defined", env);
+		return false;
 	//ERR_REDEF
 	struct var_data *var_loc = env->vars + (env->len)++;
 	var_loc->name = name;
 	increase_env_len(env);
 	var_loc->is_mutable = is_mutable;
 	var_loc->array_depth = array_depth;
+	return true;
 }
 
 struct var_data *get_var(const struct env *env, const char *name) {
@@ -77,13 +78,11 @@ static int get_var_depth(struct env *env, const char *name) {
 	const struct var_data *var_data = get_var(env, name);
 	if (var_data)
 		return var_data->array_depth;
-	raise_semantic_error("failed to find array name", env);
-	//ERR_NO_VAR
-	return 0;
+	return -1;
 }
 
 static bool is_array_var(struct env *env, const char *name) {
-	return get_var_depth(env, name) > 0;
+	return get_var_depth(env, name) >= 0;
 }
 
 // exp utility functions
@@ -165,14 +164,14 @@ static inline bool setting_two_arrays(struct env *env, const struct exp *exp) {
 
 static inline void raise_error_if_invalid_depth(struct env *env, struct exp *exp, int depth) {
 	if (get_exp_depth(env, exp) > depth)
-		raise_semantic_error("invalid array dimension", env);
+		raise_exp_semantic_error(ERR_INV_ARR, exp, env);
 	//ERR_INV_ARR
 }
 
 static inline void raise_error_if_immutable(struct env *env, const struct exp *exp) {
 	struct var_data *vd = get_var(env, get_exp_name(exp));
 	if (vd && !vd->is_mutable)
-		raise_semantic_error("attempting to set an immutable variable", env);
+		raise_exp_semantic_error(ERR_IMMUT, exp, env);
 	//ERR_IMMUT
 }
 
@@ -212,14 +211,11 @@ void check_stmt_semantics(struct env *env, struct stmt *stmt) {
 		bool lhs_is_array = stmt->var->name->type == EXP_ARRAY_REF;
 		bool rhs_is_array = is_array(env, stmt->var->value);
 
-		if (lhs_is_array && (!rhs_is_array && !stmt->var->value))
-			raise_semantic_error("arrays can only be defined as arrays", env);
-		//ERR_INV_ARR
-		else if (!lhs_is_array && rhs_is_array)
-			raise_semantic_error("only arrays can be defined to be arrays", env);
-		//ERR_INV_ARR
+		if ((lhs_is_array && (!rhs_is_array && !stmt->var->value)) || (!lhs_is_array && rhs_is_array))
+			raise_stmt_semantic_error(ERR_INV_ARR, stmt, env);
 
-		declare_var(env, name, is_mutable, array_depth);
+		if (!declare_var(env, name, is_mutable, array_depth))
+			raise_stmt_semantic_error(ERR_REDEF, stmt, env);
 
 		raise_error_if_invalid_depth(env, stmt->var->value, array_depth);
 
@@ -231,8 +227,7 @@ void check_stmt_semantics(struct env *env, struct stmt *stmt) {
 		break;
 	case STMT_IF:
 		if (is_array(env, stmt->ifStmt->cond))
-			raise_semantic_error("conditions can't be an array", env);
-		//ERR_INV_ARR
+			raise_exp_semantic_error(ERR_INV_ARR, stmt->ifStmt->cond, env);
 		check_exp_semantics(env, stmt->ifStmt->cond);
 
 		struct env then_env;
@@ -249,7 +244,7 @@ void check_stmt_semantics(struct env *env, struct stmt *stmt) {
 		break;
 	case STMT_LOOP:
 		if (is_array(env, stmt->loop->cond))
-			raise_error("conditions can't be an array");
+			raise_exp_semantic_error(ERR_INV_ARR, stmt->loop->cond, env);
 		//ERR_INV_ARR
 		check_exp_semantics(env, stmt->loop->cond);
 		struct env loop_env;
@@ -258,8 +253,7 @@ void check_stmt_semantics(struct env *env, struct stmt *stmt) {
 		free_env(&loop_env);
 		break;
 	default:
-		raise_semantic_error("invalid statement in semantics", env);
-		//ERR_INV_STMT
+		raise_stmt_semantic_error(ERR_INV_STMT, stmt, env);
 		break;
 	}
 	check_stmt_semantics(env, stmt->next);
@@ -290,11 +284,9 @@ void check_exp_semantics(struct env *env, struct exp *exp) {
 	case EXP_NAME:
 		struct var_data *var = get_var(env, exp->name);
 		if (!var)
-			raise_semantic_error("variable has not been defined", env);
-		//ERR_NO_VAR
+			raise_exp_semantic_error(ERR_NO_VAR, exp, env);
 		if (var->array_depth > 0)
-			raise_semantic_error("array is being used as an integer", env);
-		//ERR_INV_ARR
+			raise_exp_semantic_error(ERR_INV_ARR, exp, env);
 		break;
 	
 	case EXP_ASSIGN_OP:
@@ -308,21 +300,17 @@ void check_exp_semantics(struct env *env, struct exp *exp) {
 			return;
 		}
 		if (is_array(env, a_left) || is_array(env, a_right))
-			raise_error("operations can't apply to arrays");
-			//ERR_INV_ARR
+			raise_exp_semantic_error(ERR_INV_ARR, exp, env);
 		if (!exp_is_unary(a_left))
-			raise_semantic_error("expected a single variable being set.", env);
-			//ERR_INV_EXP
+			raise_exp_semantic_error(ERR_INV_EXP, exp, env);
 		check_exp_semantics(env, a_left);
 		check_exp_semantics(env, a_right);
 		break;
 	case EXP_UNARY:
 		if (is_array(env, exp->unary->operand))
-			raise_semantic_error("unary expressions can't apply to arrays", env);
-			//ERR_INV_VAR
+			raise_exp_semantic_error(ERR_INV_EXP, exp, env);
 		if (op_must_be_assignable(exp->unary->op) && !is_incrementable(env, exp->unary->operand))
-			raise_semantic_error("++ and -- only work on integer variables", env);
-			//ERR_INV_EXP
+			raise_exp_semantic_error(ERR_INV_EXP, exp, env);
 		
 		check_exp_semantics(env, exp->unary->operand);
 		break;
@@ -330,15 +318,13 @@ void check_exp_semantics(struct env *env, struct exp *exp) {
 		struct exp *b_left = exp->op->left;
 		struct exp *b_right = exp->op->right;
 		if (is_array(env, b_left) || is_array(env, b_right))
-			raise_semantic_error("operations can't apply to arrays", env);
-		//ERR_INV_ARR
+			raise_exp_semantic_error(ERR_INV_EXP, exp, env);
 		check_exp_semantics(env, b_left);
 		check_exp_semantics(env, b_right);
 		break;
 	case EXP_ARRAY_REF:
 		if (is_array(env, exp->array_ref->name))
-			raise_semantic_error("can only reffer to arrays as arrays", env);
-		//ERR_INV_ARR
+			raise_exp_semantic_error(ERR_INV_ARR, exp, env);
 		check_exp_semantics(env, exp->array_ref->name);
 		check_exp_semantics(env, exp->array_ref->index);
 		break;
@@ -349,20 +335,20 @@ void check_exp_semantics(struct env *env, struct exp *exp) {
 	case EXP_CALL:
 		if (exp->call->key == KW_PRINT)  { 
 			if(is_array(env, exp->call->arg))
-				raise_semantic_error("print can only print integer values", env);
-				//ERR_INV_ARR
+				raise_exp_semantic_error(ERR_INV_ARR, exp, env);
 			check_exp_semantics(env, exp->call->arg);
 		}
 		break;
 	default:
-		raise_semantic_error("invalid exp in semantics", env);
-		//ERR_INV_EXP
+		raise_exp_semantic_error(ERR_INV_EXP, exp, env);
 		break;
 	}
 }
 
 void check_file_semantics(char *filename) {
 	struct stmt *root = parse_file(filename);
+
+	//TODO: update to do one line at a time.
 
 	struct env env;
 	setup_env(&env, NULL);

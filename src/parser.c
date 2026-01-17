@@ -143,17 +143,18 @@ static void parseCall(struct reader *r, struct exp *in) {
 		parseBreak(r, in);
 		break;
 	default:
-		raise_syntax_error("invalid value", r); //ERR_INV_VAL
+		raise_syntax_error(ERR_INV_VAL, r);
 	}
 }
 
 static inline void parseSuffix(struct exp  *left, struct reader *r, struct exp *in) {
 	if (!r || !isSuffixVal(r->val))
-		raise_syntax_error("expected a suffix op", r); //ERR_INV_OP
+		raise_syntax_error(ERR_INV_OP, r);
 	struct exp *operand = left;
 	if (left == in) {
 		operand = init_exp(r);
-		swap_exps(left, operand);	
+		swap_exps(left, operand);
+		in->start_col = operand->start_col;	
 	}
 	init_exp_unary(r, in, false);
 	in->unary->op = stealNextOp(r);
@@ -162,7 +163,7 @@ static inline void parseSuffix(struct exp  *left, struct reader *r, struct exp *
 
 static inline void parsePrefix(struct reader *r, struct exp *in) {
 	if (!r || !isPrefixVal(r->val))
-		raise_syntax_error("invalid unary prefix", r); //ERR_INV_OP
+		raise_syntax_error(ERR_INV_OP, r);
 
 	//not folding in so that stealNextStr precedes parseSuffix and parse_atom 
 	
@@ -195,7 +196,7 @@ static inline void parseArrayLit(struct reader *r, struct exp *in)
 			in->array_lit->size *= 2;
 			struct exp *temp = realloc(in->array_lit->array, in->array_lit->size);
 			if (!temp)
-				raise_syntax_error("failed to realloc exp list", r); //ERR_NO_MEM
+				raise_syntax_error(ERR_NO_MEM, r);
 
 			in->array_lit->array = temp;
 		}
@@ -206,7 +207,7 @@ static inline void parseArrayLit(struct reader *r, struct exp *in)
 
 static inline void parseNum(struct reader *r, struct exp *in) {
 	if (!r || r->val.type != VAL_NUM)
-		raise_syntax_error("expected a num value", r); //ERR_INV_VAL
+		raise_syntax_error(ERR_INV_VAL, r);
 	
 	in->type = EXP_NUM;
 	in->num = r->val.num;
@@ -221,7 +222,7 @@ static inline void parseStr(struct reader *r, struct exp *in) {
 
 	if (len > INT_MAX) {
 		free(str);
-		raise_syntax_error("invalid string", r); //ERR_TOO_LONG
+		raise_syntax_error(ERR_TOO_LONG, r); //ERR_TOO_LONG
 	}
 
 	init_exp_array_lit(r, in, len);
@@ -247,7 +248,6 @@ static void parseArrayRef(struct reader *r, struct exp *in) {
 	in->array_ref->name = name;
 	in->array_ref->index = init_exp(r);
 	parse_exp(0, r, in->array_ref->index);
-
 	acceptValue(r, VAL_DELIM, "]");
 
 	parseArrayRef(r, in);
@@ -289,7 +289,7 @@ void parse_atom(struct reader *r, struct exp *in) {
 		parseCall(r, in);
 		break;
 	default:
-		raise_syntax_error("invalid val type", r); //ERR_INV_VAL
+		raise_syntax_error(ERR_INV_VAL, r);
 	}
 
 	if (isSuffixVal(r->val)) {
@@ -310,8 +310,7 @@ void parse_exp(int minPrio, struct reader *r, struct exp *in)
 		enum operator op = stealNextOp(r);
 	
 		if (isAssignOp(op) && !parses_to_assignable(left))
-			raise_syntax_error("left hand side of an assignment operation must be assignable", r);
-		//ERR_INV_EXP
+			raise_syntax_error(ERR_INV_EXP, r);
 		init_binary(r, in, (isAssignOp(op)) ?  EXP_ASSIGN_OP: EXP_BINARY_OP);
 
 		in->op->left = left;
@@ -341,15 +340,14 @@ static void parseVar(struct reader *r, bool is_mutable, struct stmt *in) {
 	parse_exp(0, r, in->var->value);
 
 	if (!exps_are_compatable(in->var->name, in->var->value))
-		raise_syntax_error("array's must be initialized to a list, either {0} or a larger array.", r);
-	//ERR_INV_EXP
+		raise_syntax_error(ERR_INV_EXP, r);
 }
 
 static void parseWhile(struct reader *r, struct stmt *in) {
+	init_loopStmt(r, in);
+
 	acceptValue(r, VAL_KEYWORD, "while");
 	acceptValue(r, VAL_DELIM, "(");
-
-	init_loopStmt(r, in);
 
 	in->loop->cond = init_exp(r);
 	parse_exp(0, r, in->loop->cond);
@@ -372,16 +370,16 @@ static void parseFor(struct reader *r, struct stmt *in) {
 							  \/
                     <body> -> <update>
     */
-	
+	int for_start_pos = r->line_pos;
 	acceptValue(r, VAL_KEYWORD, "for");
 	acceptValue(r, VAL_DELIM, "(");
 	
 	parse_single_stmt(r, in); //init
 	if (!isValidInitStmt(in))
-		raise_error("for initialization is of invalid type");
-	//ERR_INV_TYPE
+		raise_error(ERR_INV_EXP);
 
 	in->next = init_stmt(r);
+	in->next->start_col = for_start_pos;
 	init_loopStmt(r, in->next);
 	struct stmt *loop = in->next;
 
@@ -414,10 +412,11 @@ static void parseFor(struct reader *r, struct stmt *in) {
 }
 
 static void parseIf(struct reader *r, struct stmt *in) {
+	init_ifStmt(r, in);
+
 	acceptValue(r, VAL_KEYWORD, "if");
 	acceptValue(r, VAL_DELIM, "(");
 
-	init_ifStmt(r, in);
 	in->ifStmt->cond = init_exp(r);
 	parse_exp(0, r, in->ifStmt->cond);
 
@@ -432,8 +431,7 @@ static void parseIf(struct reader *r, struct stmt *in) {
 	if ((r->val.type == VAL_KEYWORD) && (r->val.num == KW_ELSE)) {
 		acceptValue(r, VAL_KEYWORD, "else");
 		if (!r)
-			raise_syntax_error("expected statement after else", r);
-			//ERR_BAD_ELSE
+			raise_syntax_error(ERR_BAD_ELSE, r);
 
 		in->ifStmt->elseStmt = init_stmt(r);
 		struct stmt *elseStmt = in->ifStmt->elseStmt;
@@ -498,8 +496,7 @@ void parse_stmt(struct reader *r, struct stmt *in) {
 struct stmt *parse_file(const char *filename) {
     struct reader *r = readInFile(filename);
 	if (!r)
-		raise_syntax_error("failed to read in file", r);
-		//ERR_NO_FILE
+		raise_syntax_error(ERR_NO_FILE, r);
 
 	parse_stmt(r, r->root);
 	struct stmt *out = r->root;

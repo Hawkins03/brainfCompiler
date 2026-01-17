@@ -14,8 +14,7 @@
 void setup_env(struct env *env, struct env *parent);
 void free_env(struct env *env);
 
-void declare_var(struct env *env, char *name, bool is_mutable, int array_depth);
-void define_var(struct env *env, char *name);
+bool declare_var(struct env *env, char *name, bool is_mutable, int array_depth);
 struct var_data *get_var(const struct env *env, const char *name);
 bool var_exists(const struct env *env, const char *name);
 

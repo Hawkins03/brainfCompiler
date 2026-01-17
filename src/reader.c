@@ -23,17 +23,42 @@ static enum operator BINARY_OPS[][5] = {  		// lowest priority to highest priori
 	{OP_MULTIPLY, OP_DIVIDE, OP_MODULO, OP_UNKNOWN} // 9: multiplication, division, modulo
 };
 
+static bool read_next_line(struct reader *r) {
+	if (!r || !r->fp || feof(r->fp))
+		return false;
+	
+	r->line_buf[0] = '\0';
+	fgetpos(r->fp, &r->line_start_pos);
+
+	if (!fgets(r->line_buf, r->line_cap, r->fp))
+		return false;
+
+	r->line_pos = 0;
+	r->line_num++;
+	return true;
+} 
+
+
 static inline int peek(struct reader *r) {
 	if (!r)
 		return EOF;
-	return r->ch;
+	int out = r->line_buf[r->line_pos];
+	if (out == '\0')
+		return EOF;
+	return out; 
 }
 static inline int advance(struct reader *r) {
 	int out = peek(r);
-	if (r && r->fp && !feof(r->fp))
-		r->ch = fgetc(r->fp);
+	if (!r || !r->fp || feof(r->fp))
+		return out;
+	
+	r->line_pos++;
+
+	if (out == '\n')
+		read_next_line(r);
 	return out;
 }
+
 static inline void skip_spaces(struct reader *r) {
 	while ((peek(r) == '\n') || isspace(peek(r)))
 		advance(r);
@@ -57,17 +82,31 @@ struct reader *readInFile(const char *filename) {
 	
 	r->root = init_stmt(r);
 	r->root->next = r->root; // self loop to mark as sentinal 
-
 	r->filename = strdup(filename, r);
 
-	advance(r);
+	r->line_num = 1;
+	r->line_pos = 0;
+	r->line_cap = DEFAULT_LINE_CAP;
+	r->line_buf = calloc(r->line_cap, sizeof((*r->line_buf)));
+
+	if (!r->line_buf)
+		raise_syntax_error(ERR_NO_MEM, r);
+
+	read_next_line(r);
+
+	r->ch = peek(r);
 	nextValue(r);
 	return r;
 }
 
 void killReader(struct reader *r) {
 	if (!r)
-		raise_error("r already freed"); //ERR_REFREE
+		raise_error(ERR_REFREE);
+
+	if (r->line_buf) {
+		free(r->line_buf);
+		r->line_buf = NULL;
+	}
 
 	if (r->filename) {
 		free(r->filename);
@@ -228,7 +267,7 @@ static inline int getNextNum(struct reader *r) {
 		num = (num * 10) + (advance(r) - '0');
 	
 	if (num >= INT_MAX)
-		raise_syntax_error("number is greater than the max int size", r); //ERR_BIG_NUM
+		raise_syntax_error(ERR_BIG_NUM, r);
 
 	return num;
 }
@@ -237,7 +276,7 @@ static inline char *getNextWord(struct reader *r) {
 	int cap = MAX_WORD_LEN;
 	char *str = calloc(cap + 1, sizeof(*str));
 	if (!str)
-		raise_syntax_error("failed to allocate space in the heap", r); //ERR_NO_MEM
+		raise_syntax_error(ERR_NO_MEM, r);
 
 	int len = 0;
 	while (r && (isalnum(peek(r)) || (peek(r) == '_'))) {
@@ -256,7 +295,7 @@ static inline int getCharacterValue(struct reader *r) {
 		return 0;
 
 	if (advance(r) != '\'')
-		raise_syntax_error("missing ending single quote", r);
+		raise_syntax_error(ERR_UNMATCHED_QUOTE, r);
 	//ERR_MISS_DELIM
 
 	return ch;
@@ -284,16 +323,16 @@ static inline char *getNextString(struct reader *r) {
 	int len = 0;
 	char *buf = calloc(cap, sizeof(*buf));
 	if (!buf)
-		raise_syntax_error("ran out of memory space on the heap", r); //ERR_NO_MEM
+		raise_syntax_error(ERR_NO_MEM, r);
 
 	while (r && (peek(r) != '\"')) {
 		if (peek(r) == '\\') {
-			advance(r); //consume '\'
+			advance(r);
 
 			buf[len] = catchEscapeChar(r);
 			if (buf[len++] == '\0') {
 				free(buf);
-				raise_syntax_error("invalid escape character", r); //ERR_INV_ESC
+				raise_syntax_error(ERR_NO_MEM, r);
 			}
 		} else {
 			buf[len++] = advance(r);
@@ -303,7 +342,7 @@ static inline char *getNextString(struct reader *r) {
 
 	if (advance(r) != '"') {
 		free(buf);
-		raise_syntax_error("Expected ending quote after string", r); //ERR_MISSING
+		raise_syntax_error(ERR_UNMATCHED_QUOTE, r);
 	}
 	set_strlen(&buf, len + 1, r);
 	buf[len] = '\0';
@@ -383,6 +422,8 @@ void nextValue(struct reader *r) {
 	if (ch == EOF || !r)
 		return;
 
+	r->val.start_pos = r->line_pos;
+
 	if (isalpha(ch))
 		initNameValue(getNextWord(r), r);
 	else if (matchesOp(ch))
@@ -392,7 +433,7 @@ void nextValue(struct reader *r) {
 	else if (isdigit(peek(r)))
 		initNumValue(getNextNum(r), r);
 	else
-		raise_syntax_error("Error, unexpected character", r); //ERR_UNEXP
+		raise_syntax_error(ERR_UNEXP_CHAR, r);
 }
 
 inline struct value Value(struct reader *r) {
@@ -402,16 +443,16 @@ inline struct value Value(struct reader *r) {
 void acceptValue(struct reader *r, enum value_type type, const char *expected) {
 	struct value tok = r->val;
 	if (!expected)
-		raise_syntax_error("Invalid expected value", r); //ERR_MISS_STR
+		raise_syntax_error(ERR_INTERNAL, r);
 	if (tok.type != type)
-		raise_syntax_error("Unexpected token type", r); //ERR_INV_TYPE
+		raise_syntax_error(ERR_INV_VAL, r);
 	
 	if ((tok.type == VAL_KEYWORD) && strcmp(getKeyStr(tok.num), expected))
-		raise_syntax_error("Unexpected keyword value", r); //ERR_INV_VAL
+		raise_syntax_error(ERR_INV_VAL, r);
     	else if ((tok.type == VAL_NAME) && (!tok.str || strcmp(tok.str, expected)))
-		raise_syntax_error("Missing token string", r); //ERR_INV_VAL
+		raise_syntax_error(ERR_INV_VAL, r);
     	else if ((tok.type == VAL_DELIM) && (tok.ch != expected[0]))
-		raise_syntax_error("Unexpected token value", r); //ERR_INV_VAL
+		raise_syntax_error(ERR_INV_VAL, r);
 	nextValue(r);
 }
 
@@ -419,7 +460,7 @@ void acceptValue(struct reader *r, enum value_type type, const char *expected) {
 char *stealNextString(struct reader *r) {
 	struct value v = r->val;
 	if (v.type != VAL_STR)
-		raise_syntax_error("expected string value", r); //ERR_INV_VAL
+		raise_syntax_error(ERR_INV_VAL, r);
 
 	char *out = v.str;
 	nextValue(r);
@@ -429,7 +470,7 @@ char *stealNextString(struct reader *r) {
 char *stealNextName(struct reader *r) {
 	struct value v = r->val;
 	if (v.type != VAL_NAME)
-		raise_syntax_error("expected name value", r); //ERR_INV_VAL
+		raise_syntax_error(ERR_INV_VAL, r);
 
 	char *out = v.str;
 	nextValue(r);

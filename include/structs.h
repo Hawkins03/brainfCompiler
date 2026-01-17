@@ -33,6 +33,7 @@ enum err_type {
 	// File/IO errors
 	ERR_NO_FILE,        // Failed to open file
 	ERR_EOF,            // Unexpected end of file
+	ERR_NO_ARGS, 	    // expected an argument
 	
 	// Memory errors
 	ERR_NO_MEM,         // Memory allocation failed
@@ -44,6 +45,7 @@ enum err_type {
 	ERR_UNMATCHED_BRACKET,  // More specific than ERR_MISS_DELIM
 	ERR_UNMATCHED_PAREN,
 	ERR_UNMATCHED_BRACE,
+	ERR_UNMATCHED_QUOTE, 
 	ERR_BIG_NUM,        // Number exceeds maximum value
 	ERR_TOO_LONG,       // String exceeds maximum length
 	
@@ -85,6 +87,7 @@ enum operator {
 //TODO: only malloc one value, and pass stuff through it. (i.e. peek only, getValue just changes its contents)
 struct value {
 	enum value_type type;
+	int start_pos;
 	union {
 		char *str;
 		int num;
@@ -101,6 +104,9 @@ struct exp_array_lit { struct exp *array; int size; };
 struct exp_call { enum key_type key; struct exp *arg; };
 struct exp {
 	enum exp_type type;
+	fpos_t pos;
+	int start_col;
+	char *filename;
 	union {
 		int num;
 		char *name;
@@ -118,6 +124,9 @@ struct stmt_loop { struct exp *cond; struct stmt *body; };
 
 struct stmt {
 	enum stmt_type type;
+	fpos_t pos;
+	int start_col;
+	char *filename;
 	union {
 		struct stmt_var *var;
 		struct stmt_loop *loop;
@@ -136,6 +145,11 @@ struct reader {
 	int ch;
 	struct value val;
 	struct stmt *root;
+
+	// for error printing
+	char *line_buf;
+	int line_cap, line_pos, line_num;
+	fpos_t line_start_pos;
 };
 
 struct env;

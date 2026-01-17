@@ -24,7 +24,7 @@ void strbuf_init(struct strbuf *sb) {
     sb->len = 0;
     sb->buf = malloc(sb->cap);
     if (!sb->buf) {
-        raise_error("failed to allocate strbuf");
+        raise_error(ERR_NO_MEM);
     }
 }
 
@@ -34,7 +34,7 @@ void strbuf_ensure(struct strbuf *sb, size_t needed) {
         char *new_buf = realloc(sb->buf, sb->cap);
         if (!new_buf) {
             free(sb->buf);
-            raise_error("failed to realloc strbuf");
+            raise_error(ERR_NO_MEM);
         }
         sb->buf = new_buf;
     }
@@ -47,7 +47,7 @@ void strbuf_appendf(struct strbuf *sb, const char *fmt, ...) {
     va_end(ap);
     
     if (needed < 0) {
-        raise_error("vsnprintf failed");
+        raise_error(ERR_INTERNAL);
     }
     
     strbuf_ensure(sb, needed + 1);
@@ -183,8 +183,7 @@ int test_file(const char *input_file, const char *expected) {
 
     if (stmt->next == stmt) {
         free_stmt(stmt);
-        raise_error("infinite recursion of statement");
-	//ERR_INF_REC
+        raise_error(ERR_INF_REC);
     }
     
     struct strbuf sb;

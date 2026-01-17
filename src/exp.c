@@ -138,9 +138,12 @@ struct exp *init_exp(struct reader *r) {
 	struct exp  *exp = calloc(1, sizeof(*exp));
 	
 	if (!exp)
-		raise_syntax_error("failed to allocate exp", r);
+		raise_syntax_error(ERR_NO_MEM, r);
 
 	exp->type = EXP_EMPTY;
+	exp->filename = r->filename;
+	exp->pos = r->line_start_pos;
+	exp->start_col = r->val.start_pos;
 	return exp;
 }
 
@@ -149,14 +152,14 @@ void init_binary(struct reader *r, struct exp *exp, enum exp_type tp) {
 	exp->op = calloc(1, sizeof(*(exp->op)));
 	
 	if (!exp->op)
-		raise_syntax_error("failed to allocate op", r);
+		raise_syntax_error(ERR_NO_MEM, r);
 }
 
 void init_exp_unary(struct reader *r, struct exp *exp, bool is_prefix) {
 	exp->type = EXP_UNARY;
 	exp->unary = calloc(1, sizeof(*(exp->unary)));
 	if (!exp->unary)
-		raise_syntax_error("failed to allocate unary op", r);
+		raise_syntax_error(ERR_NO_MEM, r);
 	exp->unary->is_prefix = is_prefix;
 }
 
@@ -165,7 +168,7 @@ void init_exp_array_ref(struct reader *r, struct exp *exp) {
 	exp->array_ref = calloc(1, sizeof(*exp->array_ref));
 	
 	if (!exp->array_ref)
-		raise_syntax_error("failed to allocate array refrence struct", r);
+		raise_syntax_error(ERR_NO_MEM, r);
 }
 
 void init_exp_array_lit(struct reader *r, struct exp *exp, int size) {
@@ -173,7 +176,7 @@ void init_exp_array_lit(struct reader *r, struct exp *exp, int size) {
 	exp->array_lit = calloc(1, sizeof(*exp->array_lit));
 	
 	if (!exp->array_lit)
-		raise_syntax_error("failed to allocate array literal", r);
+		raise_syntax_error(ERR_NO_MEM, r);
 
 	exp->array_lit->array = calloc(size + 1, sizeof(*(exp->array_lit->array)));
 	exp->array_lit->size = size;
@@ -181,7 +184,7 @@ void init_exp_array_lit(struct reader *r, struct exp *exp, int size) {
 	if (!exp->array_lit->array) {
 		free(exp->array_lit);
 		exp->array_lit = NULL;
-		raise_syntax_error("failed to allocate array block", r);
+		raise_syntax_error(ERR_NO_MEM, r);
 	}
 	
 }
@@ -191,7 +194,7 @@ void init_exp_call(struct reader *r, struct exp *exp, enum key_type key) {
 	exp->call = calloc(1, sizeof(*exp->call));
 	
 	if (!exp->call)
-		raise_syntax_error("failed to allocate array refrence struct", r);
+		raise_syntax_error(ERR_NO_MEM, r);
 	exp->call->key = key;
 }
 
@@ -239,7 +242,7 @@ bool exps_match(struct exp *exp1, struct exp *exp2) {
                 return false;
         return true;
     default:
-        raise_error("invalid exp type");
+        raise_error(ERR_INV_EXP);
         return false;
     }
 }
