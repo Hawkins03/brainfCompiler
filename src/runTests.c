@@ -12,7 +12,7 @@ int main(int argc, char **argv) {
 			catch_errors = 1;
 	}
 
-	//run_parser_tests(catch_errors);
+	run_parser_tests(catch_errors);
 	run_error_tests("./semantic_tests");
 	
 	
