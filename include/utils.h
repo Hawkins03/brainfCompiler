@@ -31,8 +31,6 @@
 	_raise_stmt_semantic_error(err, stmt, __func__, __FILE__, __LINE__, env)
 
 //reader struct:
-
-char *strdup(const char *s, struct reader *r);
 void set_strlen(char **str, const int len, struct reader *r);
 void reset_strlen_if_needed(char **str, const int len, int *cap, struct reader *r);
 

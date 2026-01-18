@@ -48,6 +48,7 @@ static bool read_next_line(struct reader *r) {
 
 	r->line_pos = 0;
 	r->line_num++;
+	r->ch = r->line_buf[r->line_pos];
 	return true;
 } 
 
@@ -62,18 +63,21 @@ static inline int peek(struct reader *r) {
 }
 static inline int advance(struct reader *r) {
 	int out = peek(r);
-	if (!r || !r->fp || feof(r->fp))
+	if (!r)
 		return out;
+	r->ch = r->line_buf[++r->line_pos];
+	bool atEOL = (r->ch == '\0');
 	
-	r->line_pos++;
-
-	if (out == '\n')
+	if (atEOL && feof(r->fp))
+		return out;
+	else if (atEOL)
 		read_next_line(r);
+	
 	return out;
 }
 
 static inline void skip_spaces(struct reader *r) {
-	while ((peek(r) == '\n') || isspace(peek(r)))
+	while (r && (isspace(r->ch)))
 		advance(r);
 }
 
@@ -95,7 +99,7 @@ struct reader *readInFile(const char *filename) {
 	
 	r->root = init_stmt(r);
 	r->root->next = r->root; // self loop to mark as sentinal 
-	r->filename = strdup(filename, r);
+	r->filename = strdup(filename);
 
 	r->line_num = 1;
 	r->line_pos = 0;
@@ -417,19 +421,18 @@ static inline void initNumValue(int num, struct reader *r) {
 void nextValue(struct reader *r) {
 	skip_spaces(r);
 
-	char ch = peek(r);
-	if (ch == EOF || !r)
+	if (!r || r->ch == EOF || r->ch == '\0')
 		return;
 
 	r->val.start_pos = r->line_pos;
 
-	if (isalpha(ch))
+	if (isalpha(r->ch))
 		initNameValue(getNextWord(r), r);
-	else if (matchesOp(ch))
+	else if (matchesOp(r->ch))
 		initOpValue(getNextOp(r), r);
-	else if (isDelim(ch))
+	else if (isDelim(r->ch))
 		initDelimValue(advance(r), r);
-	else if (isdigit(peek(r)))
+	else if (isdigit(r->ch))
 		initNumValue(getNextNum(r), r);
 	else
 		raise_syntax_error(ERR_UNEXP_CHAR, r);
@@ -460,6 +463,8 @@ char *stealNextString(struct reader *r) {
 		raise_syntax_error(ERR_INV_VAL, r);
 
 	char *out = v.str;
+	v.str = NULL;
+	v.type = VAL_EMPTY;
 	nextValue(r);
 	return out;
 }
@@ -470,6 +475,8 @@ char *stealNextName(struct reader *r) {
 		raise_syntax_error(ERR_INV_VAL, r);
 
 	char *out = v.str;
+	v.str = NULL;
+	v.type = VAL_EMPTY;
 	nextValue(r);
 	return out;
 }
@@ -479,6 +486,7 @@ enum operator stealNextOp(struct reader *r) {
 	if ((v.type != VAL_OP) || (v.num == OP_UNKNOWN))
 		return OP_UNKNOWN;
 	enum operator op = v.num;
+	v.type = VAL_EMPTY;
 	nextValue(r);
 	return op;
 }

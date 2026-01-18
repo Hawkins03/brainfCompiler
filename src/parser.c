@@ -33,6 +33,9 @@ static inline bool hasNextStmt(struct reader *r) {
 	return r && ((r->val.type != VAL_DELIM) || (r->val.ch != '}'));
 }
 
+static inline bool hasCommaNext(struct reader *r) {
+	return r && (r->val.type == VAL_DELIM) && (r->val.ch == ',');
+}
 static inline bool atSemicolon(struct reader *r) {
 	return r && (r->val.type == VAL_DELIM) && (r->val.ch == ';');
 }
@@ -215,6 +218,8 @@ static inline void parseArrayLit(struct reader *r, struct exp *exp)
 
 	while (parserCanProceed(r) && !isDelimChar(r->val, '}')) {
 		parse_exp(0, r, exp->array_lit->array + len++);
+		if (!hasCommaNext(r))
+			break;
 		acceptValue(r, VAL_DELIM, ",");
 
 		if (len >= exp->array_lit->size) {
@@ -228,6 +233,8 @@ static inline void parseArrayLit(struct reader *r, struct exp *exp)
 	}
 
 	acceptValue(r, VAL_DELIM, "}");
+
+	set_exp_arraylit_len(r, exp, len);
 }
 
 static inline void parseNum(struct reader *r, struct exp *exp) {
@@ -253,7 +260,7 @@ static inline void parseStr(struct reader *r, struct exp *exp) {
 		curr->type = EXP_NUM;
 		curr->num = str[i];
 	}
-
+	set_exp_arraylit_len(r, exp, len);
 	free(str);
 }
 
@@ -268,10 +275,12 @@ static void parseArrayRef(struct reader *r, struct exp *exp) {
 	
 	init_exp_array_ref(r, exp);
 	exp->array_ref->name = name;
-	exp->array_ref->index = init_exp(r);
-	parse_exp(0, r, exp->array_ref->index);
-	acceptValue(r, VAL_DELIM, "]");
+	if (!isDelimChar(r->val, ']')) {
+		exp->array_ref->index = init_exp(r);
+		parse_exp(0, r, exp->array_ref->index);
+	}
 
+	acceptValue(r, VAL_DELIM, "]");
 	parseArrayRef(r, exp);
 }
 
@@ -468,7 +477,8 @@ static void parseIf(struct reader *r, struct stmt *exp) {
 }
 
 void parse_single_stmt(struct reader *r, struct stmt *exp) {
-	if (!r || !hasNextStmt(r)) return;
+	if (!r || !hasNextStmt(r))
+		return;
 	
 	struct value tok = r->val;
 	

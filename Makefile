@@ -1,6 +1,6 @@
 
 CC = gcc
-CFLAGS = -g -O0 -Wall -Wextra -std=c11 -MMD -MP
+CFLAGS = -g -O0 -Wall -Wextra -std=c11 -MMD -MP  -D_DEFAULT_SOURCE
 
 SRC_DIR := src
 BIN_DIR := bin

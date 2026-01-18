@@ -124,6 +124,16 @@ void init_exp_array_ref(struct reader *r, struct exp *exp);
  */
 void init_exp_array_lit(struct reader *r, struct exp *exp, int size);
 
+/** @brief sets the length of the array_lit to a final value
+ *  called at the end of parseString and parseArrayLit to shorten the amount of memory used.
+ * 
+ * @param r for if there's an error
+ * @param exp the exp to update (must be of type EXP_ARRAY_LIT)
+ * @param final_len the final length to set it to.
+ * @throw ERR_NO_MEM if the realloc fails.
+ */
+void set_exp_arraylit_len(struct reader *r, struct exp *exp, int final_len);
+
 /** @brief Malloc's and initializes a call subexpression
  * 
  * by default it's called by parseCall's subfunctions

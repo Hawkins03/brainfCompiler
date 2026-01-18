@@ -33,7 +33,7 @@
 #define MAX_NUM_LEN 10
 #define MAX_OP_LEN 3
 #define DELIMS ";()[]{}'\","
-#define OP_START "=+-*/%!~<>&^|,"
+#define OP_START "=+-*/%!~<>&^|"
 #define ASSIGN_OP_PRIO 0
 
 #define KEYWORDS (const char*[]) {"var", "val", "while", "for", "if", "else", "print", "input", "break", "true", "false", NULL}

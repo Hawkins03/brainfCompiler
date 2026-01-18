@@ -6,12 +6,18 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <setjmp.h>
+#include <dirent.h>
 #include "interp.h"
 #include "parser.h"
 #include "utils.h"
 #include "test.h"
 #include "stmt.h"
 #include "exp.h"
+
+static jmp_buf test_error_jmp;
+static enum err_type caught_error = ERR_OK;
+static bool test_mode = false;
 
 struct strbuf {
     char *buf;
@@ -200,4 +206,140 @@ int test_file(const char *input_file, const char *expected) {
     strbuf_free(&sb);
     free_stmt(stmt);
     return status;
+}
+
+
+void test_exit_with_error(enum err_type err) {
+	caught_error = err;
+	if (test_mode)
+		longjmp(test_error_jmp, 1);
+
+	exit(EXIT_FAILURE);
+}
+
+bool test_error(const char *filename, enum err_type expected_err) {
+	test_mode = true;
+	caught_error = ERR_OK;
+	
+	if (setjmp(test_error_jmp) == 0) {
+		// Try to compile the file
+		check_file_semantics((char *)filename);
+		// If we get here, no error occurred
+		test_mode = false;
+	} else {
+		// An error was caught
+		test_mode = false;
+	}
+	
+	// Check if we got the expected error
+	bool passed = (caught_error == expected_err);
+	
+	if (!passed) {
+		fprintf(stderr, "FAIL: %s\n", filename);
+		if (expected_err == ERR_OK) {
+		fprintf(stderr, "  Expected: No error\n");
+		fprintf(stderr, "  Got:      Error code %d\n", caught_error);
+		} else if (caught_error == ERR_OK) {
+		fprintf(stderr, "  Expected: Error code %d\n", expected_err);
+		fprintf(stderr, "  Got:      No error\n");
+		} else {
+		fprintf(stderr, "  Expected: Error code %d\n", expected_err);
+		fprintf(stderr, "  Got:      Error code %d\n", caught_error);
+		}
+	} else {
+		printf("PASS: %s\n", filename);
+	}
+	
+	return passed;
+}
+
+
+// Parse error expectation from filename
+// Format: test_ERR_NO_VAR.lang or test_valid.lang
+static enum err_type parse_expected_error(const char *filename) {
+	if (strstr(filename, "_valid") || strstr(filename, "_OK")) {
+		return ERR_OK;
+	}
+	
+	// Check for each error type in the filename
+	if (strstr(filename, "_ERR_NO_FILE")) return ERR_NO_FILE;
+	if (strstr(filename, "_ERR_EOF")) return ERR_EOF;
+	if (strstr(filename, "_ERR_NO_ARGS")) return ERR_NO_ARGS;
+	if (strstr(filename, "_ERR_NO_MEM")) return ERR_NO_MEM;
+	if (strstr(filename, "_ERR_REFREE")) return ERR_REFREE;
+	if (strstr(filename, "_ERR_UNEXP_CHAR")) return ERR_UNEXP_CHAR;
+	if (strstr(filename, "_ERR_INV_ESC")) return ERR_INV_ESC;
+	if (strstr(filename, "_ERR_UNMATCHED_BRACKET")) return ERR_UNMATCHED_BRACKET;
+	if (strstr(filename, "_ERR_UNMATCHED_PAREN")) return ERR_UNMATCHED_PAREN;
+	if (strstr(filename, "_ERR_UNMATCHED_BRACE")) return ERR_UNMATCHED_BRACE;
+	if (strstr(filename, "_ERR_UNMATCHED_QUOTE")) return ERR_UNMATCHED_QUOTE;
+	if (strstr(filename, "_ERR_BIG_NUM")) return ERR_BIG_NUM;
+	if (strstr(filename, "_ERR_TOO_LONG")) return ERR_TOO_LONG;
+	if (strstr(filename, "_ERR_INV_TYPE")) return ERR_INV_TYPE;
+	if (strstr(filename, "_ERR_INV_VAL")) return ERR_INV_VAL;
+	if (strstr(filename, "_ERR_INV_OP")) return ERR_INV_OP;
+	if (strstr(filename, "_ERR_INV_EXP")) return ERR_INV_EXP;
+	if (strstr(filename, "_ERR_INV_STMT")) return ERR_INV_STMT;
+	if (strstr(filename, "_ERR_BAD_ELSE")) return ERR_BAD_ELSE;
+	if (strstr(filename, "_ERR_REDEF")) return ERR_REDEF;
+	if (strstr(filename, "_ERR_NO_VAR")) return ERR_NO_VAR;
+	if (strstr(filename, "_ERR_IMMUT")) return ERR_IMMUT;
+	if (strstr(filename, "_ERR_INV_ARR")) return ERR_INV_ARR;
+	if (strstr(filename, "_ERR_INF_REC")) return ERR_INF_REC;
+	if (strstr(filename, "_ERR_INTERNAL")) return ERR_INTERNAL;
+
+	return ERR_OK;
+}
+
+
+int run_error_tests(const char *test_dir) {
+    DIR *dir = opendir(test_dir);
+    if (!dir) {
+        fprintf(stderr, "Failed to open test directory: %s\n", test_dir);
+        return -1;
+    }
+    
+    int total = 0;
+    int passed = 0;
+    int failed = 0;
+    
+    struct dirent *entry;
+    while ((entry = readdir(dir)) != NULL) {
+        // Skip directories and non-test files
+        if (entry->d_type == DT_DIR)
+            continue;
+        
+        const char *name = entry->d_name;
+        
+        // Skip hidden files and non-source files
+        if (name[0] == '.')
+            continue;
+        
+        // Build full path
+        char filepath[512];
+        snprintf(filepath, sizeof(filepath), "%s/%s", test_dir, name);
+        
+        // Parse expected error from filename
+        enum err_type expected = parse_expected_error(name);
+        
+        // Run test
+        total++;
+        if (test_error(filepath, expected)) {
+            passed++;
+        } else {
+            failed++;
+        }
+    }
+    
+    closedir(dir);
+    
+    printf("\n");
+    printf("=================================\n");
+    printf("Test Results:\n");
+    printf("  Total:  %d\n", total);
+    printf("  Passed: %d\n", passed);
+    printf("  Failed: %d\n", failed);
+    printf("=================================\n");
+    
+    return failed;
 }

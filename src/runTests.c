@@ -149,6 +149,11 @@ int main(int argc, char **argv) {
 	run_one("tests/array2.txt", "ARR(ARR(STR(x), NUM(1)), STR(y));", catch_errors, &total, &passed, &failed, &errors);
 	run_one("tests/array3.txt", "ARR(ARR(ARR(STR(x), NUM(1)), NUM(2)), NUM(3));", catch_errors, &total, &passed, &failed, &errors);
 
+	run_one("tests/array4.txt", "ARR_LIT(NUM(0));", catch_errors, &total, &passed, &failed, &errors);
+	run_one("tests/array5.txt", "ARR_LIT(ARR_LIT(NUM(1), NUM(2)), NUM(3));", catch_errors, &total, &passed, &failed, &errors);
+	run_one("tests/array6.txt", "VAR(ARR(ARR(STR(x), NUM(1)), NUM(3)), ARR_LIT(ARR_LIT(NUM(1), NUM(2)), ARR_LIT(NUM(4), NUM(6))));", catch_errors, &total, &passed, &failed, &errors);
+	run_one("tests/array7.txt", "VAR(ARR(STR(x), NULL), NULL);",  catch_errors, &total, &passed, &failed, &errors);
+
 	run_one("tests/string_simple.txt", "ARR_LIT(NUM(97), NUM(98), NUM(99));", catch_errors, &total, &passed, &failed, &errors);
 	run_one("tests/string_newline.txt", "ARR_LIT(NUM(97), NUM(10), NUM(98));", catch_errors, &total, &passed, &failed, &errors);
 	run_one("tests/string_quote.txt", "ARR_LIT(NUM(97), NUM(34), NUM(98));", catch_errors, &total, &passed, &failed, &errors);

@@ -197,8 +197,21 @@ void init_exp_array_lit(struct reader *r, struct exp *exp, int size) {
 		free(exp->array_lit);
 		exp->array_lit = NULL;
 		raise_syntax_error(ERR_NO_MEM, r);
-	}
-	
+	}	
+}
+
+void set_exp_arraylit_len(struct reader *r, struct exp *exp, int final_len) {
+	if ((exp->type != EXP_ARRAY_LIT) || (exp->array_lit->size <= final_len))
+		return;
+
+
+	struct exp *tmp = realloc(exp->array_lit->array, final_len * sizeof(*tmp));
+	if (!tmp)
+		raise_syntax_error(ERR_NO_MEM, r);
+	/*for (int i = 0; i < final_len; i++)
+		swap_exps(tmp + i, exp->array_lit->array + i);*/
+	exp->array_lit->array = tmp;
+	exp->array_lit->size = final_len;
 }
 
 void init_exp_call(struct reader *r, struct exp *exp, enum key_type key) {
