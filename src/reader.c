@@ -37,14 +37,18 @@ static enum operator BINARY_OPS[][5] = {  		// lowest priority to highest priori
 };
 
 static bool read_next_line(struct reader *r) {
-	if (!r || !r->fp || feof(r->fp))
+	if (!r || !r->fp || feof(r->fp)) {
+		r->ch = EOF;
 		return false;
+	}
 	
 	r->line_buf[0] = '\0';
 	fgetpos(r->fp, &r->line_start_pos);
 
-	if (!fgets(r->line_buf, r->line_cap, r->fp))
+	if (!fgets(r->line_buf, r->line_cap, r->fp)) {
+		r->ch = EOF;
 		return false;
+	}
 
 	r->line_pos = 0;
 	r->line_num++;
@@ -54,7 +58,7 @@ static bool read_next_line(struct reader *r) {
 
 
 static inline int peek(struct reader *r) {
-	if (!r)
+	if (!r || !r->line_buf || (r->line_pos > strlen(r->line_buf)))
 		return EOF;
 	int out = r->line_buf[r->line_pos];
 	if (out == '\0')
@@ -63,21 +67,32 @@ static inline int peek(struct reader *r) {
 }
 static inline int advance(struct reader *r) {
 	int out = peek(r);
-	if (!r)
+	if (!r || (out == EOF) || !r->line_buf) {
+		r->ch = EOF;
 		return out;
-	r->ch = r->line_buf[++r->line_pos];
-	bool atEOL = (r->ch == '\0');
+	}
+	bool atEOL = r->line_pos >= strlen(r->line_buf) - 1;
+	if (!atEOL) {
+		r->ch = r->line_buf[++r->line_pos];
+		return out;
+	}
 	
-	if (atEOL && feof(r->fp))
-		return out;
-	else if (atEOL)
+	if (atEOL && !feof(r->fp)) {
 		read_next_line(r);
-	
+		return out;
+	}
+		
+	// at the end of the file.
+	r->ch = EOF;
+	r->line_pos = 0;
+	free(r->line_buf);
+	r->line_buf = NULL;
+
 	return out;
 }
 
 static inline void skip_spaces(struct reader *r) {
-	while (r && (isspace(r->ch)))
+	while (r && (isspace(r->ch)) && (r->ch != '\0'))
 		advance(r);
 }
 
@@ -101,7 +116,7 @@ struct reader *readInFile(const char *filename) {
 	r->root->next = r->root; // self loop to mark as sentinal 
 	r->filename = strdup(filename);
 
-	r->line_num = 1;
+	r->line_num = 0;
 	r->line_pos = 0;
 	r->line_cap = DEFAULT_LINE_CAP;
 	r->line_buf = calloc(r->line_cap, sizeof((*r->line_buf)));
@@ -328,14 +343,14 @@ static inline char *getNextString(struct reader *r) {
 	if (!buf)
 		raise_syntax_error(ERR_NO_MEM, r);
 
-	while (r && (peek(r) != '\"')) {
-		if (peek(r) == '\\') {
+	while (r && (r->ch != '\"') && (r->ch != EOF)) {
+		if (r->ch == '\\') {
 			advance(r);
 
 			buf[len] = catchEscapeChar(r);
 			if (buf[len++] == '\0') {
 				free(buf);
-				raise_syntax_error(ERR_NO_MEM, r);
+				raise_syntax_error(ERR_INV_ESC, r);
 			}
 		} else {
 			buf[len++] = advance(r);
@@ -463,8 +478,8 @@ char *stealNextString(struct reader *r) {
 		raise_syntax_error(ERR_INV_VAL, r);
 
 	char *out = v.str;
-	v.str = NULL;
-	v.type = VAL_EMPTY;
+	r->val.str = NULL;
+	r->val.type = VAL_EMPTY;
 	nextValue(r);
 	return out;
 }
@@ -475,8 +490,8 @@ char *stealNextName(struct reader *r) {
 		raise_syntax_error(ERR_INV_VAL, r);
 
 	char *out = v.str;
-	v.str = NULL;
-	v.type = VAL_EMPTY;
+	r->val.str = NULL;
+	r->val.type = VAL_EMPTY;
 	nextValue(r);
 	return out;
 }
@@ -486,7 +501,7 @@ enum operator stealNextOp(struct reader *r) {
 	if ((v.type != VAL_OP) || (v.num == OP_UNKNOWN))
 		return OP_UNKNOWN;
 	enum operator op = v.num;
-	v.type = VAL_EMPTY;
+	r->val.type = VAL_EMPTY;
 	nextValue(r);
 	return op;
 }

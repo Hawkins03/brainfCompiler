@@ -42,4 +42,11 @@ bool test_error(const char *filename, enum err_type expected_err);
  */
 int run_error_tests(const char *test_dir);
 
+/** @brief Run all parser tests
+ * 
+ * @param catch_errors if bfTester was run with --catch-errors
+ * 
+ */
+int run_parser_tests(int catch_errors);
+
 #endif //TEST_H

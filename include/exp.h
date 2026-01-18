@@ -71,9 +71,10 @@ struct exp *init_exp(struct reader *r);
  * @param exp the expression to update
  * @param tp the type of subexpression
  * 	(EXP_BINOP or EXPASSIGNOP, NOT EXP_UNARY)
+ * @param left exp->op->left so the program errors it gets freed
  * @throw ERR_NO_MEM if it fails to malloc the subexpression
  */
-void init_binary(struct reader *r, struct exp *exp, enum exp_type tp);
+void init_binary(struct reader *r, struct exp *exp, enum exp_type tp, struct exp *left);
 
 /** @brief Malloc's and initializes a unary subexpression
  * 
@@ -102,9 +103,10 @@ void init_exp_unary(struct reader *r, struct exp *exp, bool is_prefix);
  * 
  * @param r the reader struct, for if it fails
  * @param exp the expression to update
+ * @param name exp->array_ref->name so the program errors it gets freed
  * @throw ERR_NO_MEM if it fails to malloc the subexpression
  */
-void init_exp_array_ref(struct reader *r, struct exp *exp);
+void init_exp_array_ref(struct reader *r, struct exp *exp, struct exp *name);
 
 /** @brief Malloc's and initializes a literal array subexpression
  * 

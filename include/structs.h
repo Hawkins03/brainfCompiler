@@ -104,9 +104,7 @@ struct exp_array_lit { struct exp *array; int size; };
 struct exp_call { enum key_type key; struct exp *arg; };
 struct exp {
 	enum exp_type type;
-	fpos_t pos;
-	int start_col;
-	char *filename;
+	int line_num, start_col;
 	union {
 		int num;
 		char *name;
@@ -124,9 +122,7 @@ struct stmt_loop { struct exp *cond; struct stmt *body; };
 
 struct stmt {
 	enum stmt_type type;
-	fpos_t pos;
-	int start_col;
-	char *filename;
+	int line_num, start_col;
 	union {
 		struct stmt_var *var;
 		struct stmt_loop *loop;
@@ -148,7 +144,7 @@ struct reader {
 
 	// for error printing
 	char *line_buf;
-	int line_cap, line_pos, line_num;
+	unsigned int line_cap, line_pos, line_num;
 	fpos_t line_start_pos;
 };
 
@@ -164,6 +160,7 @@ struct var_data {
 struct env {
 	struct stmt *root;
 	struct env *parent;
+	char *filename;
 	struct var_data *vars;
 	size_t len;
 	size_t cap;

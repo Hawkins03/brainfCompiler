@@ -8,16 +8,16 @@
 #include <string.h>
 #include <setjmp.h>
 #include <dirent.h>
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <unistd.h>
+
 #include "interp.h"
 #include "parser.h"
 #include "utils.h"
 #include "test.h"
 #include "stmt.h"
 #include "exp.h"
-
-static jmp_buf test_error_jmp;
-static enum err_type caught_error = ERR_OK;
-static bool test_mode = false;
 
 struct strbuf {
     char *buf;
@@ -208,30 +208,185 @@ int test_file(const char *input_file, const char *expected) {
     return status;
 }
 
-
-void test_exit_with_error(enum err_type err) {
-	caught_error = err;
-	if (test_mode)
-		longjmp(test_error_jmp, 1);
-
-	exit(EXIT_FAILURE);
+static int run_one(const char *file, const char *expected, int catch_errors,
+				   int *total, int *passed, int *failed, int *errors) {
+	(*total)++;
+	if (catch_errors) {
+		pid_t pid = fork();
+		if (pid == -1) {
+			perror("fork");
+			return -1;
+		}
+		if (pid == 0) {
+			/* child */
+			int res = test_file(file, expected);
+			_exit(res);
+		} else {
+			int status = 0;
+			waitpid(pid, &status, 0);
+			if (WIFEXITED(status)) {
+				int code = WEXITSTATUS(status);
+				if (code == 0) {
+					(*passed)++;
+				} else if (code == 1) {
+					(*failed)++;
+				} else {
+					(*errors)++;
+					fprintf(stderr, "Runtime error in test: %s\n", file);
+				}
+			} else {
+				(*errors)++;
+				fprintf(stderr, "Runtime error (signal) in test: %s\n", file);
+			}
+		}
+	} else {
+		/* no catching: run directly (may abort on runtime error)
+		   test_file returns 0 on success, 1 on mismatch */
+		int res = test_file(file, expected);
+		if (res == 0)
+			(*passed)++;
+		else
+			(*failed)++;
+	}
+	return 0;
 }
 
+int run_parser_tests(int catch_errors) {
+	int total = 0, passed = 0, failed = 0, errors = 0;
+
+	run_one("parser_tests/atomic1.txt", "STR(x);", catch_errors, &total, &passed, &failed, &errors);
+	run_one("parser_tests/atomic2.txt", "STR(abc);", catch_errors, &total, &passed, &failed, &errors);
+	run_one("parser_tests/atomic3.txt", "STR(x1);", catch_errors, &total, &passed, &failed, &errors);
+	run_one("parser_tests/atomic4.txt", "NUM(123);", catch_errors, &total, &passed, &failed, &errors);
+	run_one("parser_tests/atomic5.txt", "UNARY(!, STR(x));", catch_errors, &total, &passed, &failed, &errors);
+	run_one("parser_tests/atomic6.txt", "UNARY(~, STR(x));", catch_errors, &total, &passed, &failed, &errors);
+	run_one("parser_tests/atomic7.txt", "UNARY(++, STR(x));", catch_errors, &total, &passed, &failed, &errors);
+	run_one("parser_tests/atomic8.txt", "UNARY(--, STR(x));", catch_errors, &total, &passed, &failed, &errors);
+	run_one("parser_tests/atomic9.txt", "UNARY(-, STR(x));", catch_errors, &total, &passed, &failed, &errors);
+	run_one("parser_tests/atomic10.txt", "UNARY(-, UNARY(STR(x), ++));", catch_errors, &total, &passed, &failed, &errors);
+	run_one("parser_tests/atomic11.txt", "NUM(97);", catch_errors, &total, &passed, &failed, &errors);
+	run_one("parser_tests/atomic12.txt", "NUM(49);", catch_errors, &total, &passed, &failed, &errors);
+	run_one("parser_tests/atomic13.txt", "NUM(33);", catch_errors, &total, &passed, &failed, &errors);
+	run_one("parser_tests/atomic14.txt", "NUM(32);", catch_errors, &total, &passed, &failed, &errors);
+	run_one("parser_tests/atomic15.txt", "NUM(0);", catch_errors, &total, &passed, &failed, &errors);
+
+	run_one("parser_tests/true1.txt", "NUM(1);", catch_errors, &total, &passed, &failed, &errors);
+	run_one("parser_tests/false1.txt", "NUM(0);", catch_errors, &total, &passed, &failed, &errors);
+
+	run_one("parser_tests/binary1.txt", "OP(STR(x), +, STR(y));", catch_errors, &total, &passed, &failed, &errors);
+	run_one("parser_tests/binary2.txt", "OP(STR(x), -, STR(y));", catch_errors, &total, &passed, &failed, &errors);
+	run_one("parser_tests/binary3.txt", "OP(STR(x), *, STR(y));", catch_errors, &total, &passed, &failed, &errors);
+	run_one("parser_tests/binary4.txt", "OP(STR(x), /, STR(y));", catch_errors, &total, &passed, &failed, &errors);
+	run_one("parser_tests/binary5.txt", "OP(STR(x), %, STR(y));", catch_errors, &total, &passed, &failed, &errors);
+	run_one("parser_tests/binary6.txt", "OP(STR(x), |, STR(y));", catch_errors, &total, &passed, &failed, &errors);
+	run_one("parser_tests/binary7.txt", "OP(STR(x), ^, STR(y));", catch_errors, &total, &passed, &failed, &errors);
+	run_one("parser_tests/binary8.txt", "OP(STR(x), &, STR(y));", catch_errors, &total, &passed, &failed, &errors);
+	run_one("parser_tests/binary9.txt", "OP(STR(x), <<, STR(y));", catch_errors, &total, &passed, &failed, &errors);
+	run_one("parser_tests/binary10.txt", "OP(STR(x), >>, STR(y));", catch_errors, &total, &passed, &failed, &errors);
+	run_one("parser_tests/binary11.txt", "OP(STR(x), <, STR(y));", catch_errors, &total, &passed, &failed, &errors);
+	run_one("parser_tests/binary12.txt", "OP(STR(x), <=, STR(y));", catch_errors, &total, &passed, &failed, &errors);
+	run_one("parser_tests/binary13.txt", "OP(STR(x), >, STR(y));", catch_errors, &total, &passed, &failed, &errors);
+	run_one("parser_tests/binary14.txt", "OP(STR(x), >=, STR(y));", catch_errors, &total, &passed, &failed, &errors);
+	run_one("parser_tests/binary15.txt", "OP(STR(x), ==, STR(y));", catch_errors, &total, &passed, &failed, &errors);
+	run_one("parser_tests/binary16.txt", "OP(STR(x), !=, STR(y));", catch_errors, &total, &passed, &failed, &errors);
+	run_one("parser_tests/binary17.txt", "OP(STR(x), &&, STR(y));", catch_errors, &total, &passed, &failed, &errors);
+	run_one("parser_tests/binary18.txt", "OP(STR(x), ||, STR(y));", catch_errors, &total, &passed, &failed, &errors);
+	run_one("parser_tests/binary19.txt", "OP(STR(x), =, STR(y));", catch_errors, &total, &passed, &failed, &errors);
+	run_one("parser_tests/binary20.txt", "OP(STR(x), +=, STR(y));", catch_errors, &total, &passed, &failed, &errors);
+	run_one("parser_tests/binary21.txt", "OP(STR(x), -=, STR(y));", catch_errors, &total, &passed, &failed, &errors);
+	run_one("parser_tests/binary22.txt", "OP(STR(x), *=, STR(y));", catch_errors, &total, &passed, &failed, &errors);
+	run_one("parser_tests/binary23.txt", "OP(STR(x), /=, STR(y));", catch_errors, &total, &passed, &failed, &errors);
+	run_one("parser_tests/binary24.txt", "OP(STR(x), %=, STR(y));", catch_errors, &total, &passed, &failed, &errors);
+	run_one("parser_tests/binary25.txt", "OP(STR(x), <<=, STR(y));", catch_errors, &total, &passed, &failed, &errors);
+	run_one("parser_tests/binary26.txt", "OP(STR(x), >>=, STR(y));", catch_errors, &total, &passed, &failed, &errors);
+	run_one("parser_tests/binary27.txt", "OP(STR(x), &=, STR(y));", catch_errors, &total, &passed, &failed, &errors);
+	run_one("parser_tests/binary28.txt", "OP(STR(x), ^=, STR(y));", catch_errors, &total, &passed, &failed, &errors);
+	run_one("parser_tests/binary29.txt", "OP(STR(x), |=, STR(y));", catch_errors, &total, &passed, &failed, &errors);
+    
+	run_one("parser_tests/prec1.txt", "OP(STR(x), +, OP(STR(y), *, STR(z)));", catch_errors, &total, &passed, &failed, &errors);
+	run_one("parser_tests/prec2.txt", "OP(OP(STR(x), *, STR(y)), +, STR(z));", catch_errors, &total, &passed, &failed, &errors);
+	run_one("parser_tests/prec3.txt", "OP(OP(STR(x), +, STR(y)), <, STR(z));", catch_errors, &total, &passed, &failed, &errors);
+	run_one("parser_tests/prec4.txt", "OP(STR(x), <, OP(STR(y), +, STR(z)));", catch_errors, &total, &passed, &failed, &errors);
+	run_one("parser_tests/prec5.txt", "OP(OP(STR(x), >, STR(y)), ==, STR(z));", catch_errors, &total, &passed, &failed, &errors);
+	run_one("parser_tests/prec6.txt", "OP(STR(x), ==, OP(STR(y), >, STR(z)));", catch_errors, &total, &passed, &failed, &errors);
+	run_one("parser_tests/prec7.txt", "OP(OP(STR(x), ==, STR(y)), ==, STR(z));", catch_errors, &total, &passed, &failed, &errors);
+	run_one("parser_tests/prec8.txt", "OP(OP(STR(x), &&, STR(y)), ||, STR(z));", catch_errors, &total, &passed, &failed, &errors);
+	run_one("parser_tests/prec9.txt", "OP(STR(x), ||, OP(STR(y), &&, STR(z)));", catch_errors, &total, &passed, &failed, &errors);
+	run_one("parser_tests/prec10.txt", "OP(OP(OP(OP(OP(STR(a), +, OP(STR(b), *, STR(c))), <, STR(d)), ==, STR(e)), &&, STR(f)), ||, STR(g));", catch_errors, &total, &passed, &failed, &errors);
+	run_one("parser_tests/prec11.txt", "OP(OP(OP(OP(OP(STR(a), *, STR(b)), +, STR(c)), <, STR(d)), &&, OP(STR(e), ==, STR(f))), ||, STR(g));", catch_errors, &total, &passed, &failed, &errors);
+	run_one("parser_tests/prec12.txt", "OP(OP(STR(a), -, STR(b)), -, STR(c));", catch_errors, &total, &passed, &failed, &errors);
+	run_one("parser_tests/prec13.txt", "OP(OP(STR(a), /, STR(b)), /, STR(c));", catch_errors, &total, &passed, &failed, &errors);
+	run_one("parser_tests/prec14.txt", "OP(OP(STR(a), &&, STR(b)), &&, STR(c));", catch_errors, &total, &passed, &failed, &errors);
+	run_one("parser_tests/prec15.txt", "OP(OP(STR(a), ||, STR(b)), ||, STR(c));", catch_errors, &total, &passed, &failed, &errors);
+	run_one("parser_tests/prec16.txt", "OP(STR(a), =, OP(STR(b), =, STR(c)));", catch_errors, &total, &passed, &failed, &errors);
+	run_one("parser_tests/prec17.txt", "OP(OP(STR(a), >, STR(b)), <, STR(c));", catch_errors, &total, &passed, &failed, &errors);
+
+	run_one("parser_tests/parenthesis1.txt", "OP(OP(STR(x), +, STR(y)), *, STR(z));", catch_errors, &total, &passed, &failed, &errors);
+	run_one("parser_tests/parenthesis2.txt", "OP(STR(x), *, OP(STR(y), +, STR(z)));", catch_errors, &total, &passed, &failed, &errors);
+	run_one("parser_tests/parenthesis3.txt", "OP(OP(STR(x), +, STR(y)), <, STR(z));", catch_errors, &total, &passed, &failed, &errors);
+	run_one("parser_tests/parenthesis4.txt", "OP(STR(x), >, OP(STR(y), +, STR(z)));", catch_errors, &total, &passed, &failed, &errors);
+	run_one("parser_tests/parenthesis5.txt", "OP(OP(STR(x), &&, STR(y)), ||, STR(z));", catch_errors, &total, &passed, &failed, &errors);
+	run_one("parser_tests/parenthesis6.txt", "OP(STR(x), &&, OP(STR(y), ||, STR(z)));", catch_errors, &total, &passed, &failed, &errors);
+	run_one("parser_tests/parenthesis7.txt", "STR(x);", catch_errors, &total, &passed, &failed, &errors);
+	run_one("parser_tests/parenthesis8.txt", "OP(STR(x), +, OP(STR(y), *, OP(STR(z), +, STR(w))));", catch_errors, &total, &passed, &failed, &errors);
+
+	run_one("parser_tests/stmt_var.txt", "VAR(STR(x), NUM(3));", catch_errors, &total, &passed, &failed, &errors);
+	run_one("parser_tests/stmt_if.txt", "IF(OP(STR(x), >, NUM(0)), OP(STR(x), =, OP(STR(x), -, NUM(1)));, OP(STR(x), =, OP(STR(x), +, NUM(1))););", catch_errors, &total, &passed, &failed, &errors);
+	run_one("parser_tests/stmt_while.txt", "LOOP(OP(STR(x), <, NUM(10)), OP(STR(x), =, OP(STR(x), +, NUM(1))););", catch_errors, &total, &passed, &failed, &errors);
+	run_one("parser_tests/stmt_for.txt", "VAR(STR(i), NUM(0)); LOOP(OP(STR(i), <, NUM(10)), CALL(6, STR(i)); UNARY(STR(i), ++););", catch_errors, &total, &passed, &failed, &errors);
+
+	run_one("parser_tests/call_print.txt", "CALL(6, STR(x));", catch_errors, &total, &passed, &failed, &errors);
+	run_one("parser_tests/call_input.txt", "CALL(7, NULL);", catch_errors, &total, &passed, &failed, &errors);
+	run_one("parser_tests/call_break.txt", "CALL(8, NULL);", catch_errors, &total, &passed, &failed, &errors);
+
+	run_one("parser_tests/array1.txt", "ARR(STR(x), NUM(3));", catch_errors, &total, &passed, &failed, &errors);
+	run_one("parser_tests/array2.txt", "ARR(ARR(STR(x), NUM(1)), STR(y));", catch_errors, &total, &passed, &failed, &errors);
+	run_one("parser_tests/array3.txt", "ARR(ARR(ARR(STR(x), NUM(1)), NUM(2)), NUM(3));", catch_errors, &total, &passed, &failed, &errors);
+
+	run_one("parser_tests/array4.txt", "ARR_LIT(NUM(0));", catch_errors, &total, &passed, &failed, &errors);
+	run_one("parser_tests/array5.txt", "ARR_LIT(ARR_LIT(NUM(1), NUM(2)), NUM(3));", catch_errors, &total, &passed, &failed, &errors);
+	run_one("parser_tests/array6.txt", "VAR(ARR(ARR(STR(x), NUM(1)), NUM(3)), ARR_LIT(ARR_LIT(NUM(1), NUM(2)), ARR_LIT(NUM(4), NUM(6))));", catch_errors, &total, &passed, &failed, &errors);
+	run_one("parser_tests/array7.txt", "VAR(ARR(STR(x), NULL), NULL);",  catch_errors, &total, &passed, &failed, &errors);
+
+	run_one("parser_tests/string_simple.txt", "ARR_LIT(NUM(97), NUM(98), NUM(99));", catch_errors, &total, &passed, &failed, &errors);
+	run_one("parser_tests/string_newline.txt", "ARR_LIT(NUM(97), NUM(10), NUM(98));", catch_errors, &total, &passed, &failed, &errors);
+	run_one("parser_tests/string_quote.txt", "ARR_LIT(NUM(97), NUM(34), NUM(98));", catch_errors, &total, &passed, &failed, &errors);
+	run_one("parser_tests/string_backslash.txt", "ARR_LIT(NUM(97), NUM(92), NUM(98));", catch_errors, &total, &passed, &failed, &errors);
+	run_one("parser_tests/string_tab.txt", "ARR_LIT(NUM(97), NUM(9), NUM(98));", catch_errors, &total, &passed, &failed, &errors);
+
+	printf("\n===== Test Summary =====\n");
+	printf("Total: %d\n", total);
+	printf("Passed: %d\n", passed);
+	printf("Failed (mismatches): %d\n", failed);
+	printf("Runtime errors (caught): %d\n", errors);
+	if (catch_errors) {
+		printf("(Ran with --catch-errors; runtime errors were isolated per-test)\n");
+	}
+	printf("========================\n\n");
+	return (failed > 0 || errors > 0) ? EXIT_FAILURE : EXIT_SUCCESS;
+}
+
+
+
+static jmp_buf test_error_jmp;
+static enum err_type caught_error = ERR_OK;
+
+static void test_error_handler(enum err_type err_code) {
+	caught_error = err_code;
+	longjmp(test_error_jmp, 1);
+}
+
+
 bool test_error(const char *filename, enum err_type expected_err) {
-	test_mode = true;
+	void (*old_handler)(enum err_type) = error_exit_handler;
+	error_exit_handler = test_error_handler;
 	caught_error = ERR_OK;
 	
-	if (setjmp(test_error_jmp) == 0) {
-		// Try to compile the file
+	if (setjmp(test_error_jmp) == 0)
 		check_file_semantics((char *)filename);
-		// If we get here, no error occurred
-		test_mode = false;
-	} else {
-		// An error was caught
-		test_mode = false;
-	}
 	
-	// Check if we got the expected error
+	error_exit_handler = old_handler;
+	
 	bool passed = (caught_error == expected_err);
 	
 	if (!passed) {
@@ -290,7 +445,6 @@ static enum err_type parse_expected_error(const char *filename) {
 
 	return ERR_OK;
 }
-
 
 int run_error_tests(const char *test_dir) {
     DIR *dir = opendir(test_dir);

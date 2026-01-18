@@ -182,12 +182,12 @@ static inline void parseSuffix(struct exp  *left, struct reader *r, struct exp *
 	struct exp *operand = left;
 	if (left == exp) {
 		operand = init_exp(r);
-		swap_exps(left, operand);
-		exp->start_col = operand->start_col;	
+		swap_exps(exp, operand);
+		exp->start_col = operand->start_col;
 	}
 	init_exp_unary(r, exp, false);
-	exp->unary->op = stealNextOp(r);
 	exp->unary->operand = operand;
+	exp->unary->op = stealNextOp(r);
 }
 
 static inline void parsePrefix(struct reader *r, struct exp *exp) {
@@ -245,7 +245,7 @@ static inline void parseNum(struct reader *r, struct exp *exp) {
 
 static inline void parseStr(struct reader *r, struct exp *exp) {
 	char *str = stealNextString(r);
-	nextValue(r);
+	//nextValue(r);
 	
 	size_t len = strlen(str);
 
@@ -273,8 +273,7 @@ static void parseArrayRef(struct reader *r, struct exp *exp) {
 	swap_exps(exp, name);
 	
 	
-	init_exp_array_ref(r, exp);
-	exp->array_ref->name = name;
+	init_exp_array_ref(r, exp, name);
 	if (!isDelimChar(r->val, ']')) {
 		exp->array_ref->index = init_exp(r);
 		parse_exp(0, r, exp->array_ref->index);
@@ -338,16 +337,20 @@ void parse_exp(int minPrio, struct reader *r, struct exp *exp)
 		struct exp *left = init_exp(r);
 		swap_exps(exp, left);
 
+		init_binary(r, exp, EXP_BINARY_OP, left);
 		enum operator op = stealNextOp(r);
+		exp->type = (isAssignOp(op)) ?  EXP_ASSIGN_OP: EXP_BINARY_OP;
 	
 		if (isAssignOp(op) && !parses_to_assignable(left))
 			raise_syntax_error(ERR_INV_EXP, r);
-		init_binary(r, exp, (isAssignOp(op)) ?  EXP_ASSIGN_OP: EXP_BINARY_OP);
 
 		exp->op->left = left;
 		exp->op->op = op;
 		exp->op->right = init_exp(r);
 		parse_exp(getPrio(exp->op->op)+1, r, exp->op->right);
+
+		exp->line_num = left->line_num;
+		exp->start_col = left->line_num;
 	}
 }
 
@@ -469,6 +472,8 @@ static void parseIf(struct reader *r, struct stmt *exp) {
 		if ((r->val.type == VAL_KEYWORD) && (r->val.num == KW_IF)) {
 			parseIf(r, elseStmt);
 		} else {
+			if (!isDelimChar(r->val, '{'))
+				raise_syntax_error(ERR_BAD_ELSE, r);
 			acceptValue(r, VAL_DELIM, "{");
 			parse_stmt(r, elseStmt);
 			acceptValue(r, VAL_DELIM, "}");

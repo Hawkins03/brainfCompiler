@@ -28,6 +28,20 @@
             "MIMode": "gdb",
             "miDebuggerPath": "/usr/bin/gdb",
             "preLaunchTask": "build (make)"
+        },
+        {
+            "name": "Run bfCompiler on semantic file (choose file)",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/bfCompiler",
+            "args": ["-s", "${input:compileFile}"],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}",
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "miDebuggerPath": "/usr/bin/gdb",
+            "preLaunchTask": "build (make)"
         }
     ]
     ,

@@ -18,6 +18,7 @@
 #define ANSI_CYAN    "\x1b[36m"
 
 static const char *ERROR_MESSAGES[] =  { \
+	[ERR_OK] = "no error", \
 	[ERR_NO_FILE] = "failed to open file", \
 	[ERR_EOF] = "unexpected end of file", \
 	[ERR_NO_ARGS] = "expected arguments (i.e. \"./bfCompiler tests/array1.txt)\"", \
@@ -45,10 +46,19 @@ static const char *ERROR_MESSAGES[] =  { \
 	[ERR_INTERNAL] = "internal compiler error", \
 };
 
-__attribute__((weak)) bool test_mode = false;
-__attribute__((weak)) void test_exit_with_error(enum err_type err) {
-    // Default implementation does nothing
-    // Will be overridden by error_test.c when running tests
+static void default_error_exit(enum err_type err_code) {
+	(void)err_code; // Unused in default implementation
+	exit(EXIT_FAILURE);
+}
+
+// Function pointer that can be overridden for testing
+void (*error_exit_handler)(enum err_type err_code) = default_error_exit;
+
+static const char *get_error_message(enum err_type err_code) {
+    if (err_code >= 0 && err_code < sizeof(ERROR_MESSAGES)/sizeof(ERROR_MESSAGES[0])) {
+        return ERROR_MESSAGES[err_code];
+    }
+    return "Unknown error";
 }
 
 void set_strlen(char **str, const int len, struct reader *r) {
@@ -70,20 +80,13 @@ void reset_strlen_if_needed(char **str, const int len, int *cap, struct reader *
 // Error Handling
 void _raise_error(enum err_type err, const char *func, const char *file, int line)
 {
-	if (test_mode)
-		test_exit_with_error(err);
 
-	fprintf(stderr, "ERROR in %s at %s:%d - %s\n", func, file, line, ERROR_MESSAGES[err]);
-	exit(EXIT_FAILURE);
+	fprintf(stderr, "ERROR in %s at %s:%d - %s\n", func, file, line, get_error_message(err));
+	error_exit_handler(err);
 }
 
 
 void _raise_syntax_error(enum err_type err, const char *func, const char *file, int line, struct reader *r) {
-	if (test_mode) {
-		killReader(r);
-		test_exit_with_error(err);
-	}
-
 	if (r) {
 		int error_start = r->val.start_pos;
 		int error_end = r->line_pos;
@@ -97,7 +100,7 @@ void _raise_syntax_error(enum err_type err, const char *func, const char *file, 
 		// Print error header
 		fprintf(stderr, ANSI_BOLD "Error" ANSI_RESET " in %s" ANSI_CYAN ":%d:%d" ANSI_RESET "\n", 
 			r->filename, r->line_num, error_start + 1);
-		fprintf(stderr, "  " ANSI_RED "%s" ANSI_RESET "\n", ERROR_MESSAGES[err]);
+		fprintf(stderr, "  " ANSI_RED "%s" ANSI_RESET "\n", get_error_message(err));
 		
 		// Print the source line with line number
 		if (r->line_buf && r->line_buf[0]) {
@@ -129,63 +132,78 @@ void _raise_syntax_error(enum err_type err, const char *func, const char *file, 
 		fprintf(stderr, "\n");
 		killReader(r);
 	} else {
-		fprintf(stderr, "ERROR in %s at %s:%d - %s\n", func, file, line, ERROR_MESSAGES[err]);
+		fprintf(stderr, "ERROR in %s at %s:%d - %s\n", func, file, line, get_error_message(err));
 	}
-	exit(EXIT_FAILURE);
+	error_exit_handler(err);
 }
 
 
 
-static char *get_line_at_pos(const char *filename, const fpos_t *pos) {
+static char *get_line_at_pos(const char *filename, int line_num) {
     FILE *fp = fopen(filename, "r");
     if (!fp)
         return NULL;
     
-    // Seek to the saved position (start of line)
-    if (fsetpos(fp, pos)) {
-        fclose(fp);
-        return NULL;
-    }
-    
     // Read the line
-    char *line_buf = calloc(DEFAULT_CAP_SIZE, sizeof(char));
+    char *line_buf = calloc(256 + 1, sizeof(*line_buf));
+    if (!line_buf) {	
+        fclose(fp);
+        return NULL;
+    }
+    
+    for (int i = 1; i <= line_num; i++) {
+	if (!fgets(line_buf, 255, fp)) {
+		free(line_buf);
+		fclose(fp);
+		return NULL;
+	}
+    }
     if (!line_buf) {
-        fclose(fp);
-        return NULL;
+    	fclose(fp);
+	return NULL;
     }
+
+    line_buf[254] = '\n';
+    line_buf[255] = '\0';
     
-    if (!fgets(line_buf, DEFAULT_CAP_SIZE, fp)) {
-        free(line_buf);
-        fclose(fp);
-        return NULL;
-    }
-    
+
+    char *tmp = realloc(line_buf, strlen(line_buf) + 2);
+   
     fclose(fp);
+
+     if (!tmp)
+    	return line_buf;
+    line_buf = tmp;
+    size_t len = strlen(line_buf);
+    line_buf[len] = '\n';
+    line_buf[len + 1] = '\0';
     return line_buf;
 }
 
 
-static void _raise_semantic_error(enum err_type err, const fpos_t *pos, int start_col, const char *filename, const char *func, const char *file, int line, struct env *env) {
+static void _raise_semantic_error(enum err_type err, int line_num, int start_col, const char *func, const char *file, int line, struct env *env) {
 	fprintf(stderr, "ERROR in %s at %s:%d - %s\n", func, file, line, ERROR_MESSAGES[err]);
-	if (pos && filename) {
+	if (env->filename) {
 		// Retrieve the source line using fpos_t
-		char *source_line = get_line_at_pos(filename, pos);
-		if (source_line) {
-		fprintf(stderr, "\n  ");
-		
-		// Print line without trailing newline
-		for (int i = 0; source_line[i] && source_line[i] != '\n'; i++) {
-			fputc(source_line[i], stderr);
-		}
-		fprintf(stderr, "\n  ");
-		
-		// Print indicator
-		for (int i = 0; i < start_col; i++) {
-			fputc(source_line[i] == '\t' ? '\t' : ' ', stderr);
-		}
-		fprintf(stderr, "^\n");
-		
-		free(source_line);
+		char *source_line = get_line_at_pos(env->filename, line_num);
+		size_t len = strlen(source_line);
+		if (strlen(source_line) > 0) {
+			fprintf(stderr, "\n  ");
+			 // invalid read
+			
+			// Print line without trailing newline
+			for (size_t i = 0; (i < len) && source_line[i] && (source_line[i] != '\n'); i++)
+				fputc(source_line[i], stderr);
+			fprintf(stderr, "\n  ");
+			
+			// Print indicator
+			bool right_start_pos = start_col <= (int) strlen(source_line);
+			for (int i = 0; right_start_pos && i < start_col; i++)
+				fputc(source_line[i] == '\t' ? '\t' : ' ', stderr);
+
+			fprintf(stderr, "^\n");
+			
+			free(source_line);
 		}
 		
 		fprintf(stderr, "\n");
@@ -194,23 +212,13 @@ static void _raise_semantic_error(enum err_type err, const fpos_t *pos, int star
 	}
 	
 	free_env(env);
-	exit(EXIT_FAILURE);
+	error_exit_handler(err);
 }
 
 void _raise_exp_semantic_error(enum err_type err, const struct exp *exp, const char *func, const char *file, int line, struct env *env) {
-	if (test_mode) {
-		free_env(env);
-		test_exit_with_error(err);
-	}
-
-	_raise_semantic_error(err, &exp->pos, exp->start_col, exp->filename, func, file, line, env);
+	_raise_semantic_error(err, exp->line_num, exp->start_col, func, file, line, env);
 }
 
 void _raise_stmt_semantic_error(enum err_type err, const struct stmt *stmt, const char *func, const char *file, int line, struct env *env) {
-	if (test_mode) {
-		free_env(env);
-		test_exit_with_error(err);
-	}
-	
-	_raise_semantic_error(err, &stmt->pos, stmt->start_col, stmt->filename, func, file, line, env);
+	_raise_semantic_error(err, stmt->line_num, stmt->start_col, func, file, line, env);
 }

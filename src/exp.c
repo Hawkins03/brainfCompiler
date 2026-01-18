@@ -153,40 +153,54 @@ struct exp *init_exp(struct reader *r) {
 		raise_syntax_error(ERR_NO_MEM, r);
 
 	exp->type = EXP_EMPTY;
-	exp->filename = r->filename;
-	exp->pos = r->line_start_pos;
+	exp->line_num = r->line_num;
 	exp->start_col = r->val.start_pos;
 	return exp;
 }
 
-void init_binary(struct reader *r, struct exp *exp, enum exp_type tp) {
+void init_binary(struct reader *r, struct exp *exp, enum exp_type tp, struct exp *left) {
 	exp->type = tp;
 	exp->op = calloc(1, sizeof(*(exp->op)));
-	
-	if (!exp->op)
+	exp->line_num = r->line_num;
+	exp->start_col = r->val.start_pos;
+
+	if (!exp->op) {
+		free_exp(left);
 		raise_syntax_error(ERR_NO_MEM, r);
+	}
+	exp->op->left = left;
 }
 
 void init_exp_unary(struct reader *r, struct exp *exp, bool is_prefix) {
 	exp->type = EXP_UNARY;
 	exp->unary = calloc(1, sizeof(*(exp->unary)));
+	exp->line_num = r->line_num;
+	exp->start_col = r->val.start_pos;
+
 	if (!exp->unary)
 		raise_syntax_error(ERR_NO_MEM, r);
 	exp->unary->is_prefix = is_prefix;
 }
 
-void init_exp_array_ref(struct reader *r, struct exp *exp) {
+void init_exp_array_ref(struct reader *r, struct exp *exp, struct exp *name) {
 	exp->type = EXP_ARRAY_REF;
 	exp->array_ref = calloc(1, sizeof(*exp->array_ref));
-	
-	if (!exp->array_ref)
+	exp->line_num = r->line_num;
+	exp->start_col = r->val.start_pos;
+
+	if (!exp->array_ref) {
+		free_exp(name);
 		raise_syntax_error(ERR_NO_MEM, r);
+	}
+	exp->array_ref->name = name;
 }
 
 void init_exp_array_lit(struct reader *r, struct exp *exp, int size) {
 	exp->type = EXP_ARRAY_LIT;
 	exp->array_lit = calloc(1, sizeof(*exp->array_lit));
-	
+	exp->line_num = r->line_num;
+	exp->start_col = r->val.start_pos;
+
 	if (!exp->array_lit)
 		raise_syntax_error(ERR_NO_MEM, r);
 
@@ -217,11 +231,15 @@ void set_exp_arraylit_len(struct reader *r, struct exp *exp, int final_len) {
 void init_exp_call(struct reader *r, struct exp *exp, enum key_type key) {
 	exp->type = EXP_CALL;
 	exp->call = calloc(1, sizeof(*exp->call));
-	
+	exp->line_num = r->line_num;
+	exp->start_col = r->val.start_pos;
+
 	if (!exp->call)
 		raise_syntax_error(ERR_NO_MEM, r);
 	exp->call->key = key;
 }
+
+
 
 void swap_exps(struct exp *from, struct exp *to) {
 	struct exp tmp = *from;
