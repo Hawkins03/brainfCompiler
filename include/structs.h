@@ -166,5 +166,52 @@ struct env {
 	size_t cap;
 };
 
+enum ir_value_type {
+    IR_VAL_NUM,
+    IR_VAL_VAR
+};
+
+enum ir_type {
+	IR_LET,
+	IR_EXP,
+	IR_LOOP,
+};
+
+enum ir_op {
+	IR_ADD,
+	IR_SUB,
+	IR_COPY,
+};
+
+struct ir_val {
+    enum ir_value_type type;
+    union {
+        int num;
+        char *var;
+    };
+};
+
+struct ir_assign {
+	enum ir_op op;
+	char *dest;
+	struct ir_val lhs;
+	struct ir_val rhs;
+};
+
+struct ir_loop {
+	char *cond;
+	struct ir_node **body;
+	int length;
+};
+
+struct ir_node {
+	enum ir_type type;
+	union {
+		struct ir_assign assign;
+		struct ir_loop loop;
+	};
+	struct ir_node *next;
+};
+
 
 #endif //STRUCT_H

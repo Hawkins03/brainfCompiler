@@ -17,3 +17,5 @@ TODO: handle double/single quotes. chars can just be ints, and can handle quotes
 
 TODO: add a preprocessor
 TODO: add more error checking
+
+TODO: use cmake, and use the (suprise!) tool that was built for error testing, either instead or alongside my own tool to do the same. Also use coverage testing to ensure that the test suite gets total coverage and that if there's an error, the code can diagnose it. Also use this to figure out where I need more error testing.
