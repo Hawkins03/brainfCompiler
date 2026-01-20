@@ -90,7 +90,7 @@ bool define_var(struct env *env, char *name, bool is_mutable, int array_depth) {
 }
 
 struct var_data *get_var(const struct env *env, const char *name) {
-	if (!env)
+	if (!env || !name)
 		return NULL;
 	for (size_t i = 0; i < env->len; i++) {
 		struct var_data *var = env->vars + i;
@@ -183,7 +183,8 @@ static inline bool exp_is_op(const struct exp *exp) {
 static inline bool exp_is_mutable(struct env *env, const struct exp *exp) {
 	struct var_data *var = get_var(env, get_exp_name(exp));
 	if (!var)
-		raise_exp_semantic_error(ERR_NO_VAR, exp, env);
+		return false;
+		//raise_exp_semantic_error(ERR_NO_VAR, exp, env);
 	return var->is_mutable;
 }
 
@@ -266,8 +267,6 @@ void check_exp_semantics(struct env *env, struct exp *exp) {
 		if (is_array(env, b_left))
 			raise_exp_semantic_error(ERR_INV_ARR, b_left, env);
 		//BUG!!!
-		if (!(exp_is_mutable(env, b_left)))
-			raise_exp_semantic_error(ERR_IMMUT, b_left, env);
 		if (is_array(env, b_right))
 			raise_exp_semantic_error(ERR_INV_ARR, b_right, env);
 		check_exp_semantics(env, b_left);
@@ -285,7 +284,7 @@ void check_exp_semantics(struct env *env, struct exp *exp) {
 		break;
 	case EXP_CALL:
 		if (exp->call->key == KW_PRINT)  { 
-			if(is_array(env, exp->call->arg)) //TODO: update ir to overload print to enable this.
+			if(is_array(env, exp->call->arg))
 				raise_exp_semantic_error(ERR_INV_ARR, exp, env);
 			check_exp_semantics(env, exp->call->arg);
 		}

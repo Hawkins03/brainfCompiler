@@ -2,24 +2,10 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Build and Run bfTester",
+            "name": "parser (choose file)",
             "type": "cppdbg",
             "request": "launch",
-            "program": "${workspaceFolder}/bfTester",
-            "args": ["--catch-errors"],
-            "stopAtEntry": true,
-            "cwd": "${workspaceFolder}",
-            "environment": [],
-            "externalConsole": false,
-            "MIMode": "gdb",
-            "miDebuggerPath": "/usr/bin/gdb",
-            "preLaunchTask": "build (make)"
-        },
-        {
-            "name": "Run bfCompiler (choose file)",
-            "type": "cppdbg",
-            "request": "launch",
-            "program": "${workspaceFolder}/bfCompiler",
+            "program": "${workspaceFolder}/build/parser",
             "args": ["${input:compileFile}"],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",
@@ -30,11 +16,11 @@
             "preLaunchTask": "build (make)"
         },
         {
-            "name": "Run bfCompiler on semantic file (choose file)",
+            "name": "semChecker (choose file)",
             "type": "cppdbg",
             "request": "launch",
-            "program": "${workspaceFolder}/bfCompiler",
-            "args": ["-s", "${input:compileFile}"],
+            "program": "${workspaceFolder}/build/semChecker",
+            "args": ["${input:compileFile}"],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",
             "environment": [],

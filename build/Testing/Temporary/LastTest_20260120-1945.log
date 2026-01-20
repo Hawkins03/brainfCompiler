@@ -1,0 +1,49 @@
+Start testing: Jan 20 13:45 CST
+----------------------------------------------------------
+104/104 Testing: post_test_coverage
+104/104 Test: post_test_coverage
+Command: "/usr/bin/make" "coverage"
+Directory: /home/hawk/brainfCompiler/build
+"post_test_coverage" start time: Jan 20 13:45 CST
+Output:
+----------------------------------------------------------
+[100%] Generating report in WSL... ignoring test exit codes to ensure lcov runs.
+Capturing coverage data from /home/hawk/brainfCompiler
+Subroutine read_intermediate_text redefined at /usr/bin/geninfo line 2623.
+Subroutine read_intermediate_json redefined at /usr/bin/geninfo line 2655.
+Subroutine intermediate_text_to_info redefined at /usr/bin/geninfo line 2703.
+Subroutine intermediate_json_to_info redefined at /usr/bin/geninfo line 2792.
+Subroutine get_output_fd redefined at /usr/bin/geninfo line 2872.
+Subroutine print_gcov_warnings redefined at /usr/bin/geninfo line 2900.
+Subroutine process_intermediate redefined at /usr/bin/geninfo line 2930.
+Found gcov version: 11.4.0
+Using intermediate gcov format
+Scanning /home/hawk/brainfCompiler for .gcda files ...
+Found 16 data files in /home/hawk/brainfCompiler
+Processing semChecker.dir/src/reader.c.gcda
+Processing semChecker.dir/src/semantics.c.gcda
+Processing semChecker.dir/src/check_semantics.c.gcda
+Processing semChecker.dir/src/interp.c.gcda
+Processing semChecker.dir/src/exp.c.gcda
+Processing semChecker.dir/src/utils.c.gcda
+Processing semChecker.dir/src/parser.c.gcda
+Processing semChecker.dir/src/stmt.c.gcda
+Processing parser.dir/src/reader.c.gcda
+Processing parser.dir/src/semantics.c.gcda
+Processing parser.dir/src/parse_file.c.gcda
+Processing parser.dir/src/interp.c.gcda
+Processing parser.dir/src/exp.c.gcda
+Processing parser.dir/src/utils.c.gcda
+Processing parser.dir/src/parser.c.gcda
+Processing parser.dir/src/stmt.c.gcda
+Finished .info-file creation
+[100%] Built target coverage
+<end of output>
+Test time =   0.81 sec
+----------------------------------------------------------
+Test Passed.
+"post_test_coverage" end time: Jan 20 13:45 CST
+"post_test_coverage" time elapsed: 00:00:00
+----------------------------------------------------------
+
+End testing: Jan 20 13:45 CST

@@ -1,0 +1,1 @@
+/usr/bin/gcc  -g -O0 -Wall --coverage -g  --coverage CMakeFiles/parser.dir/src/parse_file.c.o CMakeFiles/parser.dir/src/exp.c.o CMakeFiles/parser.dir/src/interp.c.o CMakeFiles/parser.dir/src/parser.c.o CMakeFiles/parser.dir/src/reader.c.o CMakeFiles/parser.dir/src/stmt.c.o CMakeFiles/parser.dir/src/semantics.c.o CMakeFiles/parser.dir/src/utils.c.o -o parser 
