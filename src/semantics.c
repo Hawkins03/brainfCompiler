@@ -25,7 +25,7 @@ void setup_env(struct env *env, struct env *parent) {
 	env->vars = calloc(env->cap, sizeof(*env->vars));
 	env->len = 0;
 	if (!env->vars) {
-		if (parent)
+		if (parent) //untouched
 			free_stmt(parent->root);
 		raise_error(ERR_NO_MEM);
 	}
@@ -35,7 +35,7 @@ static inline void increase_env_len(struct env *env) {
 	if (env->len + 1 < env->cap)
 		return;
 	
-	env->cap *= 2;
+	env->cap *= 2; //untouched
 	struct var_data *tmp = realloc(env->vars, env->cap);
 	if (!tmp) {
 		free_env(env);
@@ -47,7 +47,7 @@ static inline void increase_env_len(struct env *env) {
 
 static void free_child_env(struct env *env) {
 	if(!env)
-		return;
+		return; //untouched
 	if (env->vars) {
 		free(env->vars);
 		env->vars = NULL;
@@ -58,9 +58,9 @@ static void free_child_env(struct env *env) {
 
 void free_env(struct env *env) {
 	if(!env)
-		return;
+		return; //untouched
 	if (env->parent) {
-		free_env(env->parent);
+		free_env(env->parent); //untouched...
 		env->parent = NULL;
 	} else {
 		if (env->filename) {
@@ -79,7 +79,7 @@ void free_env(struct env *env) {
 //var utility functions
 bool define_var(struct env *env, char *name, bool is_mutable, int array_depth) {
 	if (!env->vars  || (get_var(env, name) != NULL))
-		return false;
+		return false; //untouched
 	//ERR_REDEF
 	struct var_data *var_loc = env->vars + (env->len)++;
 	var_loc->name = name;
@@ -102,22 +102,22 @@ struct var_data *get_var(const struct env *env, const char *name) {
 
 static int get_var_depth(struct env *env, const char *name) {
 	if (!name)
-		return 0;
+		return 0; //untouched
 	const struct var_data *var_data = get_var(env, name);
 	if (var_data)
 		return var_data->array_depth;
-	return 0;
+	return 0; //untouched
 }
 
 // exp utility functions
 static char *get_exp_name(const struct exp *exp) {
 	if (!exp)
-		return NULL;
+		return NULL; //untouched
 	
 	switch (exp->type) {
 	case EXP_ARRAY_REF:
 		return get_exp_name(exp->array_ref->name);
-	case EXP_BINARY_OP:
+	case EXP_BINARY_OP: //untouched
 	case EXP_ASSIGN_OP:
 		char *left_name = get_exp_name(exp->op->left);
 		if (left_name)
@@ -141,7 +141,7 @@ static inline int get_exp_name_depth(const struct exp *exp) {
 
 static int get_exp_depth(struct env *env, const struct exp *exp) {
 	if (!exp)
-		return 0;
+		return 0; //untouched
 	switch (exp->type) {
 		case EXP_ARRAY_REF:
 			int total_depth = get_var_depth(env, get_exp_name(exp));
@@ -198,7 +198,7 @@ static bool is_array(struct env *env, const struct exp *exp) {
 
 static inline bool setting_two_arrays(struct env *env, const struct exp *exp) {
 	if ((exp->type != EXP_ASSIGN_OP) && (exp->type != EXP_BINARY_OP))
-		return false;
+		return false; //untouched
 	return is_array(env, exp->op->left) && is_array(env, exp->op->right) && (exp->op->op == OP_ASSIGN);
 }
 
@@ -227,13 +227,13 @@ static inline bool is_incrementable(struct env *env, const struct exp *exp) {
 // checker functions
 void check_exp_semantics(struct env *env, struct exp *exp) {
 	if (!env || !exp)
-		return;
+		return; //untouched
 
 	switch (exp->type) {
 	case EXP_NAME:
 		struct var_data *var = get_var(env, exp->name);
 		if (!var)
-			raise_exp_semantic_error(ERR_NO_VAR, exp, env);
+			raise_exp_semantic_error(ERR_NO_VAR, exp, env); //untouched - good
 		break;
 	
 	case EXP_ASSIGN_OP:
@@ -241,15 +241,15 @@ void check_exp_semantics(struct env *env, struct exp *exp) {
 		struct exp *a_right = exp->op->right;
 		raise_error_if_immutable(env, a_left);
 		if (setting_two_arrays(env, exp)) {
-			raise_error_if_invalid_depth(env, a_right, get_exp_depth(env, a_left));
+			raise_error_if_invalid_depth(env, a_right, get_exp_depth(env, a_left)); //untouched - bad
 			check_exp_semantics(env, a_left);
 			check_exp_semantics(env, a_right);
 			return;
 		}
 		if (is_array(env, a_left) || is_array(env, a_right))
-			raise_exp_semantic_error(ERR_INV_ARR, exp, env);
+			raise_exp_semantic_error(ERR_INV_ARR, exp, env); //untouched
 		if (!exp_is_unary(a_left))
-			raise_exp_semantic_error(ERR_INV_EXP, exp, env);
+			raise_exp_semantic_error(ERR_INV_EXP, exp, env); //untouched
 		check_exp_semantics(env, a_left);
 		check_exp_semantics(env, a_right);
 		break;
@@ -257,7 +257,7 @@ void check_exp_semantics(struct env *env, struct exp *exp) {
 		if (is_array(env, exp->unary->operand))
 			raise_exp_semantic_error(ERR_INV_ARR, exp->unary->operand, env);
 		if (op_must_be_assignable(exp->unary->op) && !is_incrementable(env, exp->unary->operand))
-			raise_exp_semantic_error(ERR_INV_EXP, exp, env);
+			raise_exp_semantic_error(ERR_INV_EXP, exp, env); //untouched - bad
 		
 		check_exp_semantics(env, exp->unary->operand);
 		break;
@@ -265,10 +265,10 @@ void check_exp_semantics(struct env *env, struct exp *exp) {
 		struct exp *b_left = exp->op->left;
 		struct exp *b_right = exp->op->right;
 		if (is_array(env, b_left))
-			raise_exp_semantic_error(ERR_INV_ARR, b_left, env);
-		//BUG!!!
+			raise_exp_semantic_error(ERR_INV_ARR, b_left, env); //untouched
+
 		if (is_array(env, b_right))
-			raise_exp_semantic_error(ERR_INV_ARR, b_right, env);
+			raise_exp_semantic_error(ERR_INV_ARR, b_right, env); //untouched
 		check_exp_semantics(env, b_left);
 		check_exp_semantics(env, b_right);
 		break;
@@ -286,12 +286,12 @@ void check_exp_semantics(struct env *env, struct exp *exp) {
 		if (exp->call->key == KW_PRINT)  { 
 			if(is_array(env, exp->call->arg))
 				raise_exp_semantic_error(ERR_INV_ARR, exp, env);
-			check_exp_semantics(env, exp->call->arg);
+			check_exp_semantics(env, exp->call->arg); //untouched
 		}
-		break;
+		break; //untouched
 	case EXP_NUM:
 		break;
-	default:
+	default: //untouched - good
 		raise_exp_semantic_error(ERR_INV_EXP, exp, env);
 		break;
 	}
@@ -299,7 +299,7 @@ void check_exp_semantics(struct env *env, struct exp *exp) {
 
 void check_stmt_semantics(struct env *env, struct stmt *stmt) {
 	if(!stmt)
-		return;
+		return; //untouched - good
 
 	switch (stmt->type) {
 	case STMT_VAR:
@@ -314,7 +314,7 @@ void check_stmt_semantics(struct env *env, struct stmt *stmt) {
 			raise_stmt_semantic_error(ERR_INV_ARR, stmt, env);
 
 		if (!define_var(env, name, is_mutable, array_depth))
-			raise_stmt_semantic_error(ERR_REDEF, stmt, env);
+			raise_stmt_semantic_error(ERR_REDEF, stmt, env); //TODO: untouched
 
 		raise_error_if_invalid_depth(env, stmt->var->value, array_depth);
 
@@ -350,7 +350,7 @@ void check_stmt_semantics(struct env *env, struct stmt *stmt) {
 		check_stmt_semantics(&loop_env, stmt->loop->body);
 		free_child_env(&loop_env);
 		break;
-	default:
+	default: //untouched - good
 		raise_stmt_semantic_error(ERR_INV_STMT, stmt, env);
 		break;
 	}
@@ -360,8 +360,6 @@ void check_stmt_semantics(struct env *env, struct stmt *stmt) {
 
 void check_file_semantics(char *filename) {
 	struct stmt *root = parse_file(filename);
-
-	//TODO: update to do one line at a time.
 
 	struct env env;
 	setup_env(&env, NULL);

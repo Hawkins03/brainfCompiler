@@ -8,6 +8,20 @@ TODO: an array must have a defined sized. (it can be unknown, or to-be-assigned 
 
 DONE: && / || / characters
 
+
+if cmake testing isn't working in your vscode, here's my settings file if that helps. (also check lcov and the cmake extension suite are installed)
+
+{
+  "cmake.ctest.runCoverageTarget": "coverage",  
+  "cmake.coverageInfoFiles": [
+    "<NON-RELETIVE PATH TO DIRECTORY>/coverage.info"
+  ],
+  "cmake.coverageDecorations": {
+    "enabled": true
+  }
+}
+
+
 TODO: unit testing
     printing out in EXP(left,op,right,etc)
     compare it to an expected string
