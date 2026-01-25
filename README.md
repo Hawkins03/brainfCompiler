@@ -8,6 +8,8 @@ TODO: an array must have a defined sized. (it can be unknown, or to-be-assigned 
 
 DONE: && / || / characters
 
+the command to make everything is cmake --build /home/hawk/brainfCompiler/build --config Debug --target coverage -j 8 --
+
 
 if cmake testing isn't working in your vscode, here's my settings file if that helps. (also check lcov and the cmake extension suite are installed)
 

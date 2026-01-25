@@ -315,7 +315,7 @@ void parse_atom(struct reader *r, struct exp *exp) {
 		else if (r->val.ch == '{')
 			parseArrayLit(r, exp);
 		break;
-	case VAL_KEYWORD:
+	case VAL_KEYWORD: //Dupe, parse_stmt covers this, this is just backup ig
 		parseCall(r, exp);
 		break;
 	default:
@@ -374,7 +374,7 @@ static void parseVar(struct reader *r, bool is_mutable, struct stmt *exp) {
 	parse_exp(0, r, exp->var->value);
 
 	if (!exps_are_compatable(exp->var->name, exp->var->value))
-		raise_syntax_error(ERR_INV_EXP, r);
+		raise_syntax_error(ERR_INV_EXP, r); //TODO: add test?
 }
 
 static void parseWhile(struct reader *r, struct stmt *exp) {
@@ -410,7 +410,7 @@ static void parseFor(struct reader *r, struct stmt *exp) {
 	
 	parse_single_stmt(r, exp); //init
 	if (!isValidInitStmt(exp))
-		raise_error(ERR_INV_EXP);
+		raise_error(ERR_INV_EXP); //TODO: add test
 
 	exp->next = init_stmt(r);
 	exp->next->start_col = for_start_pos;
@@ -434,11 +434,11 @@ static void parseFor(struct reader *r, struct stmt *exp) {
 	struct stmt *curr = loop->loop->body;
 	if (curr) {
 		while (curr->next != NULL)
-			curr = curr->next;
+			curr = curr->next; //TODO: add test
 
 		curr->next = loop->next;
 	} else {
-		curr = loop->next;
+		curr = loop->next; //TODO: add test
 	}
 	loop->next = NULL;
 
@@ -465,12 +465,12 @@ static void parseIf(struct reader *r, struct stmt *exp) {
 	if ((r->val.type == VAL_KEYWORD) && (r->val.num == KW_ELSE)) {
 		acceptValue(r, VAL_KEYWORD, "else");
 		if (!r)
-			raise_syntax_error(ERR_BAD_ELSE, r);
+			raise_syntax_error(ERR_BAD_ELSE, r); //TODO: add test
 
 		exp->ifStmt->elseStmt = init_stmt(r);
 		struct stmt *elseStmt = exp->ifStmt->elseStmt;
 		if ((r->val.type == VAL_KEYWORD) && (r->val.num == KW_IF)) {
-			parseIf(r, elseStmt);
+			parseIf(r, elseStmt); //TODO: add test
 		} else {
 			if (!isDelimChar(r->val, '{'))
 				raise_syntax_error(ERR_BAD_ELSE, r);
