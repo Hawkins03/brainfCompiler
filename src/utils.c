@@ -18,32 +18,32 @@
 #define ANSI_CYAN    "\x1b[36m"
 
 static const char *ERROR_MESSAGES[] =  { \
-	[ERR_OK] = "no error", \
-	[ERR_NO_FILE] = "failed to open file", \
-	[ERR_EOF] = "unexpected end of file", \
-	[ERR_NO_ARGS] = "expected arguments (i.e. \"./bfCompiler tests/array1.txt)\"", \
-	[ERR_NO_MEM] = "memory allocation failed", \
-	[ERR_REFREE] = "Attempted to free already freed memory", \
-	[ERR_UNEXP_CHAR] = "unexpected character", \
-	[ERR_INV_ESC] = "invalid escape sequence", \
-	[ERR_UNMATCHED_BRACKET] = "Missing closing bracket", \
-	[ERR_UNMATCHED_PAREN] = "Missing closing parenthesis", \
-	[ERR_UNMATCHED_BRACE] = "Missing closing brace", \
-	[ERR_UNMATCHED_QUOTE] = "Missing closing quotation mark", \
-	[ERR_BIG_NUM] = "number exceeds maximum length", \
-	[ERR_TOO_LONG] = "string exceeds maximum length", \
-	[ERR_INV_TYPE] = "invalid or unexpected type", \
-	[ERR_INV_VAL] = "invalid value", \
-	[ERR_INV_OP] = "invalid operator", \
-	[ERR_INV_EXP] = "invalid expression", \
-	[ERR_INV_STMT] = "invalid statement", \
-	[ERR_BAD_ELSE] = "malformed else clause", \
-	[ERR_REDEF] = "Variable already declared in this scope", \
-	[ERR_NO_VAR] = "undefined variable", \
-	[ERR_IMMUT] = "Cannot modify immutable variable (declared with 'val')", \
-	[ERR_INV_ARR] = "invalid use of array", \
-	[ERR_INF_REC] = "infinite recursion detected in statement", \
-	[ERR_INTERNAL] = "internal compiler error", \
+	[ERR_OK] = "ERR_OK: no error", \
+	[ERR_NO_FILE] = "ERR_NO_FILE: failed to open file", \
+	[ERR_EOF] = "ERR_EOF: unexpected end of file", \
+	[ERR_NO_ARGS] = "ERR_NO_ARGS: expected arguments (i.e. \"./bfCompiler tests/array1.txt)\"", \
+	[ERR_NO_MEM] = "ERR_NO_MEM: memory allocation failed", \
+	[ERR_REFREE] = "ERR_REFREE: Attempted to free already freed memory", \
+	[ERR_UNEXP_CHAR] = "ERR_UNEXP_CHAR: unexpected character", \
+	[ERR_INV_ESC] = "ERR_INV_ESC: invalid escape sequence", \
+	[ERR_UNMATCHED_BRACKET] = "ERR_UNMATCHED_BRACKET: Missing closing bracket", \
+	[ERR_UNMATCHED_PAREN] = "ERR_UNMATCHED_PAREN: Missing closing parenthesis", \
+	[ERR_UNMATCHED_BRACE] = "ERR_UNMATCHED_BRACE: Missing closing brace", \
+	[ERR_UNMATCHED_QUOTE] = "ERR_UNMATCHED_QUOTE: Missing closing quotation mark", \
+	[ERR_BIG_NUM] = "ERR_BIG_NUM: number exceeds maximum length", \
+	[ERR_TOO_LONG] = "ERR_TOO_LONG: string exceeds maximum length", \
+	[ERR_INV_TYPE] = "ERR_INV_TYPE: invalid or unexpected type", \
+	[ERR_INV_VAL] = "ERR_INV_VAR: invalid value", \
+	[ERR_INV_OP] = "ERR_INV_OP: invalid operator", \
+	[ERR_INV_EXP] = "ERR_INV_EXP: invalid expression", \
+	[ERR_INV_STMT] = "ERR_INV_STMT: invalid statement", \
+	[ERR_BAD_ELSE] = "ERR_BAD_ELSE: malformed else clause", \
+	[ERR_REDEF] = "ERR_REDEF: Variable already declared in this scope", \
+	[ERR_NO_VAR] = "ERR_NO_VAR: undefined variable", \
+	[ERR_IMMUT] = "ERR_IMMUT: Cannot modify immutable variable (declared with 'val')", \
+	[ERR_INV_ARR] = "ERR_INV_ARR: invalid use of array", \
+	[ERR_INF_REC] = "ERR_INF_REC: infinite recursion detected in statement", \
+	[ERR_INTERNAL] = "ERR_INTERNAL: internal compiler error" \
 };
 
 static void default_error_exit(enum err_type err_code) {
