@@ -70,10 +70,8 @@ void free_stmt(struct stmt *stmt) {
 
 //print functions
 void print_stmt(const struct stmt *stmt) {
-	if (!stmt) {
-		printf("NULL\n");
+	if (!stmt)
 		return;
-	}
 	switch (stmt->type) {
 	case STMT_EMPTY:
 		printf("EMPTY();\n");

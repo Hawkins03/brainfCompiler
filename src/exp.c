@@ -89,10 +89,9 @@ void free_exp(struct exp *exp) {
 }
 
 void print_exp(const struct exp *exp) {
-    	if (!exp) {
-		printf("NULL");
+    	if (!exp)
 		return;
-	}
+
 	switch (exp->type) {
 	case EXP_EMPTY:
 		printf("EMPTY()");
@@ -105,7 +104,7 @@ void print_exp(const struct exp *exp) {
 		break;
 	case EXP_ASSIGN_OP:
 	case EXP_BINARY_OP:
-		printf("OP( ");
+		printf("OP(");
 		print_exp(exp->op->left);
 		printf(", %s, ", getOpStr(exp->op->op));
 		print_exp(exp->op->right);
