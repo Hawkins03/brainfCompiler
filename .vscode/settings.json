@@ -1,0 +1,10 @@
+{
+  "cmake.options.statusBarVisibility": "visible",
+  "cmake.buildBeforeRun": true,
+  "cmake.configureOnOpen": true,
+  "cmake.preRunCoverageTarget": "clear_coverage_data",
+  "cmake.postRunCoverageTarget": "generate_coverage_report",
+  "cmake.coverageInfoFiles": [
+    "${workspaceFolder}/coverage.info"
+  ]
+}

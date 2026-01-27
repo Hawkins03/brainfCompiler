@@ -20,6 +20,12 @@ add_subdirectory(tests)
 
 find_program(LCOV lcov)
 
+add_custom_target(clear_coverage_data
+    COMMAND ${CMAKE_COMMAND} -E rm -f "${CMAKE_BINARY_DIR}/coverage.info"
+    COMMAND ${CMAKE_COMMAND} -E rm -rf "${CMAKE_BINARY_DIR}/*.gcda"
+    COMMENT "Cleaning up old coverage data..."
+)
+
 if(LCOV)
     add_custom_target(generate_coverage_report
         COMMAND ${LCOV} --capture --directory ${CMAKE_SOURCE_DIR} --base-directory ${CMAKE_SOURCE_DIR} --output-file ${CMAKE_SOURCE_DIR}/coverage_raw.info

@@ -1,0 +1,41 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "parser (choose file)",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/build/src/parser",
+            "args": ["${input:compileFile}"],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}",
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "miDebuggerPath": "/usr/bin/gdb",
+        },
+        {
+            "name": "semChecker (choose file)",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/build/src/semChecker",
+            "args": ["${input:compileFile}"],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}",
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "miDebuggerPath": "/usr/bin/gdb",
+        }
+    ]
+    ,
+    "inputs": [
+        {
+            "id": "compileFile",
+            "type": "promptString",
+            "description": "Path to the source file to compile/run (relative to workspace)",
+            "default": "${file}"
+        }
+    ]
+}
+
