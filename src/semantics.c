@@ -156,15 +156,10 @@ static int get_exp_depth(struct env *env, const struct exp *exp) {
 			}
 			return max + 1;
 		case EXP_UNARY:
-			return get_exp_depth(env, exp->unary->operand);
+			return 0;
 		case EXP_ASSIGN_OP:
 		case EXP_BINARY_OP:
-			int left_depth = get_exp_depth(env, exp->op->left);
-			int right_depth = get_exp_depth(env, exp->op->right);
-			if (left_depth > right_depth)
-				return left_depth;
-			else
-				return right_depth;
+			return 0;
 		case EXP_NAME:
 			return get_var_depth(env, exp->name);
 		default:
@@ -203,8 +198,7 @@ static inline bool setting_two_arrays(struct env *env, const struct exp *exp) {
 }
 
 static inline void raise_error_if_invalid_depth(struct env *env, struct exp *exp, int depth) {
-	if (get_exp_depth(env, exp) > depth)
-		raise_exp_semantic_error(ERR_INV_ARR, exp, env);
+	
 }
 
 static inline void raise_error_if_immutable(struct env *env, const struct exp *exp) {
@@ -238,41 +232,35 @@ void check_exp_semantics(struct env *env, struct exp *exp) {
 		struct exp *a_left = exp->op->left;
 		struct exp *a_right = exp->op->right;
 		raise_error_if_immutable(env, a_left);
-		if (setting_two_arrays(env, exp)) { //TODO: ADD TEST
-			raise_error_if_invalid_depth(env, a_right, get_exp_depth(env, a_left));
-			check_exp_semantics(env, a_left);
-			check_exp_semantics(env, a_right);
-			return;
-		}
-		if (is_array(env, a_left) || is_array(env, a_right))
-			raise_exp_semantic_error(ERR_INV_ARR, exp, env); //TODO: ADD TEST
-		if (!exp_is_unary(a_left))
-			raise_exp_semantic_error(ERR_INV_EXP, exp, env); //TODO: ADD TEST
+		
+		if (get_exp_depth(env, a_right) != get_exp_depth(env, a_left))
+			raise_exp_semantic_error(ERR_INV_ARR, exp, env);
+
 		check_exp_semantics(env, a_left);
 		check_exp_semantics(env, a_right);
 		break;
 	case EXP_UNARY:
 		if (is_array(env, exp->unary->operand))
 			raise_exp_semantic_error(ERR_INV_ARR, exp->unary->operand, env);
-		if (op_must_be_assignable(exp->unary->op) && !is_incrementable(env, exp->unary->operand))
-			raise_exp_semantic_error(ERR_INV_EXP, exp, env); //TODO: ADD TEST
 		
 		check_exp_semantics(env, exp->unary->operand);
 		break;
 	case EXP_BINARY_OP:
 		struct exp *b_left = exp->op->left;
 		struct exp *b_right = exp->op->right;
+		
 		if (is_array(env, b_left))
-			raise_exp_semantic_error(ERR_INV_ARR, b_left, env); //TODO: ADD TEST
-
-		if (is_array(env, b_right))
-			raise_exp_semantic_error(ERR_INV_ARR, b_right, env); //TODO: ADD TEST
+			raise_exp_semantic_error(ERR_INV_ARR, b_left, env);
+		else if (is_array(env, b_right))
+			raise_exp_semantic_error(ERR_INV_ARR, b_right, env);
+		
 		check_exp_semantics(env, b_left);
 		check_exp_semantics(env, b_right);
 		break;
 	case EXP_ARRAY_REF:
 		if (!is_array(env, exp->array_ref->name))
 			raise_exp_semantic_error(ERR_INV_ARR, exp, env);
+
 		check_exp_semantics(env, exp->array_ref->name);
 		check_exp_semantics(env, exp->array_ref->index);
 		break;
@@ -282,11 +270,13 @@ void check_exp_semantics(struct env *env, struct exp *exp) {
 		break;
 	case EXP_CALL:
 		if (exp->call->key == KW_PRINT)  { 
-			if(is_array(env, exp->call->arg))
-				raise_exp_semantic_error(ERR_INV_ARR, exp, env);
-			check_exp_semantics(env, exp->call->arg); //TODO: ADD TEST
+			//if(is_array(env, exp->call->arg))
+			//	raise_exp_semantic_error(ERR_INV_ARR, exp, env);
+			// I'm not sure if this should be an error. For now I'm going to say no, but
+			// TODO: confirm this is an error
+			check_exp_semantics(env, exp->call->arg);
 		}
-		break; //TODO: ADD TEST?
+		break;
 	case EXP_NUM:
 		break;
 	default:
@@ -302,22 +292,17 @@ void check_stmt_semantics(struct env *env, struct stmt *stmt) {
 	switch (stmt->type) {
 	case STMT_VAR:
 		bool is_mutable = stmt->var->is_mutable;
-		int array_depth = get_exp_name_depth(stmt->var->name);
+		int depth = get_exp_name_depth(stmt->var->name);
 		char *name = get_exp_name(stmt->var->name);
 
-		bool lhs_is_array = stmt->var->name->type == EXP_ARRAY_REF;
-		bool rhs_is_array = is_array(env, stmt->var->value);
+		if (get_exp_depth(env, stmt->var->value) > depth)
+			raise_exp_semantic_error(ERR_INV_ARR, stmt->var->value, env);
 
-		if ((lhs_is_array && (!rhs_is_array && !stmt->var->value)) || (!lhs_is_array && rhs_is_array))
-			raise_stmt_semantic_error(ERR_INV_ARR, stmt, env);
-
-		if (!define_var(env, name, is_mutable, array_depth))
-			raise_stmt_semantic_error(ERR_REDEF, stmt, env); //TODO: ADD TEST
-
-		raise_error_if_invalid_depth(env, stmt->var->value, array_depth);
-
-		// check semantics of the name?
 		check_exp_semantics(env, stmt->var->value);
+
+		if (!define_var(env, name, is_mutable, depth))
+			raise_stmt_semantic_error(ERR_REDEF, stmt, env);
+
 		break;
 	case STMT_EXPR:
 		check_exp_semantics(env, stmt->exp);

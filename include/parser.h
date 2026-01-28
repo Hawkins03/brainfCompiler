@@ -18,21 +18,32 @@
 #include "exp.h"
 #include "parser.h"
 
+/** @brief parses values into an assignable value
+ * 
+ * parses names, array refrences, and unary expressions only.
+ * (this exists mainly to catch someone trying to do 1++)
+ * 
+ * @param r the reader struct for throwing errors and getting values.
+ * @param exp the expression the output is returned to
+ * 
+ * @throw ERR_INV_OP if an invalid op is used as a unary op.
+ * @throw ERR_NO_MEM if an init function fails 
+*/
+bool parse_assignable(struct reader *r, struct exp *exp);
+
 /** @brief parses values into an atomic expression and stores it in the in argument
  * 
  * parses names, array_lits/refs, unary expressions, numbers and strings
  * 
- * @param r the reader struct for throwing
- * 	errors and getting values.
- * @param exp the expression the output is
- * 	returned to
+ * @param r the reader struct for throwing errors and getting values.
+ * @param exp the expression the output is returned to
  * 
  * @throw ERR_TO_LONG if the string is too long
  * @throw ERR_INV_VAL if there is an unexpected
  * 	token when acceptValue catches an invalid value
  * 	or an invalid keyword is invoked (i.e. else for example)
- * @throw ERR_INV_OP if an invalid op is used as a unary op.
- * @throw ERR_NO_MEM if an init function fails 
+ * @throw ERR_INV_OP if an invalid op is used as a unary op in parse_assignable.
+ * @throw ERR_NO_MEM if an init function fails.
 */
 void parse_atom(struct reader *r, struct exp *exp);
 
@@ -42,21 +53,13 @@ void parse_atom(struct reader *r, struct exp *exp);
  * specifically binary ops and assign-ops.
  * 
  * @param minPrio used to ensure that the
- * 	operators are of the correct arangement
- * 	(it was a pain, check the function for
- * 	details)
- * 	basically, if the priority of the op
- * 	currently being parsed < minPrio,
- * 	parse_exp just ends. (usually back
- * 	to the previous recursion)
- * @param r the reader struct for throwing
- * 	errors and getting values.
- * @param exp the expression to collect
- * 	the return value
+ * 	operators are of the correct arangement.
+ * 	i.e. x + 1 * 2 ~= x + (1 * 2), not (x + 1) * 2 and so on
+ * @param r the reader struct for throwing errors and getting values.
+ * @param exp the expression to return to
  *
  * @throw any errors from parse_atom
- * @throw ERR_INV_EXP if you try to set a
- * 	non-assignable value (1=x for example)
+ * @throw ERR_INV_EXP if you try to set a non-assignable value (1=x for example)
 */
 void parse_exp(int minPrio, struct reader *r, struct exp *exp);
 
@@ -70,10 +73,8 @@ void parse_exp(int minPrio, struct reader *r, struct exp *exp);
  * 
  * It also eats the semicolon at the end of expressions.
  * 
- * @param r the reader struct for throwing
- * 	errors and getting values.
- * @param stmt the statement the output is
- * 	returned to
+ * @param r the reader struct for throwing errors and getting values.
+ * @param stmt the statement the output is returned to
  * 
  * @throw any errors from parse_exp
  * @throw ERR_INV_EXP if you try to define an integer
@@ -86,8 +87,7 @@ void parse_single_stmt(struct reader *r, struct stmt *stmt);
 /** @brief calls parse_single_stmt for an
  * 	infinitely large series of statements
  * 
- *  @param r the reader struct for throwing
- * 	errors and gettign values
+ *  @param r the reader struct for throwing errors and getting values
  * @param stmt the statement the output is returned to
  * @throw any errors from parse_single_stmt
  */

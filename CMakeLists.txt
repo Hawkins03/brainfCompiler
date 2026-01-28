@@ -10,8 +10,6 @@ include(CTest)
 enable_testing()
 
 #compiler options
-add_compile_options(-g -Wall -O0 --coverage)
-add_link_options(--coverage)
 
 # Add subdirectories
 add_subdirectory(src)

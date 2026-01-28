@@ -54,19 +54,7 @@ static inline bool is_atomic(const struct exp *exp) {
 	if (is_assignable(exp))
 		return true;
 	
-	switch (exp->type) {
-	case EXP_NAME:
-		return true;
-	case EXP_ARRAY_REF:
-		return true;
-	case EXP_BINARY_OP:
-	case EXP_ASSIGN_OP:
-		return (is_atomic(exp->op->left) || is_atomic(exp->op->right));
-	case EXP_UNARY:
-		return is_atomic(exp->unary->operand);
-	default:
-		return false;
-	}
+	return false;
 }
 
 static inline bool parses_to_int(struct exp *exp) {
@@ -129,7 +117,7 @@ static inline bool isDelimChar(const struct value v, char match) {
 
 static inline bool isValidInitStmt(const struct stmt *stmt) {
 	return 	(stmt->type == STMT_VAR) ||
-		((stmt->type == STMT_EXPR) && is_atomic(stmt->exp) && parses_to_int(stmt->exp));
+		((stmt->type == STMT_EXPR) && (stmt->exp->type == EXP_ASSIGN_OP || is_atomic(stmt->exp)));
 }
 
 //parsing atoms
@@ -177,16 +165,8 @@ static void parseCall(struct reader *r, struct exp *exp) {
 }
 
 static inline void parseSuffix(struct exp  *left, struct reader *r, struct exp *exp) {
-	if (!r || !isSuffixVal(r->val))
-		raise_syntax_error(ERR_INV_OP, r);
-	struct exp *operand = left;
-	if (left == exp) {
-		operand = init_exp(r);
-		swap_exps(exp, operand);
-		exp->start_col = operand->start_col;
-	}
 	init_exp_unary(r, exp, false);
-	exp->unary->operand = operand;
+	exp->unary->operand = left;
 	exp->unary->op = stealNextOp(r);
 }
 
@@ -200,7 +180,8 @@ static inline void parsePrefix(struct reader *r, struct exp *exp) {
 	init_exp_unary(r, exp, true);
 	exp->unary->op = stealNextOp(r);
 	exp->unary->operand  = init_exp(r);
-	parse_atom(r, exp->unary->operand);
+	if (!parse_assignable(r, exp->unary->operand))
+		raise_syntax_error(ERR_INV_EXP, r);
 }
 
 static inline void parseParenthesis(struct reader *r, struct exp *exp) {
@@ -222,7 +203,7 @@ static inline void parseArrayLit(struct reader *r, struct exp *exp)
 			break;
 		acceptValue(r, VAL_DELIM, ",");
 
-		if (len >= exp->array_lit->size) {
+		if (len >= exp->array_lit->size) { //TODO: add test?
 			exp->array_lit->size *= 2;
 			struct exp *temp = realloc(exp->array_lit->array, exp->array_lit->size);
 			if (!temp)
@@ -245,13 +226,12 @@ static inline void parseNum(struct reader *r, struct exp *exp) {
 
 static inline void parseStr(struct reader *r, struct exp *exp) {
 	char *str = stealNextString(r);
-	//nextValue(r);
 	
 	size_t len = strlen(str);
 
 	if (len > INT_MAX) {
 		free(str);
-		raise_syntax_error(ERR_TOO_LONG, r); //ERR_TOO_LONG
+		raise_syntax_error(ERR_TOO_LONG, r);
 	}
 
 	init_exp_array_lit(r, exp, len);
@@ -290,21 +270,39 @@ static inline void parseName(struct reader *r, struct exp *exp)
 	parseArrayRef(r, exp);
 }
 
+bool parse_assignable(struct reader *r, struct exp *exp) {
+	switch (r->val.type) {
+		case VAL_OP:
+			parsePrefix(r, exp);
+			break;
+		case VAL_NAME:
+			parseName(r, exp);
+			break;
+		default:
+			return false;
+	}
+
+	if (isSuffixVal(r->val)) {
+		struct exp *left = init_exp(r);
+		swap_exps(exp, left);
+		parseSuffix(left, r, exp);
+	}
+
+	return true;
+}
+
 //ensure at the end of parse_atom it checks for a unary suffix
 
 void parse_atom(struct reader *r, struct exp *exp) {
     	if (!parserCanProceed(r))
 		return;
 
+	if (parse_assignable(r, exp))
+		return;
+
     	switch (r->val.type) {
-	case VAL_OP:
-		parsePrefix(r, exp);
-		break;
 	case VAL_NUM:
 		parseNum(r, exp);
-		break;
-	case VAL_NAME:
-		parseName(r, exp);
 		break;
 	case VAL_STR:
 		parseStr(r, exp);
@@ -315,18 +313,14 @@ void parse_atom(struct reader *r, struct exp *exp) {
 		else if (r->val.ch == '{')
 			parseArrayLit(r, exp);
 		break;
-	case VAL_KEYWORD: //Dupe, parse_stmt covers this, this is just backup ig
+	case VAL_KEYWORD: // this is already covered by parse_single_stmt
 		parseCall(r, exp);
 		break;
-	default:
-		raise_syntax_error(ERR_INV_VAL, r);
+	default: //mainly to shut up the compiler
+		break;
 	}
 
-	if (isSuffixVal(r->val)) {
-		struct exp *left = init_exp(r);
-		swap_exps(exp, left);
-		parseSuffix(left, r, exp);
-	}
+	
 }
 
 void parse_exp(int minPrio, struct reader *r, struct exp *exp)
@@ -374,7 +368,7 @@ static void parseVar(struct reader *r, bool is_mutable, struct stmt *exp) {
 	parse_exp(0, r, exp->var->value);
 
 	if (!exps_are_compatable(exp->var->name, exp->var->value))
-		raise_syntax_error(ERR_INV_EXP, r); //TODO: add test?
+		raise_syntax_error(ERR_INV_EXP, r);
 }
 
 static void parseWhile(struct reader *r, struct stmt *exp) {
@@ -387,12 +381,15 @@ static void parseWhile(struct reader *r, struct stmt *exp) {
 	parse_exp(0, r, exp->loop->cond);
 
 	acceptValue(r, VAL_DELIM, ")");
-	acceptValue(r, VAL_DELIM, "{");
 
-	exp->loop->body = init_stmt(r);
-	parse_stmt(r, exp->loop->body);
+	if (!atSemicolon(r)) {
+		acceptValue(r, VAL_DELIM, "{");
 
-	acceptValue(r, VAL_DELIM, "}");
+		exp->loop->body = init_stmt(r);
+		parse_stmt(r, exp->loop->body);
+
+		acceptValue(r, VAL_DELIM, "}");
+	}
 }
 
 static void parseFor(struct reader *r, struct stmt *exp) {
@@ -409,8 +406,9 @@ static void parseFor(struct reader *r, struct stmt *exp) {
 	acceptValue(r, VAL_DELIM, "(");
 	
 	parse_single_stmt(r, exp); //init
+	
 	if (!isValidInitStmt(exp))
-		raise_error(ERR_INV_EXP); //TODO: add test
+		raise_error(ERR_INV_EXP);
 
 	exp->next = init_stmt(r);
 	exp->next->start_col = for_start_pos;
@@ -424,25 +422,33 @@ static void parseFor(struct reader *r, struct stmt *exp) {
 
 	loop->next = init_stmt(r);
 	init_expStmt(loop->next, init_exp(r));
-	parse_exp(0, r, loop->next->exp);
+	struct stmt *update = loop->next;
+	
+	parse_exp(0, r, update->exp);
 
 	acceptValue(r, VAL_DELIM, ")");
-	acceptValue(r, VAL_DELIM, "{");
-	
-	loop->loop->body = init_stmt(r);
-	parse_stmt(r, loop->loop->body);
-	struct stmt *curr = loop->loop->body;
-	if (curr) {
-		while (curr->next != NULL)
-			curr = curr->next; //TODO: add test
-
-		curr->next = loop->next;
+	if (atSemicolon(r)) {
+		acceptValue(r, VAL_DELIM, ";");
+		loop->loop->body = update;
 	} else {
-		curr = loop->next; //TODO: add test
-	}
+		acceptValue(r, VAL_DELIM, "{");
+		
+		loop->loop->body = init_stmt(r);
+		parse_stmt(r, loop->loop->body);
+		struct stmt *curr = loop->loop->body;
+		if (!curr || curr->type == STMT_EMPTY)
+			raise_syntax_error(ERR_INV_STMT, r);
+		
+		while (curr->next != NULL)
+			curr = curr->next;
+
+		curr->next = update;
+	
+		acceptValue(r, VAL_DELIM, "}");
+	} 
 	loop->next = NULL;
 
-	acceptValue(r, VAL_DELIM, "}");
+	
 }
 
 static void parseIf(struct reader *r, struct stmt *exp) {
@@ -464,13 +470,11 @@ static void parseIf(struct reader *r, struct stmt *exp) {
 
 	if ((r->val.type == VAL_KEYWORD) && (r->val.num == KW_ELSE)) {
 		acceptValue(r, VAL_KEYWORD, "else");
-		if (!r)
-			raise_syntax_error(ERR_BAD_ELSE, r); //TODO: add test
 
 		exp->ifStmt->elseStmt = init_stmt(r);
 		struct stmt *elseStmt = exp->ifStmt->elseStmt;
 		if ((r->val.type == VAL_KEYWORD) && (r->val.num == KW_IF)) {
-			parseIf(r, elseStmt); //TODO: add test
+			parseIf(r, elseStmt);
 		} else {
 			if (!isDelimChar(r->val, '{'))
 				raise_syntax_error(ERR_BAD_ELSE, r);

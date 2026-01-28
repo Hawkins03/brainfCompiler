@@ -122,7 +122,7 @@ void print_exp(const struct exp *exp) {
 		}
 		break;
 	case EXP_CALL:
-		printf("CALL(%s,", getKeyStr(exp->call->key));
+		printf("CALL(%s, ", getKeyStr(exp->call->key));
 		print_exp(exp->call->arg);
 		printf(")");
 		break;

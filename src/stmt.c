@@ -80,17 +80,24 @@ void print_stmt(const struct stmt *stmt) {
 		char *name = (stmt->var->is_mutable) ? "VAR" : "VAL";
 		printf("%s(", name);
 		print_exp(stmt->var->name);
-		printf(", ");
-		print_exp(stmt->var->value);
+		if (stmt->var->value) {
+			printf(", ");
+			print_exp(stmt->var->value);
+		}
 		printf(");\n");
 		break;
 		break;
 	case STMT_LOOP:
 		printf("LOOP(");
 		print_exp(stmt->loop->cond);
-		printf(") {\n");
-		print_stmt(stmt->loop->body);
-		printf("}\n");
+		printf(")");
+		if (stmt->loop->body) {
+			printf(" {\n");
+			print_stmt(stmt->loop->body);
+			printf("}\n");
+		} else {
+			printf(";\n");
+		}
 		break;
 	case STMT_IF:
 		printf("IF(");

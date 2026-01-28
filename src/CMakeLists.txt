@@ -1,3 +1,6 @@
+add_compile_options(-g -Wall -Wswitch -O0 --coverage)
+add_link_options(--coverage)
+
 set(HEADERS
     ../include/exp.h
     ../include/interp.h

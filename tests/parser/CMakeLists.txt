@@ -18,6 +18,43 @@ add_test(NAME parser_atomic8 COMMAND parser ${PARSER_DIR}/atomic8.txt)
 set_tests_properties( parser_atomic8 PROPERTIES PASS_REGULAR_EXPRESSION "^EXP_UNARY\\(--, NAME\\(x\\)\\);$")
 add_test(NAME parser_atomic9 COMMAND parser ${PARSER_DIR}/atomic9.txt)
 set_tests_properties( parser_atomic9 PROPERTIES PASS_REGULAR_EXPRESSION "^EXP_UNARY\\(-, NAME\\(x\\)\\);$")
+
+
+add_test(NAME parser_bad_esc COMMAND parser ${PARSER_DIR}/f_inv_esc.txt)
+set_tests_properties(parser_bad_esc PROPERTIES WILL_FAIL TRUE FAIL_REGULAR_EXPRESSION "ERR_INV_ESC")
+
+add_test(NAME parser_bad_exp_1 COMMAND parser ${PARSER_DIR}/f_inv_exp_1.txt)
+set_tests_properties(parser_bad_exp_1 PROPERTIES WILL_FAIL TRUE FAIL_REGULAR_EXPRESSION "ERR_INV_EXP")
+
+add_test(NAME parser_bad_exp_2 COMMAND parser ${PARSER_DIR}/f_inv_exp_2.txt)
+set_tests_properties(parser_bad_exp_2 PROPERTIES WILL_FAIL TRUE FAIL_REGULAR_EXPRESSION "ERR_INV_EXP")
+
+add_test(NAME parser_bad_exp_3 COMMAND parser ${PARSER_DIR}/f_inv_exp_3.txt)
+set_tests_properties(parser_bad_exp_3 PROPERTIES WILL_FAIL TRUE FAIL_REGULAR_EXPRESSION "ERR_INV_EXP")
+
+add_test(NAME parser_inv_var COMMAND parser ${PARSER_DIR}/f_inv_var.txt)
+set_tests_properties(parser_inv_var PROPERTIES WILL_FAIL TRUE FAIL_REGULAR_EXPRESSION "ERR_INV_VAR")
+
+add_test(NAME parser_bad_unary_op COMMAND parser ${PARSER_DIR}/f_unary_a.txt)
+set_tests_properties(parser_bad_unary_op PROPERTIES WILL_FAIL TRUE FAIL_REGULAR_EXPRESSION "ERR_INV_OP")
+
+add_test(NAME parser_bad_unary_b COMMAND parser ${PARSER_DIR}/f_unary_b.txt)
+set_tests_properties(parser_bad_unary_b PROPERTIES WILL_FAIL TRUE FAIL_REGULAR_EXPRESSION "ERR_INV_EXP")
+
+add_test(NAME parser_bad_var COMMAND parser ${PARSER_DIR}/f_arr_var.txt)
+set_tests_properties(parser_bad_var PROPERTIES WILL_FAIL TRUE FAIL_REGULAR_EXPRESSION "ERR_INV_EXP")
+
+add_test(NAME parser_bad_init_var COMMAND parser ${PARSER_DIR}/f_init_var.txt)
+set_tests_properties(parser_bad_init_var PROPERTIES WILL_FAIL TRUE FAIL_REGULAR_EXPRESSION "ERR_INV_EXP")
+
+add_test(NAME parser_bad_char COMMAND parser ${PARSER_DIR}/f_unexp_char.txt)
+set_tests_properties(parser_bad_char PROPERTIES WILL_FAIL TRUE FAIL_REGULAR_EXPRESSION "ERR_UNEXP_CHAR")
+
+add_test(NAME parser_missing_quote COMMAND parser ${PARSER_DIR}/f_unexp_quote.txt)
+set_tests_properties(parser_missing_quote PROPERTIES WILL_FAIL TRUE FAIL_REGULAR_EXPRESSION "ERR_UNEXP_QUOTE")
+
+
+
 add_test(NAME parser_atomic10 COMMAND parser ${PARSER_DIR}/atomic10.txt)
 set_tests_properties( parser_atomic10 PROPERTIES PASS_REGULAR_EXPRESSION "^EXP_UNARY\\(-, UNARY\\(NAME\\(x\\), \\+\\+\\)\\);$")
 add_test(NAME parser_atomic11 COMMAND parser ${PARSER_DIR}/atomic11.txt)
@@ -160,15 +197,63 @@ $")
 
 
 
-add_test(NAME parser_stmt_while COMMAND parser ${PARSER_DIR}/stmt_while.txt)
-set_tests_properties( parser_stmt_while PROPERTIES PASS_REGULAR_EXPRESSION "^LOOP\\(OP\\(NAME\\(x\\), <, NUM\\(10\\)\\)\\) {
+add_test(NAME parser_stmt_while_a COMMAND parser ${PARSER_DIR}/stmt_while_a.txt)
+set_tests_properties( parser_stmt_while_a PROPERTIES PASS_REGULAR_EXPRESSION "^LOOP\\(OP\\(NAME\\(x\\), <, NUM\\(10\\)\\)\\) {
 EXP_OP\\(NAME\\(x\\), =, OP\\(NAME\\(x\\), \\+, NUM\\(1\\)\\)\\)\\;
 }
 $")
 
-add_test(NAME parser_stmt_for COMMAND parser ${PARSER_DIR}/stmt_for.txt)
-set_tests_properties( parser_stmt_for PROPERTIES PASS_REGULAR_EXPRESSION "VAR\\(NAME\\(i\\), NUM\\(0\\)\\);
+add_test(NAME parser_stmt_while_b COMMAND parser ${PARSER_DIR}/stmt_while_b.txt)
+set_tests_properties( parser_stmt_while_b PROPERTIES PASS_REGULAR_EXPRESSION "^LOOP\\(OP\\(NAME\\(x\\), <, NUM\\(10\\)\\)\\) {
+EXP_OP\\(NAME\\(x\\), =, OP\\(NAME\\(x\\), \\+, NUM\\(1\\)\\)\\)\\;
+EXP_CALL\\(print, NAME(x));
+}
+$")
+
+add_test(NAME parser_stmt_while_c COMMAND parser ${PARSER_DIR}/stmt_while_c.txt)
+set_tests_properties( parser_stmt_while_c PROPERTIES PASS_REGULAR_EXPRESSION "^LOOP\\(OP\\(UNARY\\(NAME\\(x\\), ++\\), <, NUM\\(10\\)\\)\\);$")
+
+add_test(NAME parser_stmt_for_a COMMAND parser ${PARSER_DIR}/stmt_for_a.txt)
+set_tests_properties( parser_stmt_for_a PROPERTIES PASS_REGULAR_EXPRESSION "VAR\\(NAME\\(i\\), NUM\\(0\\)\\);
 LOOP\\(OP\\(NAME\\(i\\), <, NUM\\(10\\)\\)\\) {
+EXP_CALL\\(6, NAME\\(i\\)\\);
+EXP_UNARY\\(NAME\\(i\\), \\+\\+\\);\\);
+}
+$")
+
+add_test(NAME parser_stmt_for_b COMMAND parser ${PARSER_DIR}/stmt_for_b.txt)
+set_tests_properties( parser_stmt_for_b PROPERTIES PASS_REGULAR_EXPRESSION "VAR\\(NAME\\(i\\)\\);
+EXP_OP\\(NAME\\(i\\), NUM\\(0\\)\\);
+LOOP\\(OP\\(NAME\\(i\\), <, NUM\\(10\\)\\)\\) {
+EXP_CALL\\(6, NAME\\(i\\)\\);
+EXP_UNARY\\(NAME\\(i\\), \\+\\+\\);\\);
+}
+$")
+
+add_test(NAME parser_stmt_for_c COMMAND parser ${PARSER_DIR}/stmt_for_c.txt)
+set_tests_properties( parser_stmt_for_c PROPERTIES PASS_REGULAR_EXPRESSION "VAR\\(NAME\\(i\\), NUM\\(0\\)\\);
+EXP_NAME\\(i\\);
+LOOP\\(OP\\(NAME\\(i\\), <, NUM\\(10\\)\\)\\) {
+EXP_CALL\\(6, NAME\\(i\\)\\);
+EXP_UNARY\\(NAME\\(i\\), \\+\\+\\);\\);
+}
+$")
+
+add_test(NAME parser_stmt_for_d COMMAND parser ${PARSER_DIR}/stmt_for_d.txt)
+set_tests_properties( parser_stmt_for_d PROPERTIES PASS_REGULAR_EXPRESSION "VAR\\(NAME\\(i\\), NUM\\(0\\)\\);
+EXP_NAME\\(i\\);
+LOOP\\(OP\\(NAME\\(i\\), <, NUM\\(10\\)\\)\\) {
+EXP_UNARY\\(NAME\\(i\\), \\+\\+\\);\\);
+}
+$")
+
+add_test(NAME parser_stmt_for_e COMMAND parser ${PARSER_DIR}/stmt_for_e.txt)
+set_tests_properties(parser_stmt_for_e PROPERTIES WILL_FAIL TRUE FAIL_REGULAR_EXPRESSION "ERR_INV_STMT")
+
+add_test(NAME parser_stmt_for_f COMMAND parser ${PARSER_DIR}/stmt_for_f.txt)
+set_tests_properties( parser_stmt_for_f PROPERTIES PASS_REGULAR_EXPRESSION "VAR\\(NAME\\(i\\), NUM\\(0\\)\\);
+LOOP\\(OP\\(NAME\\(i\\), <, NUM\\(10\\)\\)\\) {
+EXP_CALL\\(6, NAME\\(i\\)\\);
 EXP_CALL\\(6, NAME\\(i\\)\\);
 EXP_UNARY\\(NAME\\(i\\), \\+\\+\\);\\);
 }
