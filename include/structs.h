@@ -134,18 +134,16 @@ struct stmt {
 
 
 struct reader {
+	struct value val;
+	fpos_t line_start_pos;
+
 	FILE *fp;
 	char *filename;
-
-	// storage for tokens
-	int ch;
-	struct value val;
 	struct stmt *root;
-
-	// for error printing
 	char *line_buf;
+
+	int ch;
 	unsigned int line_cap, line_pos, line_num;
-	fpos_t line_start_pos;
 };
 
 struct env;
