@@ -14,9 +14,7 @@
 
 #include <stdbool.h>
 #include "utils.h"
-#include "stmt.h"
-#include "exp.h"
-#include "parser.h"
+#include "structs.h"
 
 /** @brief parses values into an assignable value
  * 
@@ -29,7 +27,7 @@
  * @throw ERR_INV_OP if an invalid op is used as a unary op.
  * @throw ERR_NO_MEM if an init function fails 
 */
-bool parse_assignable(struct reader *r, struct exp *exp);
+bool parse_assignable(struct lexer_ctx *lex, struct exp *exp);
 
 /** @brief parses values into an atomic expression and stores it in the in argument
  * 
@@ -45,7 +43,7 @@ bool parse_assignable(struct reader *r, struct exp *exp);
  * @throw ERR_INV_OP if an invalid op is used as a unary op in parse_assignable.
  * @throw ERR_NO_MEM if an init function fails.
 */
-void parse_atom(struct reader *r, struct exp *exp);
+void parse_atom(struct lexer_ctx *lex, struct exp *exp);
 
 /** @brief parses expressions, usually in the form of <Atom> <op> <Atom>
  * 
@@ -61,7 +59,7 @@ void parse_atom(struct reader *r, struct exp *exp);
  * @throw any errors from parse_atom
  * @throw ERR_INV_EXP if you try to set a non-assignable value (1=x for example)
 */
-void parse_exp(int minPrio, struct reader *r, struct exp *exp);
+void parse_exp(int minPrio, struct lexer_ctx *lex, struct exp *exp);
 
 /** @brief parses values into a single statement
  * 
@@ -82,7 +80,7 @@ void parse_exp(int minPrio, struct reader *r, struct exp *exp);
  * 	and not an array_lit, or the initializer
  * 	statement of a for loop is invalid 
 */
-void parse_single_stmt(struct reader *r, struct stmt *stmt);
+void parse_single_stmt(struct lexer_ctx *lex, struct stmt *stmt);
 
 /** @brief calls parse_single_stmt for an
  * 	infinitely large series of statements
@@ -91,7 +89,7 @@ void parse_single_stmt(struct reader *r, struct stmt *stmt);
  * @param stmt the statement the output is returned to
  * @throw any errors from parse_single_stmt
  */
-void parse_stmt(struct reader *r, struct stmt *stmt);
+void parse_stmt(struct lexer_ctx *lex, struct stmt *stmt);
 
 /** @brief creates a reader and initial stmt
  * 	and then calls parse_stmt on it

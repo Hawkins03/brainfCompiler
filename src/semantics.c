@@ -13,6 +13,8 @@
 #include "semantics.h"
 #include "parser.h"
 #include "structs.h"
+#include "lexer.h"
+#include "stmt.h"
 #include <string.h>
 #include <stdlib.h>
 
@@ -21,7 +23,7 @@ void setup_env(struct env *env, struct env *parent) {
 	env->parent = parent;
 	env->root = parent ? parent->root : NULL;
 	env->filename = parent ? parent->filename : NULL;
-	env->cap = DEFAULT_CAP_SIZE;
+	env->cap = STARTING_ENV_CAP;
 	env->vars = calloc(env->cap, sizeof(*env->vars));
 	env->len = 0;
 	if (!env->vars) {
@@ -269,7 +271,7 @@ void check_exp_semantics(struct env *env, struct exp *exp) {
 			check_exp_semantics(env, exp->array_lit->array + i);
 		break;
 	case EXP_CALL:
-		if (exp->call->key == KW_PRINT)  { 
+		if (exp->call->key == KW_PRINT)  {
 			//if(is_array(env, exp->call->arg))
 			//	raise_exp_semantic_error(ERR_INV_ARR, exp, env);
 			// I'm not sure if this should be an error. For now I'm going to say no, but

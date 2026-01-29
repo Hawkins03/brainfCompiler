@@ -133,7 +133,7 @@ struct stmt {
 };
 
 
-struct reader {
+struct lexer_ctx {
 	struct value val;
 	fpos_t line_start_pos;
 

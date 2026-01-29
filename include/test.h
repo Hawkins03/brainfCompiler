@@ -10,11 +10,8 @@
 #ifndef TEST_H
 #define TEST_H
 
+#include "structs.h"
 
-#include "parser.h"
-#include "semantics.h"
-#include "stmt.h"
-#include "exp.h"
 
 
 /** @brief tests to see if the stmt provided by the file matches expectations 

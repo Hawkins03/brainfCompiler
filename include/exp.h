@@ -15,8 +15,7 @@
 
 #include <stdbool.h>
 #include <string.h>
-#include "utils.h"
-#include "reader.h"
+#include "structs.h"
 
 #define DEFAULT_CAP_SIZE 8
 
@@ -56,7 +55,7 @@ void print_exp(const struct exp  *exp);
  * @throw ERR_NO_MEM if it fails to malloc the exp
  * @return the malloc'd expression
  */
-struct exp *init_exp(struct reader *r);
+struct exp *init_exp(struct lexer_ctx *lex);
 
 /** @brief Malloc's and initializes a binary subexpression
  * 
@@ -74,7 +73,7 @@ struct exp *init_exp(struct reader *r);
  * @param left exp->op->left so the program errors it gets freed
  * @throw ERR_NO_MEM if it fails to malloc the subexpression
  */
-void init_binary(struct reader *r, struct exp *exp, enum exp_type tp, struct exp *left);
+void init_binary(struct lexer_ctx *lex, struct exp *exp, enum exp_type tp, struct exp *left);
 
 /** @brief Malloc's and initializes a unary subexpression
  * 
@@ -89,7 +88,7 @@ void init_binary(struct reader *r, struct exp *exp, enum exp_type tp, struct exp
  * @param exp the expression to update
  * @throw ERR_NO_MEM if it fails to malloc the subexpression
  */
-void init_exp_unary(struct reader *r, struct exp *exp, bool is_prefix);
+void init_exp_unary(struct lexer_ctx *lex, struct exp *exp, bool is_prefix);
 
 /** @brief Malloc's and initializes a array_ref subexpression
  * 
@@ -106,7 +105,7 @@ void init_exp_unary(struct reader *r, struct exp *exp, bool is_prefix);
  * @param name exp->array_ref->name so the program errors it gets freed
  * @throw ERR_NO_MEM if it fails to malloc the subexpression
  */
-void init_exp_array_ref(struct reader *r, struct exp *exp, struct exp *name);
+void init_exp_array_ref(struct lexer_ctx *lex, struct exp *exp, struct exp *name);
 
 /** @brief Malloc's and initializes a literal array subexpression
  * 
@@ -124,7 +123,7 @@ void init_exp_array_ref(struct reader *r, struct exp *exp, struct exp *name);
  * 	just the number of exps in the literal array)
  *  @throw ERR_NO_MEM if it fails to malloc the subexpression
  */
-void init_exp_array_lit(struct reader *r, struct exp *exp, int size);
+void init_exp_array_lit(struct lexer_ctx *lex, struct exp *exp, int size);
 
 /** @brief sets the length of the array_lit to a final value
  *  called at the end of parseString and parseArrayLit to shorten the amount of memory used.
@@ -134,7 +133,7 @@ void init_exp_array_lit(struct reader *r, struct exp *exp, int size);
  * @param final_len the final length to set it to.
  * @throw ERR_NO_MEM if the realloc fails.
  */
-void set_exp_arraylit_len(struct reader *r, struct exp *exp, int final_len);
+void set_exp_arraylit_len(struct lexer_ctx *lex, struct exp *exp, int final_len);
 
 /** @brief Malloc's and initializes a call subexpression
  * 
@@ -150,7 +149,7 @@ void set_exp_arraylit_len(struct reader *r, struct exp *exp, int final_len);
  * 	(i.e. break / input / print, not else, if, or while)
  *  @throw ERR_NO_MEM if it fails to malloc the subexpression
  */
-void init_exp_call(struct reader *r, struct exp *exp, enum key_type key);
+void init_exp_call(struct lexer_ctx *lex, struct exp *exp, enum key_type key);
 
 /** @brief swaps the  contents of two functions
  * 

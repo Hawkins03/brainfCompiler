@@ -14,7 +14,8 @@
 #include <string.h>
 #include "stmt.h"
 #include "exp.h"
-#include "reader.h"
+#include "lexer.h"
+#include "utils.h"
 
 // freeing functions
 void free_stmt(struct stmt *stmt) {
@@ -120,46 +121,46 @@ void print_stmt(const struct stmt *stmt) {
 }
 
 
-struct stmt *init_stmt(struct reader *r) {
+struct stmt *init_stmt(struct lexer_ctx *lex) {
 	struct stmt *s = calloc(1, sizeof(*s));
 	if (!s)
-		raise_syntax_error(ERR_NO_MEM, r);
+		raise_syntax_error(ERR_NO_MEM, lex);
 	
 	s->type = STMT_EMPTY;
-	s->line_num = r->line_num;
-	s->start_col = r->val.start_pos;
+	s->line_num = lex->line_num;
+	s->start_col = lex->val.start_pos;
         return s;
 }
 
-void init_varStmt(struct reader *r, struct stmt *stmt, bool is_mutable) {
+void init_varStmt(struct lexer_ctx *lex, struct stmt *stmt, bool is_mutable) {
 	stmt->type = STMT_VAR;
 	stmt->var = calloc(1, sizeof(*(stmt->var)));
-	stmt->line_num = r->line_num;
-	stmt->start_col = r->val.start_pos;
+	stmt->line_num = lex->line_num;
+	stmt->start_col = lex->val.start_pos;
 	
 	if (!stmt->var)
-		raise_syntax_error(ERR_NO_MEM, r);
+		raise_syntax_error(ERR_NO_MEM, lex);
 	stmt->var->is_mutable = is_mutable;
 }
 
-void init_ifStmt(struct reader *r, struct stmt *stmt) {
+void init_ifStmt(struct lexer_ctx *lex, struct stmt *stmt) {
 	stmt->type = STMT_IF;
 	stmt->ifStmt = calloc(1, sizeof(*(stmt->ifStmt)));
-	stmt->line_num = r->line_num;
-	stmt->start_col = r->val.start_pos;
+	stmt->line_num = lex->line_num;
+	stmt->start_col = lex->val.start_pos;
 	
 	if (!stmt->ifStmt)
-		raise_syntax_error(ERR_NO_MEM, r);
+		raise_syntax_error(ERR_NO_MEM, lex);
 }
 
-void init_loopStmt(struct reader *r, struct stmt *stmt) {
+void init_loopStmt(struct lexer_ctx *lex, struct stmt *stmt) {
 	stmt->type = STMT_LOOP;
 	stmt->loop = calloc(1, sizeof(*(stmt->loop)));
-	stmt->line_num = r->line_num;
-	stmt->start_col = r->val.start_pos;
+	stmt->line_num = lex->line_num;
+	stmt->start_col = lex->val.start_pos;
 	
 	if (!stmt->loop)
-		raise_syntax_error(ERR_NO_MEM, r);
+		raise_syntax_error(ERR_NO_MEM, lex);
 }
 
 void init_expStmt(struct stmt *stmt, struct exp *exp) {

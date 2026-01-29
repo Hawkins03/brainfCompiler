@@ -1,10 +1,10 @@
-/** @file reader.h
+/** @file lexer.h
  *  @brief Function prototypes for reading a
  * 	series of tokens/values from a file.
  *
  *  This contains the prototypes for 
  *  - the utility functions for the
- *  	reader struct
+ *  	lexer_ctx struct
  *  - the functions to get a single
  * 	character from the file
  *  - the functions to convert keywords
@@ -21,8 +21,8 @@
  */
 
 
-#ifndef READER_H
-#define READER_H
+#ifndef LEXER_H
+#define LEXER_H
 
 #include <stdbool.h>
 #include "structs.h"
@@ -73,7 +73,7 @@
  * @param filename the file to read from.
  * @return the reader struct for the file
 */
-struct reader *readInFile(const char *filename);
+struct lexer_ctx *readInFile(const char *filename);
 
 /** @brief frees the reader struct and its contents
  * 
@@ -82,9 +82,9 @@ struct reader *readInFile(const char *filename);
  * the file pointer, and if r->val
  * is a string/name, that too.
  * 
- * @param r the reader to free
+ * @param lexer the lexer to free (in oop this would just be the overall container class)
 */
-void killReader(struct reader *r);
+void killReader(struct lexer_ctx *lex);
 
 // turning enums back into strings for printing
 
@@ -181,32 +181,32 @@ bool is_prefix_unary(enum operator op);
  *  calls a number of static inline functions for
  *  readability's sake
  *  
- *  @param r the reader to read from
+ *  @param lex the lexer to read from
  *  no return value, just call peakValue
  */
-void nextValue(struct reader *r);
+void nextValue(struct lexer_ctx *lex);
 
 /** @brief basically just returns r->val or null if r isn't defined
  * 
  * it's mainly there so if r becomes undefined the program continues as written
  * 
- * @param r the reader to read from
+ * @param lex the lexer to read from
  * @return r->val. It's not malloc'd, but strings inside it are
  * @throw ERR_UNEXP_CHAR if the character doesn't match a given value type
  */
-struct value peekValue(struct reader *r);
+struct value peekValue(struct lexer_ctx *lex);
 
 /** @brief checks if r->val equals a specific value
  * 
  *  it's mainly for eating keywords or delimitors in parse functions
  * 
- *  @param r the reader to read from
+ *  @param lex the lexer to read from
  *  @param type the expected value type (either VAL_KEYWORD or VAL_DELIM)
  *  @param expected the expected value
  *  @throw ERR_INTERNAL if expected isn't defined
  *  @throw ERR_INV_VAL if there's a mismatch
  */
-void acceptValue(struct reader *r, enum value_type type, const char *expected);
+void acceptValue(struct lexer_ctx *lex, enum value_type type, const char *expected);
 
 /** @brief returns r->val->str and sets it to null
  *  
@@ -217,11 +217,11 @@ void acceptValue(struct reader *r, enum value_type type, const char *expected);
  * as string is a literal string, quotes and everything
  * and gets handled as an array_lit
  * 
- * @param r the reader to read from
+ * @param lex the lexer to read from
  * @return r->val->str if it's a string
  * @throw ERR_INV_VAL if the value isn't a string
  */
-char *stealNextString(struct reader *r);
+char *stealNextString(struct lexer_ctx *lex);
 
 /** @brief returns r->val->str and sets it to null
  * 
@@ -233,20 +233,20 @@ char *stealNextString(struct reader *r);
  * and gets handled as an array_lit. Name in this case
  * is a variable name
  * 
- * @param r the reader to read from
+ * @param lex the lexer to read from
  * @return r->val->str if it's a name value
  * @throw ERR_INV_VAL if the value isn't a name
  */
-char *stealNextName(struct reader *r);
+char *stealNextName(struct lexer_ctx *lex);
 
 /** @brief basically just a macro to get the next op and then move the focus of r->val
  *  
  * I may move this and the previous
  * two functions into parser.c later
  * 
- * @param r the reader to read from
+ * @param lex the lexer to read from
  * @return the operator. If it's not an op, OP_UNKNOWN
  */
-enum operator stealNextOp(struct reader *r);
+enum operator stealNextOp(struct lexer_ctx *lex);
 
-#endif //READER_H
+#endif //LEXER_H

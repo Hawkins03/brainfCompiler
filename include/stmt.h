@@ -10,10 +10,8 @@
 #ifndef STMT_H
 #define STMT_H
 
-#include "exp.h"
-#include "utils.h"
-#include "structs.h"
 #include <stdbool.h>
+#include "structs.h"
 
 /** @brief frees a statement and it's relevent substructures
  * 
@@ -40,7 +38,7 @@ void print_stmt(const struct stmt *stmt);
  * @throw ERR_NO_MEM if it fails to malloc the stmt
  * @return the stmt struct
  */
-struct stmt *init_stmt(struct reader *r);
+struct stmt *init_stmt(struct lexer_ctx *lex);
 
 /** @brief malloc's a stmt var substructure
  * 
@@ -51,7 +49,7 @@ struct stmt *init_stmt(struct reader *r);
  * @param is_maliable if the value can be changed later
  * @throw ERR_NO_MEM if it fails to malloc stmt->var
  */
-void init_varStmt(struct reader *r, struct stmt *stmt, bool is_maliable);
+void init_varStmt(struct lexer_ctx *lex, struct stmt *stmt, bool is_maliable);
 
 /** @brief malloc's a stmt ifStmt substructure
  * 
@@ -61,7 +59,7 @@ void init_varStmt(struct reader *r, struct stmt *stmt, bool is_maliable);
  * @param stmt the stmt to update
  * @throw ERR_NO_MEM if it fails to malloc stmt->ifStmt
  */
-void init_ifStmt(struct reader *r, struct stmt *stmt);
+void init_ifStmt(struct lexer_ctx *lex, struct stmt *stmt);
 
 /** @brief malloc's a stmt loop substructure
  * 
@@ -71,7 +69,7 @@ void init_ifStmt(struct reader *r, struct stmt *stmt);
  * @param stmt the stmt to update
  * @throw ERR_NO_MEM if it fails to malloc stmt->loop
  */
-void init_loopStmt(struct reader *r, struct stmt *stmt);
+void init_loopStmt(struct lexer_ctx *lex, struct stmt *stmt);
 
 /** @brief sets stmt->exp to exp
  * 

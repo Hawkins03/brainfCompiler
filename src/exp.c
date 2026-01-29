@@ -13,6 +13,7 @@
 #include "parser.h"
 #include "utils.h"
 #include "exp.h"
+#include "lexer.h"
 
 #include <stdlib.h>
 #include <stdbool.h>
@@ -145,63 +146,63 @@ void print_exp(const struct exp *exp) {
 }
 
 // initialization functions
-struct exp *init_exp(struct reader *r) {
+struct exp *init_exp(struct lexer_ctx *lex) {
 	struct exp  *exp = calloc(1, sizeof(*exp));
 	
 	if (!exp)
-		raise_syntax_error(ERR_NO_MEM, r);
+		raise_syntax_error(ERR_NO_MEM, lex);
 
 	exp->type = EXP_EMPTY;
-	exp->line_num = r->line_num;
-	exp->start_col = r->val.start_pos;
+	exp->line_num = lex->line_num;
+	exp->start_col = lex->val.start_pos;
 	return exp;
 }
 
-void init_binary(struct reader *r, struct exp *exp, enum exp_type tp, struct exp *left) {
+void init_binary(struct lexer_ctx *lex, struct exp *exp, enum exp_type tp, struct exp *left) {
 	exp->type = tp;
 	exp->op = calloc(1, sizeof(*(exp->op)));
-	exp->line_num = r->line_num;
-	exp->start_col = r->val.start_pos;
+	exp->line_num = lex->line_num;
+	exp->start_col = lex->val.start_pos;
 
 	if (!exp->op) {
 		free_exp(left);
-		raise_syntax_error(ERR_NO_MEM, r);
+		raise_syntax_error(ERR_NO_MEM, lex);
 	}
 	exp->op->left = left;
 }
 
-void init_exp_unary(struct reader *r, struct exp *exp, bool is_prefix) {
+void init_exp_unary(struct lexer_ctx *lex, struct exp *exp, bool is_prefix) {
 	exp->type = EXP_UNARY;
 	exp->unary = calloc(1, sizeof(*(exp->unary)));
-	exp->line_num = r->line_num;
-	exp->start_col = r->val.start_pos;
+	exp->line_num = lex->line_num;
+	exp->start_col = lex->val.start_pos;
 
 	if (!exp->unary)
-		raise_syntax_error(ERR_NO_MEM, r);
+		raise_syntax_error(ERR_NO_MEM, lex);
 	exp->unary->is_prefix = is_prefix;
 }
 
-void init_exp_array_ref(struct reader *r, struct exp *exp, struct exp *name) {
+void init_exp_array_ref(struct lexer_ctx *lex, struct exp *exp, struct exp *name) {
 	exp->type = EXP_ARRAY_REF;
 	exp->array_ref = calloc(1, sizeof(*exp->array_ref));
-	exp->line_num = r->line_num;
-	exp->start_col = r->val.start_pos;
+	exp->line_num = lex->line_num;
+	exp->start_col = lex->val.start_pos;
 
 	if (!exp->array_ref) {
 		free_exp(name);
-		raise_syntax_error(ERR_NO_MEM, r);
+		raise_syntax_error(ERR_NO_MEM, lex);
 	}
 	exp->array_ref->name = name;
 }
 
-void init_exp_array_lit(struct reader *r, struct exp *exp, int size) {
+void init_exp_array_lit(struct lexer_ctx *lex, struct exp *exp, int size) {
 	exp->type = EXP_ARRAY_LIT;
 	exp->array_lit = calloc(1, sizeof(*exp->array_lit));
-	exp->line_num = r->line_num;
-	exp->start_col = r->val.start_pos;
+	exp->line_num = lex->line_num;
+	exp->start_col = lex->val.start_pos;
 
 	if (!exp->array_lit)
-		raise_syntax_error(ERR_NO_MEM, r);
+		raise_syntax_error(ERR_NO_MEM, lex);
 
 	exp->array_lit->array = calloc(size + 1, sizeof(*(exp->array_lit->array)));
 	exp->array_lit->size = size;
@@ -209,32 +210,32 @@ void init_exp_array_lit(struct reader *r, struct exp *exp, int size) {
 	if (!exp->array_lit->array) {
 		free(exp->array_lit);
 		exp->array_lit = NULL;
-		raise_syntax_error(ERR_NO_MEM, r);
+		raise_syntax_error(ERR_NO_MEM, lex);
 	}	
 }
 
-void set_exp_arraylit_len(struct reader *r, struct exp *exp, int final_len) {
+void set_exp_arraylit_len(struct lexer_ctx *lex, struct exp *exp, int final_len) {
 	if ((exp->type != EXP_ARRAY_LIT) || (exp->array_lit->size <= final_len))
 		return;
 
 
 	struct exp *tmp = realloc(exp->array_lit->array, final_len * sizeof(*tmp));
 	if (!tmp)
-		raise_syntax_error(ERR_NO_MEM, r);
+		raise_syntax_error(ERR_NO_MEM, lex);
 	/*for (int i = 0; i < final_len; i++)
 		swap_exps(tmp + i, exp->array_lit->array + i);*/
 	exp->array_lit->array = tmp;
 	exp->array_lit->size = final_len;
 }
 
-void init_exp_call(struct reader *r, struct exp *exp, enum key_type key) {
+void init_exp_call(struct lexer_ctx *lex, struct exp *exp, enum key_type key) {
 	exp->type = EXP_CALL;
 	exp->call = calloc(1, sizeof(*exp->call));
-	exp->line_num = r->line_num;
-	exp->start_col = r->val.start_pos;
+	exp->line_num = lex->line_num;
+	exp->start_col = lex->val.start_pos;
 
 	if (!exp->call)
-		raise_syntax_error(ERR_NO_MEM, r);
+		raise_syntax_error(ERR_NO_MEM, lex);
 	exp->call->key = key;
 }
 

@@ -16,16 +16,14 @@
 #include <stdbool.h>
 #include "structs.h"
 
-#define ALLOC_LIST_START_LEN 8
-
 extern void (*error_exit_handler)(enum err_type err_code);
 
 //reader struct:
-void set_strlen(char **str, const int len, struct reader *r);
-void reset_strlen_if_needed(char **str, const int len, int *cap, struct reader *r);
+void set_strlen(char **str, const int len, struct lexer_ctx *lex);
+void reset_strlen_if_needed(char **str, const int len, int *cap, struct lexer_ctx *lex);
 
 void _raise_error(enum err_type err, const char *func, const char *file, int line);
-void _raise_syntax_error(enum err_type err, const char *func, const char *file, int line, struct reader *r);
+void _raise_syntax_error(enum err_type err, const char *func, const char *file, int line, struct lexer_ctx *lex);
 void _raise_exp_semantic_error(enum err_type err, const struct exp *exp, const char *func, const char *file, int line, struct env *env);
 void _raise_stmt_semantic_error(enum err_type err, const struct stmt *stmt, const char *func, const char *file, int line, struct env *env);
 

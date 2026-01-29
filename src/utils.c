@@ -9,7 +9,7 @@
 
 #include "structs.h"
 #include "utils.h"
-#include "reader.h"
+#include "lexer.h"
 #include "semantics.h"
 
 #define ANSI_RED     "\x1b[31m"
@@ -61,19 +61,19 @@ static const char *get_error_message(enum err_type err_code) {
     return "Unknown error";
 }
 
-void set_strlen(char **str, const int len, struct reader *r) {
+void set_strlen(char **str, const int len, struct lexer_ctx *lex) {
 	char *temp = realloc(*str, len);
 	if (!temp) {
 		free(*str);
-		raise_syntax_error(ERR_NO_MEM, r);
+		raise_syntax_error(ERR_NO_MEM, lex);
 	}
 	*str = temp;
 }
 
-void reset_strlen_if_needed(char **str, const int len, int *cap, struct reader *r) {
+void reset_strlen_if_needed(char **str, const int len, int *cap, struct lexer_ctx *lex) {
 	if (len + 1 > *cap) {
 		*cap *= 2;
-		set_strlen(str, *cap, r);
+		set_strlen(str, *cap, lex);
 	}
 }
 
@@ -86,39 +86,39 @@ void _raise_error(enum err_type err, const char *func, const char *file, int lin
 }
 
 
-void _raise_syntax_error(enum err_type err, const char *func, const char *file, int line, struct reader *r) {
-	if (r) {
-		int error_start = r->val.start_pos;
-		int error_end = r->line_pos;
+void _raise_syntax_error(enum err_type err, const char *func, const char *file, int line, struct lexer_ctx *lex) {
+	if (lex) {
+		int error_start = lex->val.start_pos;
+		int error_end = lex->line_pos;
 		int error_len = error_end - error_start;
 		
 		if (error_len < 1) {
 		error_len = 1;
-		error_start = r->line_pos;
+		error_start = lex->line_pos;
 		}
 		
 		// Print error header
 		fprintf(stderr, ANSI_BOLD "Error" ANSI_RESET " in %s" ANSI_CYAN ":%d:%d" ANSI_RESET "\n", 
-			r->filename, r->line_num, error_start + 1);
+			lex->filename, lex->line_num, error_start + 1);
 		fprintf(stderr, "  " ANSI_RED "%s" ANSI_RESET "\n", get_error_message(err));
 		
 		// Print the source line with line number
-		if (r->line_buf && r->line_buf[0]) {
+		if (lex->line_buf && lex->line_buf[0]) {
 		fprintf(stderr, "\n");
 		
 		// Print line number in cyan
-		fprintf(stderr, ANSI_CYAN "%5d | " ANSI_RESET, r->line_num);
+		fprintf(stderr, ANSI_CYAN "%5d | " ANSI_RESET, lex->line_num);
 		
 		// Print the line
-		for (int i = 0; r->line_buf[i] && r->line_buf[i] != '\n'; i++) {
-			fputc(r->line_buf[i], stderr);
+		for (int i = 0; lex->line_buf[i] && lex->line_buf[i] != '\n'; i++) {
+			fputc(lex->line_buf[i], stderr);
 		}
 		fprintf(stderr, "\n");
 		
 		// Print underline with proper offset for line number
 		fprintf(stderr, "      | ");
 		for (int i = 0; i < error_start; i++) {
-			fputc(r->line_buf[i] == '\t' ? '\t' : ' ', stderr);
+			fputc(lex->line_buf[i] == '\t' ? '\t' : ' ', stderr);
 		}
 		
 		// Print underline in bold red
@@ -130,7 +130,7 @@ void _raise_syntax_error(enum err_type err, const char *func, const char *file, 
 		}
 		
 		fprintf(stderr, "\n");
-		killReader(r);
+		killReader(lex);
 	} else {
 		fprintf(stderr, "ERROR in %s at %s:%d - %s\n", func, file, line, get_error_message(err));
 	}

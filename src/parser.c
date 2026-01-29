@@ -24,24 +24,24 @@
 #include "structs.h"
 #include "exp.h"
 #include "stmt.h"
-#include "reader.h"
+#include "lexer.h"
 #include "parser.h"
 #include "utils.h"
 
-static inline bool hasNextStmt(struct reader *r) {
+static inline bool hasNextStmt(struct lexer_ctx *lex) {
 
-	return r && ((r->val.type != VAL_DELIM) || (r->val.ch != '}'));
+	return lex && ((lex->val.type != VAL_DELIM) || (lex->val.ch != '}'));
 }
 
-static inline bool hasCommaNext(struct reader *r) {
-	return r && (r->val.type == VAL_DELIM) && (r->val.ch == ',');
+static inline bool hasCommaNext(struct lexer_ctx *lex) {
+	return lex && (lex->val.type == VAL_DELIM) && (lex->val.ch == ',');
 }
-static inline bool atSemicolon(struct reader *r) {
-	return r && (r->val.type == VAL_DELIM) && (r->val.ch == ';');
+static inline bool atSemicolon(struct lexer_ctx *lex) {
+	return lex && (lex->val.type == VAL_DELIM) && (lex->val.ch == ';');
 }
 
-static inline bool parserCanProceed(struct reader *r) {
-	return r && hasNextStmt(r) && !atSemicolon(r);
+static inline bool parserCanProceed(struct lexer_ctx *lex) {
+	return lex && hasNextStmt(lex) && !atSemicolon(lex);
 }
 
 static inline bool is_assignable(const struct exp *exp) {
@@ -121,171 +121,171 @@ static inline bool isValidInitStmt(const struct stmt *stmt) {
 }
 
 //parsing atoms
-static inline void parsePrint(struct reader *r, struct exp *exp) {
-	acceptValue(r, VAL_KEYWORD, "print");
-	acceptValue(r, VAL_DELIM, "(");
+static inline void parsePrint(struct lexer_ctx *lex, struct exp *exp) {
+	acceptValue(lex, VAL_KEYWORD, "print");
+	acceptValue(lex, VAL_DELIM, "(");
 
-	init_exp_call(r, exp, KW_PRINT);
+	init_exp_call(lex, exp, KW_PRINT);
 
-	exp->call->arg = init_exp(r);
-	parse_exp(0, r, exp->call->arg);
+	exp->call->arg = init_exp(lex);
+	parse_exp(0, lex, exp->call->arg);
 
-	acceptValue(r, VAL_DELIM, ")");
+	acceptValue(lex, VAL_DELIM, ")");
 }
-static inline void parseInput(struct reader *r, struct exp *exp) {
-	acceptValue(r, VAL_KEYWORD, "input");
-	acceptValue(r, VAL_DELIM, "(");
-	acceptValue(r, VAL_DELIM, ")");
+static inline void parseInput(struct lexer_ctx *lex, struct exp *exp) {
+	acceptValue(lex, VAL_KEYWORD, "input");
+	acceptValue(lex, VAL_DELIM, "(");
+	acceptValue(lex, VAL_DELIM, ")");
 
-	init_exp_call(r, exp, KW_INPUT);
+	init_exp_call(lex, exp, KW_INPUT);
 }
-static inline void parseBreak(struct reader *r, struct exp *exp) {
-	acceptValue(r, VAL_KEYWORD, "break");
-	init_exp_call(r, exp, KW_BREAK);
+static inline void parseBreak(struct lexer_ctx *lex, struct exp *exp) {
+	acceptValue(lex, VAL_KEYWORD, "break");
+	init_exp_call(lex, exp, KW_BREAK);
 }
 
-static void parseCall(struct reader *r, struct exp *exp) {
-	struct value tok = r->val;
+static void parseCall(struct lexer_ctx *lex, struct exp *exp) {
+	struct value tok = lex->val;
 	if (tok.type != VAL_KEYWORD)
 		return;
 	
 	switch (tok.num) {
 	case KW_PRINT:
-		parsePrint(r, exp);
+		parsePrint(lex, exp);
 		break;
 	case KW_INPUT:
-		parseInput(r, exp);
+		parseInput(lex, exp);
 		break;
 	case KW_BREAK:
-		parseBreak(r, exp);
+		parseBreak(lex, exp);
 		break;
 	default:
-		raise_syntax_error(ERR_INV_VAL, r);
+		raise_syntax_error(ERR_INV_VAL, lex);
 	}
 }
 
-static inline void parseSuffix(struct exp  *left, struct reader *r, struct exp *exp) {
-	init_exp_unary(r, exp, false);
+static inline void parseSuffix(struct exp  *left, struct lexer_ctx *lex, struct exp *exp) {
+	init_exp_unary(lex, exp, false);
 	exp->unary->operand = left;
-	exp->unary->op = stealNextOp(r);
+	exp->unary->op = stealNextOp(lex);
 }
 
-static inline void parsePrefix(struct reader *r, struct exp *exp) {
-	if (!r || !isPrefixVal(r->val))
-		raise_syntax_error(ERR_INV_OP, r);
+static inline void parsePrefix(struct lexer_ctx *lex, struct exp *exp) {
+	if (!lex || !isPrefixVal(lex->val))
+		raise_syntax_error(ERR_INV_OP, lex);
 
 	//not folding in so that stealNextStr precedes parseSuffix and parse_atom 
 	
 
-	init_exp_unary(r, exp, true);
-	exp->unary->op = stealNextOp(r);
-	exp->unary->operand  = init_exp(r);
-	if (!parse_assignable(r, exp->unary->operand))
-		raise_syntax_error(ERR_INV_EXP, r);
+	init_exp_unary(lex, exp, true);
+	exp->unary->op = stealNextOp(lex);
+	exp->unary->operand  = init_exp(lex);
+	if (!parse_assignable(lex, exp->unary->operand))
+		raise_syntax_error(ERR_INV_EXP, lex);
 }
 
-static inline void parseParenthesis(struct reader *r, struct exp *exp) {
-    acceptValue(r, VAL_DELIM, "(");
-    parse_exp(0, r, exp);
-    acceptValue(r, VAL_DELIM, ")");
+static inline void parseParenthesis(struct lexer_ctx *lex, struct exp *exp) {
+    acceptValue(lex, VAL_DELIM, "(");
+    parse_exp(0, lex, exp);
+    acceptValue(lex, VAL_DELIM, ")");
 }
 
-static inline void parseArrayLit(struct reader *r, struct exp *exp)
+static inline void parseArrayLit(struct lexer_ctx *lex, struct exp *exp)
 {
-	acceptValue(r, VAL_DELIM, "{");
+	acceptValue(lex, VAL_DELIM, "{");
 
 	int len = 0;
-	init_exp_array_lit(r, exp, DEFAULT_CAP_SIZE);
+	init_exp_array_lit(lex, exp, DEFAULT_CAP_SIZE);
 
-	while (parserCanProceed(r) && !isDelimChar(r->val, '}')) {
-		parse_exp(0, r, exp->array_lit->array + len++);
-		if (!hasCommaNext(r))
+	while (parserCanProceed(lex) && !isDelimChar(lex->val, '}')) {
+		parse_exp(0, lex, exp->array_lit->array + len++);
+		if (!hasCommaNext(lex))
 			break;
-		acceptValue(r, VAL_DELIM, ",");
+		acceptValue(lex, VAL_DELIM, ",");
 
 		if (len >= exp->array_lit->size) { //TODO: add test?
 			exp->array_lit->size *= 2;
 			struct exp *temp = realloc(exp->array_lit->array, exp->array_lit->size);
 			if (!temp)
-				raise_syntax_error(ERR_NO_MEM, r);
+				raise_syntax_error(ERR_NO_MEM, lex);
 
 			exp->array_lit->array = temp;
 		}
 	}
 
-	acceptValue(r, VAL_DELIM, "}");
+	acceptValue(lex, VAL_DELIM, "}");
 
-	set_exp_arraylit_len(r, exp, len);
+	set_exp_arraylit_len(lex, exp, len);
 }
 
-static inline void parseNum(struct reader *r, struct exp *exp) {
+static inline void parseNum(struct lexer_ctx *lex, struct exp *exp) {
 	exp->type = EXP_NUM;
-	exp->num = r->val.num;
-	nextValue(r);
+	exp->num = lex->val.num;
+	nextValue(lex);
 }
 
-static inline void parseStr(struct reader *r, struct exp *exp) {
-	char *str = stealNextString(r);
+static inline void parseStr(struct lexer_ctx *lex, struct exp *exp) {
+	char *str = stealNextString(lex);
 	
 	size_t len = strlen(str);
 
 	if (len > INT_MAX) {
 		free(str);
-		raise_syntax_error(ERR_TOO_LONG, r);
+		raise_syntax_error(ERR_TOO_LONG, lex);
 	}
 
-	init_exp_array_lit(r, exp, len);
+	init_exp_array_lit(lex, exp, len);
 	for (size_t i = 0; i < len; i++) {
 		struct exp *curr = exp->array_lit->array + i;
 		curr->type = EXP_NUM;
 		curr->num = str[i];
 	}
-	set_exp_arraylit_len(r, exp, len);
+	set_exp_arraylit_len(lex, exp, len);
 	free(str);
 }
 
-static void parseArrayRef(struct reader *r, struct exp *exp) {
-	if (!isDelimChar(r->val, '['))
+static void parseArrayRef(struct lexer_ctx *lex, struct exp *exp) {
+	if (!isDelimChar(lex->val, '['))
 		return;
 
-	acceptValue(r, VAL_DELIM, "[");
-	struct exp *name = init_exp(r);
+	acceptValue(lex, VAL_DELIM, "[");
+	struct exp *name = init_exp(lex);
 	swap_exps(exp, name);
 	
 	
-	init_exp_array_ref(r, exp, name);
-	if (!isDelimChar(r->val, ']')) {
-		exp->array_ref->index = init_exp(r);
-		parse_exp(0, r, exp->array_ref->index);
+	init_exp_array_ref(lex, exp, name);
+	if (!isDelimChar(lex->val, ']')) {
+		exp->array_ref->index = init_exp(lex);
+		parse_exp(0, lex, exp->array_ref->index);
 	}
 
-	acceptValue(r, VAL_DELIM, "]");
-	parseArrayRef(r, exp);
+	acceptValue(lex, VAL_DELIM, "]");
+	parseArrayRef(lex, exp);
 }
 
-static inline void parseName(struct reader *r, struct exp *exp)
+static inline void parseName(struct lexer_ctx *lex, struct exp *exp)
 {
 	exp->type = EXP_NAME;
-	exp->name = stealNextName(r);
-	parseArrayRef(r, exp);
+	exp->name = stealNextName(lex);
+	parseArrayRef(lex, exp);
 }
 
-bool parse_assignable(struct reader *r, struct exp *exp) {
-	switch (r->val.type) {
+bool parse_assignable(struct lexer_ctx *lex, struct exp *exp) {
+	switch (lex->val.type) {
 		case VAL_OP:
-			parsePrefix(r, exp);
+			parsePrefix(lex, exp);
 			break;
 		case VAL_NAME:
-			parseName(r, exp);
+			parseName(lex, exp);
 			break;
 		default:
 			return false;
 	}
 
-	if (isSuffixVal(r->val)) {
-		struct exp *left = init_exp(r);
+	if (isSuffixVal(lex->val)) {
+		struct exp *left = init_exp(lex);
 		swap_exps(exp, left);
-		parseSuffix(left, r, exp);
+		parseSuffix(left, lex, exp);
 	}
 
 	return true;
@@ -293,28 +293,28 @@ bool parse_assignable(struct reader *r, struct exp *exp) {
 
 //ensure at the end of parse_atom it checks for a unary suffix
 
-void parse_atom(struct reader *r, struct exp *exp) {
-    	if (!parserCanProceed(r))
+void parse_atom(struct lexer_ctx *lex, struct exp *exp) {
+    	if (!parserCanProceed(lex))
 		return;
 
-	if (parse_assignable(r, exp))
+	if (parse_assignable(lex, exp))
 		return;
 
-    	switch (r->val.type) {
+    	switch (lex->val.type) {
 	case VAL_NUM:
-		parseNum(r, exp);
+		parseNum(lex, exp);
 		break;
 	case VAL_STR:
-		parseStr(r, exp);
+		parseStr(lex, exp);
 		break;
 	case VAL_DELIM:
-		if (r->val.ch == '(')
-			parseParenthesis(r, exp);
-		else if (r->val.ch == '{')
-			parseArrayLit(r, exp);
+		if (lex->val.ch == '(')
+			parseParenthesis(lex, exp);
+		else if (lex->val.ch == '{')
+			parseArrayLit(lex, exp);
 		break;
 	case VAL_KEYWORD: // this is already covered by parse_single_stmt
-		parseCall(r, exp);
+		parseCall(lex, exp);
 		break;
 	default: //mainly to shut up the compiler
 		break;
@@ -323,25 +323,25 @@ void parse_atom(struct reader *r, struct exp *exp) {
 	
 }
 
-void parse_exp(int minPrio, struct reader *r, struct exp *exp)
+void parse_exp(int minPrio, struct lexer_ctx *lex, struct exp *exp)
 {
-    	parse_atom(r, exp);
+    	parse_atom(lex, exp);
 
-    	while ((parserCanProceed(r)) && isValidOp(r->val, minPrio)) {
-		struct exp *left = init_exp(r);
+    	while ((parserCanProceed(lex)) && isValidOp(lex->val, minPrio)) {
+		struct exp *left = init_exp(lex);
 		swap_exps(exp, left);
 
-		init_binary(r, exp, EXP_BINARY_OP, left);
-		enum operator op = stealNextOp(r);
+		init_binary(lex, exp, EXP_BINARY_OP, left);
+		enum operator op = stealNextOp(lex);
 		exp->type = (isAssignOp(op)) ?  EXP_ASSIGN_OP: EXP_BINARY_OP;
 	
 		if (isAssignOp(op) && !parses_to_assignable(left))
-			raise_syntax_error(ERR_INV_EXP, r);
+			raise_syntax_error(ERR_INV_EXP, lex);
 
 		exp->op->left = left;
 		exp->op->op = op;
-		exp->op->right = init_exp(r);
-		parse_exp(getPrio(exp->op->op)+1, r, exp->op->right);
+		exp->op->right = init_exp(lex);
+		parse_exp(getPrio(exp->op->op)+1, lex, exp->op->right);
 
 		exp->line_num = left->line_num;
 		exp->start_col = left->line_num;
@@ -350,199 +350,199 @@ void parse_exp(int minPrio, struct reader *r, struct exp *exp)
 
 
 //parsing stmts
-static void parseVar(struct reader *r, bool is_mutable, struct stmt *exp) {
+static void parseVar(struct lexer_ctx *lex, bool is_mutable, struct stmt *exp) {
 	enum key_type key = is_mutable ? KW_VAR : KW_VAL;
-	acceptValue(r, VAL_KEYWORD, getKeyStr(key));
+	acceptValue(lex, VAL_KEYWORD, getKeyStr(key));
 
-	init_varStmt(r, exp, is_mutable);
+	init_varStmt(lex, exp, is_mutable);
 
-	exp->var->name =  init_exp(r);
-	parseName(r, exp->var->name);
+	exp->var->name =  init_exp(lex);
+	parseName(lex, exp->var->name);
 
-	if (atSemicolon(r))
+	if (atSemicolon(lex))
 		return;
 
-	acceptValue(r, VAL_OP, "=");
+	acceptValue(lex, VAL_OP, "=");
 
-	exp->var->value = init_exp(r);
-	parse_exp(0, r, exp->var->value);
+	exp->var->value = init_exp(lex);
+	parse_exp(0, lex, exp->var->value);
 
 	if (!exps_are_compatable(exp->var->name, exp->var->value))
-		raise_syntax_error(ERR_INV_EXP, r);
+		raise_syntax_error(ERR_INV_EXP, lex);
 }
 
-static void parseWhile(struct reader *r, struct stmt *exp) {
-	init_loopStmt(r, exp);
+static void parseWhile(struct lexer_ctx *lex, struct stmt *exp) {
+	init_loopStmt(lex, exp);
 
-	acceptValue(r, VAL_KEYWORD, "while");
-	acceptValue(r, VAL_DELIM, "(");
+	acceptValue(lex, VAL_KEYWORD, "while");
+	acceptValue(lex, VAL_DELIM, "(");
 
-	exp->loop->cond = init_exp(r);
-	parse_exp(0, r, exp->loop->cond);
+	exp->loop->cond = init_exp(lex);
+	parse_exp(0, lex, exp->loop->cond);
 
-	acceptValue(r, VAL_DELIM, ")");
+	acceptValue(lex, VAL_DELIM, ")");
 
-	if (!atSemicolon(r)) {
-		acceptValue(r, VAL_DELIM, "{");
+	if (!atSemicolon(lex)) {
+		acceptValue(lex, VAL_DELIM, "{");
 
-		exp->loop->body = init_stmt(r);
-		parse_stmt(r, exp->loop->body);
+		exp->loop->body = init_stmt(lex);
+		parse_stmt(lex, exp->loop->body);
 
-		acceptValue(r, VAL_DELIM, "}");
+		acceptValue(lex, VAL_DELIM, "}");
 	}
 }
 
-static void parseFor(struct reader *r, struct stmt *exp) {
+static void parseFor(struct lexer_ctx *lex, struct stmt *exp) {
 	/* structure of a for loop:
         "for" "("<initialization> ";" <condition> ";" <update> ")" "{" <body> "}" <next>
         
         Output structure:
-        <initialization> -> <loop> -> parse_stmt(r)
+        <initialization> -> <loop> -> parse_stmt(lex)
 							  \/
                     <body> -> <update>
     */
-	int for_start_pos = r->line_pos;
-	acceptValue(r, VAL_KEYWORD, "for");
-	acceptValue(r, VAL_DELIM, "(");
+	int for_start_pos = lex->line_pos;
+	acceptValue(lex, VAL_KEYWORD, "for");
+	acceptValue(lex, VAL_DELIM, "(");
 	
-	parse_single_stmt(r, exp); //init
+	parse_single_stmt(lex, exp); //init
 	
 	if (!isValidInitStmt(exp))
 		raise_error(ERR_INV_EXP);
 
-	exp->next = init_stmt(r);
+	exp->next = init_stmt(lex);
 	exp->next->start_col = for_start_pos;
-	init_loopStmt(r, exp->next);
+	init_loopStmt(lex, exp->next);
 	struct stmt *loop = exp->next;
 
-	loop->loop->cond = init_exp(r);
-	parse_exp(0, r, loop->loop->cond);
+	loop->loop->cond = init_exp(lex);
+	parse_exp(0, lex, loop->loop->cond);
 	
-	acceptValue(r, VAL_DELIM, ";");
+	acceptValue(lex, VAL_DELIM, ";");
 
-	loop->next = init_stmt(r);
-	init_expStmt(loop->next, init_exp(r));
+	loop->next = init_stmt(lex);
+	init_expStmt(loop->next, init_exp(lex));
 	struct stmt *update = loop->next;
 	
-	parse_exp(0, r, update->exp);
+	parse_exp(0, lex, update->exp);
 
-	acceptValue(r, VAL_DELIM, ")");
-	if (atSemicolon(r)) {
-		acceptValue(r, VAL_DELIM, ";");
+	acceptValue(lex, VAL_DELIM, ")");
+	if (atSemicolon(lex)) {
+		acceptValue(lex, VAL_DELIM, ";");
 		loop->loop->body = update;
 	} else {
-		acceptValue(r, VAL_DELIM, "{");
+		acceptValue(lex, VAL_DELIM, "{");
 		
-		loop->loop->body = init_stmt(r);
-		parse_stmt(r, loop->loop->body);
+		loop->loop->body = init_stmt(lex);
+		parse_stmt(lex, loop->loop->body);
 		struct stmt *curr = loop->loop->body;
 		if (!curr || curr->type == STMT_EMPTY)
-			raise_syntax_error(ERR_INV_STMT, r);
+			raise_syntax_error(ERR_INV_STMT, lex);
 		
 		while (curr->next != NULL)
 			curr = curr->next;
 
 		curr->next = update;
 	
-		acceptValue(r, VAL_DELIM, "}");
+		acceptValue(lex, VAL_DELIM, "}");
 	} 
 	loop->next = NULL;
 
 	
 }
 
-static void parseIf(struct reader *r, struct stmt *exp) {
-	init_ifStmt(r, exp);
+static void parseIf(struct lexer_ctx *lex, struct stmt *exp) {
+	init_ifStmt(lex, exp);
 
-	acceptValue(r, VAL_KEYWORD, "if");
-	acceptValue(r, VAL_DELIM, "(");
+	acceptValue(lex, VAL_KEYWORD, "if");
+	acceptValue(lex, VAL_DELIM, "(");
 
-	exp->ifStmt->cond = init_exp(r);
-	parse_exp(0, r, exp->ifStmt->cond);
+	exp->ifStmt->cond = init_exp(lex);
+	parse_exp(0, lex, exp->ifStmt->cond);
 
-	acceptValue(r, VAL_DELIM, ")");
-	acceptValue(r, VAL_DELIM, "{");
+	acceptValue(lex, VAL_DELIM, ")");
+	acceptValue(lex, VAL_DELIM, "{");
 
-	exp->ifStmt->thenStmt = init_stmt(r);
-	parse_stmt(r, exp->ifStmt->thenStmt);
+	exp->ifStmt->thenStmt = init_stmt(lex);
+	parse_stmt(lex, exp->ifStmt->thenStmt);
 
-	acceptValue(r, VAL_DELIM, "}");
+	acceptValue(lex, VAL_DELIM, "}");
 
-	if ((r->val.type == VAL_KEYWORD) && (r->val.num == KW_ELSE)) {
-		acceptValue(r, VAL_KEYWORD, "else");
+	if ((lex->val.type == VAL_KEYWORD) && (lex->val.num == KW_ELSE)) {
+		acceptValue(lex, VAL_KEYWORD, "else");
 
-		exp->ifStmt->elseStmt = init_stmt(r);
+		exp->ifStmt->elseStmt = init_stmt(lex);
 		struct stmt *elseStmt = exp->ifStmt->elseStmt;
-		if ((r->val.type == VAL_KEYWORD) && (r->val.num == KW_IF)) {
-			parseIf(r, elseStmt);
+		if ((lex->val.type == VAL_KEYWORD) && (lex->val.num == KW_IF)) {
+			parseIf(lex, elseStmt);
 		} else {
-			if (!isDelimChar(r->val, '{'))
-				raise_syntax_error(ERR_BAD_ELSE, r);
-			acceptValue(r, VAL_DELIM, "{");
-			parse_stmt(r, elseStmt);
-			acceptValue(r, VAL_DELIM, "}");
+			if (!isDelimChar(lex->val, '{'))
+				raise_syntax_error(ERR_BAD_ELSE, lex);
+			acceptValue(lex, VAL_DELIM, "{");
+			parse_stmt(lex, elseStmt);
+			acceptValue(lex, VAL_DELIM, "}");
 		}
 	}
 }
 
-void parse_single_stmt(struct reader *r, struct stmt *exp) {
-	if (!r || !hasNextStmt(r))
+void parse_single_stmt(struct lexer_ctx *lex, struct stmt *exp) {
+	if (!lex || !hasNextStmt(lex))
 		return;
 	
-	struct value tok = r->val;
+	struct value tok = lex->val;
 	
 	if (tok.type == VAL_KEYWORD) {
 		switch (tok.num) {
 			case KW_VAR:
 			case KW_VAL:
-				parseVar(r, tok.num == KW_VAR, exp);
-				acceptValue(r, VAL_DELIM, ";");
+				parseVar(lex, tok.num == KW_VAR, exp);
+				acceptValue(lex, VAL_DELIM, ";");
 				break;
 			case KW_WHILE:
-				parseWhile(r, exp);
+				parseWhile(lex, exp);
 				break;
 			case KW_FOR:
-				parseFor(r, exp);
+				parseFor(lex, exp);
 				break;
 			case KW_IF:
-				parseIf(r, exp);
+				parseIf(lex, exp);
 				break;
 			default:
 				exp->type = STMT_EXPR;
-				exp->exp = init_exp(r);
-				parseCall(r, exp->exp);
-				acceptValue(r, VAL_DELIM, ";");
+				exp->exp = init_exp(lex);
+				parseCall(lex, exp->exp);
+				acceptValue(lex, VAL_DELIM, ";");
 				break;
 		}
 	} else {
 		exp->type = STMT_EXPR;
-		exp->exp = init_exp(r);
-		parse_exp(0, r, exp->exp);
-		acceptValue(r, VAL_DELIM, ";");
+		exp->exp = init_exp(lex);
+		parse_exp(0, lex, exp->exp);
+		acceptValue(lex, VAL_DELIM, ";");
 	}
 }
 
-void parse_stmt(struct reader *r, struct stmt *exp) {
+void parse_stmt(struct lexer_ctx *lex, struct stmt *exp) {
 	struct stmt *curr = exp;
-	parse_single_stmt(r, curr);
+	parse_single_stmt(lex, curr);
 	if (curr->next == curr)
 		curr->next = NULL;
-	while (parserCanProceed(r)) {
-		curr->next = init_stmt(r);
+	while (parserCanProceed(lex)) {
+		curr->next = init_stmt(lex);
 		curr = curr->next;
-		parse_single_stmt(r, curr);
+		parse_single_stmt(lex, curr);
 	}
 }
 
 struct stmt *parse_file(const char *filename) {
-    struct reader *r = readInFile(filename);
-	if (!r)
-		raise_syntax_error(ERR_NO_FILE, r);
+    struct lexer_ctx *lex = readInFile(filename);
+	if (!lex)
+		raise_syntax_error(ERR_NO_FILE, lex);
 
-	parse_stmt(r, r->root);
-	struct stmt *out = r->root;
+	parse_stmt(lex, lex->root);
+	struct stmt *out = lex->root;
 
-	r->root = NULL;
-	killReader(r);
+	lex->root = NULL;
+	killReader(lex);
 	return out;
 }

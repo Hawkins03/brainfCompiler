@@ -6,7 +6,7 @@ set(HEADERS
     ../include/interp.h
     ../include/ir.h
     ../include/parser.h
-    ../include/reader.h
+    ../include/lexer.h
     ../include/semantics.h
     ../include/stmt.h
     ../include/structs.h
@@ -17,7 +17,7 @@ set(SOURCES
     exp.c   
     interp.c 
     parser.c
-    reader.c
+    lexer.c
     stmt.c
     semantics.c
     utils.c
