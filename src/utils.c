@@ -9,6 +9,8 @@
 
 #include "structs.h"
 #include "utils.h"
+#include "stmt.h"
+#include "ir.h"
 #include "lexer.h"
 #include "semantics.h"
 
@@ -221,4 +223,10 @@ void _raise_exp_semantic_error(enum err_type err, const struct exp *exp, const c
 
 void _raise_stmt_semantic_error(enum err_type err, const struct stmt *stmt, const char *func, const char *file, int line, struct env *env) {
 	_raise_semantic_error(err, stmt->line_num, stmt->start_col, func, file, line, env);
+}
+
+void _raise_ir_error(enum err_type err, const char *func, const char *file, int line, struct ir_ctx *ctx) {
+	free_stmt(ctx->root);
+	free_ir_node(ctx->ir_root);
+	_raise_error(err, func, file, line);
 }

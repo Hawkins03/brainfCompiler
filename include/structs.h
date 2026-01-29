@@ -147,7 +147,6 @@ struct lexer_ctx {
 };
 
 struct env;
-// TODO: change name to scope
 struct var_data {
 	char *name;
 	bool is_mutable;
@@ -170,9 +169,9 @@ enum ir_value_type {
 };
 
 enum ir_type {
-	IR_LET,
-	IR_EXP,
-	IR_LOOP,
+	NODE_EMPTY,
+	NODE_ASSIGN,
+	NODE_LOOP,
 };
 
 enum ir_op {
@@ -198,18 +197,23 @@ struct ir_assign {
 
 struct ir_loop {
 	char *cond;
-	struct ir_node **body;
+	struct ir_node *body;
 	int length;
 };
 
 struct ir_node {
 	enum ir_type type;
 	union {
-		struct ir_assign assign;
-		struct ir_loop loop;
+		struct ir_assign *assign;
+		struct ir_loop *loop;
 	};
 	struct ir_node *next;
 };
 
+struct ir_ctx {
+	struct stmt *root;
+	struct ir_node *ir_root;
+	unsigned int var_num;
+};
 
 #endif //STRUCT_H

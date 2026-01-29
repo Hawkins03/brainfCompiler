@@ -15,6 +15,7 @@ set(HEADERS
 
 set(SOURCES
     exp.c   
+    ir.c
     interp.c 
     parser.c
     lexer.c

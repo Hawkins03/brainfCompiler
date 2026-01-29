@@ -26,18 +26,22 @@ void _raise_error(enum err_type err, const char *func, const char *file, int lin
 void _raise_syntax_error(enum err_type err, const char *func, const char *file, int line, struct lexer_ctx *lex);
 void _raise_exp_semantic_error(enum err_type err, const struct exp *exp, const char *func, const char *file, int line, struct env *env);
 void _raise_stmt_semantic_error(enum err_type err, const struct stmt *stmt, const char *func, const char *file, int line, struct env *env);
+void _raise_ir_error(enum err_type err, const char *func, const char *file, int line, struct ir_ctx *lex);
 
 #define raise_error(err) \
 	_raise_error(err, __func__, __FILE__, __LINE__)
 
-#define raise_syntax_error(err, r) \
-	_raise_syntax_error(err, __func__, __FILE__, __LINE__, r)
+#define raise_syntax_error(err, lex) \
+	_raise_syntax_error(err, __func__, __FILE__, __LINE__, lex)
 
 #define raise_exp_semantic_error(err, exp, env) \
 	_raise_exp_semantic_error(err, exp, __func__, __FILE__, __LINE__, env)
 
 #define raise_stmt_semantic_error(err, stmt, env) \
 	_raise_stmt_semantic_error(err, stmt, __func__, __FILE__, __LINE__, env)
+
+#define raise_ir_error(err, ctx) \
+	_raise_ir_error(err, __func__, __FILE__, __LINE__, ctx)
 
 
 #endif //UTILS_H
