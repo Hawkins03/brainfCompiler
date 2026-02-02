@@ -5,6 +5,8 @@
 #include <stdio.h>
 #include <stdbool.h>
 
+#define MAX_STACK_SIZE 2048
+
 enum key_type {
 	KW_VAR, KW_VAL, KW_WHILE, KW_FOR, 
 	KW_IF, KW_ELSE, KW_PRINT, KW_INPUT, KW_BREAK, 
@@ -66,6 +68,7 @@ enum err_type {
 	// Internal/logic errors
 	ERR_INF_REC,        // Infinite recursion detected
 	ERR_INTERNAL,       // Internal compiler error
+	ERR_UNSUPPORTED     // Function hasn't been created yet
 };
 
 enum operator {
@@ -214,6 +217,13 @@ struct ir_ctx {
 	struct stmt *root;
 	struct ir_node *ir_root;
 	unsigned int var_num;
+};
+
+struct interp_stack {
+	int memory[MAX_STACK_SIZE];
+	char *names[MAX_STACK_SIZE];
+	bool breakCalled;
+	int sp;
 };
 
 #endif //STRUCT_H

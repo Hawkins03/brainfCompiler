@@ -1,6 +1,8 @@
 #ifndef BF_H
 #define BF_H
 
+#include "structs.h"
+
 /** @file interp.h
  *  @brief Function prototypes for interpreting brainf expressions.
  *
@@ -25,5 +27,9 @@
  * characters containing a brainf program.
 */
 void interp(char *input_buff);
+
+
+void interp_exp(struct interp_stack *stk, struct exp *exp);
+void interp_stmt(struct interp_stack *stk, struct stmt *stmt);
 
 #endif //BF_H

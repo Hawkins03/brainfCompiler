@@ -112,68 +112,81 @@ static char *create_temp_name(struct ir_ctx *ctx) {
 	return out;
 }
 
+static inline struct ir_node *convert_expStmt(struct ir_ctx *ctx, struct stmt *stmt, struct ir_node *node) {
+	struct ir_node *last = convert_exp(ctx, stmt->exp, node);
+	if (!stmt->next)
+		return last;
+	last->next = init_node(ctx);
+	return convert_stmt(ctx, stmt->next, last->next);
+}
+
+static inline struct ir_node *convert_val(struct ir_ctx *ctx, struct stmt *stmt, struct ir_node *node) {
+	char *val_name = create_temp_name(ctx);
+	ctx->var_num--;
+
+	//TODO: if !value return 0;
+	struct ir_node *last = convert_exp(ctx, stmt->var->value, node);
+
+	last->next = init_node(ctx);
+	init_ir_assign(ctx, last->next);
+	//TODO: get name from name struct
+	//last->next->assign->dest = stmt->var->name;
+	last->next->assign->lhs.type = IR_VAL_VAR;
+	last->next->assign->lhs.var = val_name;
+	last->next->assign->op = OP_ASSIGN;
+	return last;
+}
+
+static inline struct ir_node *convert_if(struct ir_ctx *ctx, struct stmt *stmt, struct ir_node *node) {
+	char *cond_name = create_temp_name(ctx);
+	ctx->var_num--;
+
+	struct ir_node *cond = convert_exp(ctx, stmt->ifStmt->cond, node);
+	cond->next = init_node(ctx);
+	struct ir_node *loop = cond->next;
+	init_ir_loop(ctx, loop);
+	loop->loop->cond = cond_name;
+
+	loop->loop->body = init_node(ctx);
+	struct ir_node *body_end = convert_stmt(ctx, stmt->ifStmt->thenStmt, loop->loop->body);
+
+	body_end->next = init_node(ctx);
+	struct ir_node *update = body_end->next;
+	init_ir_assign(ctx, update);
+
+	update->assign->dest = cond_name;
+	update->assign->op = OP_DECREMENT;
+
+	/*if (stmt->ifStmt->elseStmt) {
+		loop->next = init_node(ctx);
+		struct ir_node *update;
+		
+		//loop then --
+	}*/
+	return update;
+}
+
 //returns the deepest node.
 struct ir_node *convert_stmt(struct ir_ctx *ctx, struct stmt *stmt, struct ir_node *node) {
 	raise_ir_error(ERR_INTERNAL, ctx); //not ready for use yet
 	if (!stmt)
-		return;
+		return NULL;
 
 	switch (stmt->type) {
 	case STMT_EMPTY:
 		raise_ir_error(ERR_INTERNAL, ctx);
 		break;
 	case STMT_EXPR:
-		struct ir_node *last = covert_exp(ctx, stmt->exp, node);
-		if (!stmt->next)
-			return last;
-		last->next = init_node(ctx);
-		return convert_stmt(ctx, stmt->next, last->next);
-		break;
+		return convert_expStmt(ctx, stmt, node);
 	case STMT_VAR:
-		char *val_name = create_temp_name(ctx);
-		ctx->var_num--;
-
-		//TODO: if !value return 0;
-		struct ir_node *last = convert_exp(ctx, stmt->var->value, node);
-
-		last->next = init_node(ctx);
-		init_ir_assign(ctx, last->next);
-		last->next->assign->dest = stmt->var->name;
-		last->next->assign->lhs.type = IR_VAL_VAR;
-		last->next->assign->lhs.var = val_name;
-		last->next->assign->op = OP_ASSIGN;
+		return convert_val(ctx, stmt, node);
 	case STMT_IF:
-		char *cond_name = create_temp_name(ctx);
-		ctx->var_num--;
-
-		struct ir_node *cond = convert_exp(ctx, stmt->ifStmt->cond, node);
-		cond->next = init_node(ctx);
-		struct ir_node *loop = cond->next;
-		init_ir_loop(ctx, loop);
-		loop->loop->cond = cond_name;
-
-		loop->loop->body = init_node(ctx);
-		struct ir_node *body_end = convert_stmt(ctx, stmt->ifStmt->thenStmt, loop->loop->body);
-
-		body_end->next = init_node(ctx);
-		struct ir_node *update = body_end->next;
-		init_ir_assign(ctx, update);
-
-		update->assign->dest = cond_name;
-		update->assign->op = OP_DECREMENT;
-
-		if (stmt->ifStmt->elseStmt) {
-			loop->next = init_node(ctx);
-			struct ir_node *update;
-			
-			//loop then --
-		}
-
+		return convert_if(ctx, stmt, node);
 	case STMT_LOOP:
 
 	}
 
-	return init_node(ctx);
+	return NULL;
 }
 
 struct ir_node *convert_exp(struct ir_ctx *ctx, struct exp *exp, struct ir_node *node) {

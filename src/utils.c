@@ -46,6 +46,7 @@ static const char *ERROR_MESSAGES[] =  { \
 	[ERR_INV_ARR] = "ERR_INV_ARR: invalid use of array", \
 	[ERR_INF_REC] = "ERR_INF_REC: infinite recursion detected in statement", \
 	[ERR_INTERNAL] = "ERR_INTERNAL: internal compiler error" \
+	[ERR_UNSUPPORTED] = "ERR_UNSUPPORTED: function hasn't been created yet" \
 };
 
 static void default_error_exit(enum err_type err_code) {
