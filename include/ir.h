@@ -17,6 +17,6 @@ void free_ir_node(struct ir_node *node);
 
 void print_ir_node(struct ir_node *node);
 
-struct ir_node *convert_stmt(struct ir_ctx *ctx, struct stmt *stmt);
+struct ir_node *convert_stmt(struct ir_ctx *ctx, struct stmt *stmt, struct ir_node *node);
 
-struct ir_node *convert_exp(struct ir_ctx *ctx, struct exp *exp);
+struct ir_node *convert_exp(struct ir_ctx *ctx, struct exp *exp, struct ir_node *node);

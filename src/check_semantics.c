@@ -6,7 +6,6 @@
 #include "parser.h"
 #include "semantics.h"
 #include "utils.h"
-#include "test.h"
 #include "stmt.h"
 
 int main(int argc, char *argv[]) {

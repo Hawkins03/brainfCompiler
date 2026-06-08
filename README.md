@@ -25,3 +25,12 @@ TODO: add compiling stmts/exps into an ir
   - eg x leftshift y exports while (y) {interp(x /= 2)} if that makes sense
 
 TODO: add intepreting for stmts and exps
+
+okay, notes for myself.
+
+so suffix unary expressions.
+They need to happen after watever line they happen in. In addition, there can be n-many of them.
+So whatever struct needs to check after every covert_exp call in convert_stmt and add any missed updates then.
+ - maybe a list of ir nodes in ir_ctx (whatever it's called?)
+
+also, when interpreting multi-dimension arrays, the ctx array will need to know where each sub-array starts and it's length.
